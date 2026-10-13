@@ -1,0 +1,32 @@
+# Secrets (keep the example)
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local data / DBs
+*.db
+*.sqlite3
+/backend/data/
+
+# Node
+node_modules/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs
+*.log

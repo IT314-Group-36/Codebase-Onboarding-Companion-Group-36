@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Codebase Onboarding Companion</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🧭 Onboarding Companion</div>
+    <div class="repo-picker">
+      <select id="repo-select" aria-label="Repository"></select>
+      <button id="btn-add-repo" class="btn primary">+ Add repository</button>
+      <button id="btn-reindex" class="btn" title="Re-index this repository">⟳ Re-index</button>
+      <button id="btn-delete" class="btn danger" title="Delete this repository">Delete</button>
+    </div>
+    <div class="health" id="health"></div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="map" class="active">🗺 Map</button>
+    <button data-tab="files">📄 Files</button>
+    <button data-tab="ask">💬 Ask</button>
+    <button data-tab="impact">💥 Impact</button>
+    <button data-tab="graph">🕸 Graph</button>
+    <button data-tab="tasks">✅ First week</button>
+  </nav>
+
+  <main>
+    <section id="view-welcome" class="view"></section>
+    <section id="view-status" class="view"></section>
+    <section id="view-map" class="view"></section>
+    <section id="view-files" class="view"></section>
+    <section id="view-ask" class="view"></section>
+    <section id="view-impact" class="view"></section>
+    <section id="view-graph" class="view"></section>
+    <section id="view-tasks" class="view"></section>
+  </main>
+
+  <dialog id="add-dialog">
+    <form method="dialog" id="add-form">
+      <h2>Add a repository</h2>
+      <label>Git URL or server folder path
+        <input id="add-source" required placeholder="https://github.com/owner/repo   or   ..">
+      </label>
+      <label>Name (optional)
+        <input id="add-name" placeholder="my-project">
+      </label>
+      <p class="muted small">Tip: <code>..</code> indexes this whole project (backend + AI engine + frontend).</p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="add-cancel">Cancel</button>
+        <button type="submit" class="btn primary">Index repository</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toasts"></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
