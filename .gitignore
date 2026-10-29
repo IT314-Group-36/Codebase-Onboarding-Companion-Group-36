@@ -1,4 +1,4 @@
-# Secrets (keep the example)
+# Secrets
 .env
 .env.*
 !.env.example
@@ -17,7 +17,6 @@ htmlcov/
 # Local data / DBs
 *.db
 *.sqlite3
-/backend/data/
 
 # Node
 node_modules/
@@ -30,3 +29,8 @@ Thumbs.db
 
 # Logs
 *.log
+
+# ai_pipline
+output/
+repo_work/
+vector_store/

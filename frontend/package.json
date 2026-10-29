@@ -1,7 +1,0 @@
-{
-  "name": "onboarding-frontend",
-  "private": true,
-  "type": "module",
-  "scripts": { "test": "node tests/smoke.mjs" },
-  "devDependencies": { "jsdom": "^25.0.0" }
-}
