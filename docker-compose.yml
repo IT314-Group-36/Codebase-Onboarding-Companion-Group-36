@@ -1,0 +1,57 @@
+# Runs everything: Postgres (pgvector), Redis, database migration, API, worker, and the web app.
+#   cp .env.example .env     (add your free LLM_API_KEY; optional)
+#   docker compose up --build
+# Web app: http://localhost:5173    API docs: http://localhost:8000/docs
+x-backend: &backend
+  build: ./backend
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    DATABASE_URL: postgresql+psycopg://onboard:onboard@db:5432/onboard
+    REDIS_URL: redis://redis:6379
+  depends_on:
+    db: {condition: service_healthy}
+    redis: {condition: service_started}
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment: {POSTGRES_USER: onboard, POSTGRES_PASSWORD: onboard, POSTGRES_DB: onboard}
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onboard"]
+      interval: 3s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+  migrate:
+    <<: *backend
+    command: alembic upgrade head
+    restart: "no"
+  api:
+    <<: *backend
+    ports: ["8000:8000"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_started}
+  worker:
+    <<: *backend
+    command: arq app.worker.WorkerSettings
+    volumes: [models:/models]          # caches the embedding model between restarts
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_started}
+  web:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the site at build time; the BROWSER calls this address, so it must be reachable from your browser.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    ports: ["5173:80"]                 # port 5173 matches the backend's default CORS origin
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  models:
