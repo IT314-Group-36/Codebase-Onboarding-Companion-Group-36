@@ -1,21 +1,21 @@
 # Codebase Onboarding Companion: backend + AI pipeline
 
-> **In the combined project** (backend/ and frontend/ side by side), run `docker compose` from the project root, not from this
-> folder: the root `docker-compose.yml` starts the database, Redis, API, worker and the web app together.
-
 FastAPI + Alembic + Postgres/pgvector + ARQ (Redis) + tree-sitter + NetworkX. Everything here runs on free
 tools: local ONNX embeddings (fastembed), the Gemini free tier for the LLM steps (through LangChain), no paid service required.
 
 ## Run it
 
+From the repository root:
+
 ```bash
-cp .env.example .env              # put your free LLM_API_KEY in it (optional, see below; the old name GOOGLE_API_KEY still works)
-docker compose up --build         # (standalone backend only) db, redis, migrations, api (:8000), worker
+cp backend/.env.example backend/.env   # put your free LLM_API_KEY in it (optional, see below; the old name GOOGLE_API_KEY still works)
+docker compose up --build              # db, redis, migrations, api (:8000), worker
 open http://localhost:8000/docs
 ```
 
 Without Docker (uv only, no pip/venv/requirements.txt): start Postgres with the pgvector extension and Redis, then
 ```bash
+cd backend
 uv sync                                   # creates .venv from uv.lock
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload      # terminal 1
@@ -26,7 +26,7 @@ Add a dependency with `uv add <pkg>`; commit `pyproject.toml` and `uv.lock` toge
 No `LLM_API_KEY`? Everything still works except `/ask` and `/impact?explain=true` (503). The module map falls back
 to a deterministic one built from the import graph, and the repo summary is skipped (with a warning in the response).
 
-Tests (real Postgres + pgvector needed, they skip otherwise): `uv run pytest`
+Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv run pytest`
 (point `DATABASE_URL` at a scratch database; the suite runs the Alembic migration up and down).
 
 ## API

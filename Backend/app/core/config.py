@@ -1,11 +1,15 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+BACKEND_DIR = Path(__file__).resolve().parents[2]      # backend/ (holds .env, alembic.ini, ...)
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", extra="ignore")
 
     database_url: str = "postgresql+psycopg://onboard:onboard@localhost:5432/onboard"
     redis_url: str = "redis://localhost:6379"
