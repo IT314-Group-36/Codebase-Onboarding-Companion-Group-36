@@ -78,10 +78,23 @@ async def file_detail(path: str, repo: Repository = Depends(get_ready_repo), ses
 @router.get("/{repo_id}/map")
 async def get_map(repo: Repository = Depends(get_ready_repo), session: AsyncSession = Depends(get_session)):
     """Module map (LLM or deterministic) + module-to-module dependency graph for the visual map."""
-    edges = (await session.execute(select(Edge.src, Edge.dst).where(Edge.repo_id == repo.id, Edge.kind == "imports"))).all()
+    raw_edges = (await session.execute(
+        select(Edge.src, Edge.dst, Edge.kind).where(
+            Edge.repo_id == repo.id,
+            Edge.kind.in_(("imports", "calls")),
+        )
+    )).all()
+    file_edges: list[tuple[str, str]] = []
+    for src, dst, kind in raw_edges:
+        if kind == "calls":
+            src_file = src.split("::", 1)[0]
+            dst_file = dst.split("::", 1)[0]
+        else:
+            src_file, dst_file = src, dst
+        file_edges.append((src_file, dst_file))
     mm = repo.module_map or {"modules": [], "entry_points": [], "project_summary": ""}
     return {"project_summary": mm.get("project_summary"), "modules": mm["modules"], "entry_points": mm["entry_points"],
-            "graph": module_graph(mm["modules"], [(a, b) for a, b in edges]), "tech_stack": repo.tech_stack}
+            "graph": module_graph(mm["modules"], file_edges), "tech_stack": repo.tech_stack}
 
 
 @router.get("/{repo_id}/symbols", response_model=list[SymbolOut])
