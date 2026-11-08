@@ -1,0 +1,83 @@
+/* ========================================================
+   CODEVERSE — Dimensional Progress Ring Styles (Dark Aurora)
+   ======================================================== */
+
+.cv-dim-ring-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  user-select: none;
+  perspective: 600px;
+  transform-style: preserve-3d;
+  transition: transform var(--cv-duration-fast, 0.2s) ease-out;
+}
+
+.cv-dim-ring-wrapper:hover {
+  transform: rotateX(4deg) rotateY(-4deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-dim-ring-wrapper:hover {
+    transform: none;
+  }
+}
+
+.cv-dim-ring-ambient-shadow {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(2, 6, 15, 0.65) 40%, rgba(31, 111, 235, 0.20) 75%, rgba(245, 165, 36, 0.14) 90%, transparent 100%);
+  filter: blur(8px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cv-dim-ring-svg {
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+.cv-dim-ring-arc {
+  transition: stroke-dashoffset 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: drop-shadow(0 0 6px rgba(245, 165, 36, 0.45));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-dim-ring-arc {
+    transition: none;
+  }
+}
+
+.cv-dim-bead-group {
+  transition: transform 0.2s ease-out;
+}
+
+.cv-dim-ring-content {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.cv-dim-ring-val {
+  font-family: var(--font-mono, monospace);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.cv-dim-ring-sub {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  color: #9AA7BD;
+  margin-top: 0.2rem;
+  letter-spacing: 0.02em;
+}
