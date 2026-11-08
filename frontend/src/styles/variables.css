@@ -1,0 +1,153 @@
+/* ===================================================
+   CODEVERSE — DARK AURORA / PREMIUM FUTURISTIC UI
+   Refined Palette (matches dashboard reference):
+   - Background: #02060F
+   - Deep Midnight Blue: #0E2E66
+   - Electric Blue: #1F6FEB
+   - Soft Blue: #4C9AFF
+   - Warm Amber: #F5A524
+   - Primary Text: #FFFFFF
+   - Secondary Text: #9AA7BD
+   - Dark Surface: #071226
+   - Elevated Surface: #0B1A33
+   - Subtle Border: rgba(76, 154, 255, 0.20)
+   - Blue Glow: rgba(31, 111, 235, 0.35)
+   - Amber Glow: rgba(245, 165, 36, 0.30)
+   - Muted Text: #B8C3D6
+   =================================================== */
+
+:root {
+  /* ---- Primary Dark Aurora Foundation ---- */
+  --cv-bg-dark: #02060F;
+  --cv-midnight-blue: #0E2E66;
+  --cv-electric-blue: #1F6FEB;
+  --cv-soft-blue: #4C9AFF;
+  --cv-warm-amber: #F5A524;
+  --cv-text-primary: #FFFFFF;
+  --cv-text-secondary: #9AA7BD;
+
+  /* ---- Supporting Surfaces & Atmospheric Tones ---- */
+  --cv-dark-surface: #071226;
+  --cv-elevated-surface: #0B1A33;
+  --cv-subtle-border: rgba(76, 154, 255, 0.20);
+  --cv-blue-glow: rgba(31, 111, 235, 0.35);
+  --cv-amber-glow: rgba(245, 165, 36, 0.30);
+  --cv-muted-text: #B8C3D6;
+
+  /* ---- Canvas & Surface Palette ---- */
+  --bg-main: #02060F;
+  --bg-secondary: #071226;
+  --bg-sidebar: rgba(7, 18, 38, 0.88);
+  --bg-header: rgba(7, 18, 38, 0.80);
+  --bg-surface: #071226;
+  --bg-surface-hover: #0B1A33;
+  --bg-surface-active: #102447;
+  --bg-elevated: #0B1A33;
+  --bg-elevated-hover: #112850;
+  --bg-input: #050D1D;
+
+  /* ---- Borders & Dividers ---- */
+  --border-default: rgba(76, 154, 255, 0.20);
+  --border-subtle: rgba(76, 154, 255, 0.12);
+  --border-muted: rgba(76, 154, 255, 0.08);
+  --border-active: rgba(76, 154, 255, 0.38);
+  --border-focus: #1F6FEB;
+
+  /* ---- Typography Colors ---- */
+  --text-primary: #FFFFFF;
+  --text-secondary: #9AA7BD;
+  --text-muted: #B8C3D6;
+  --text-inverse: #02060F;
+
+  /* ---- Primary Accents (Warm Amber CTA & Electric Blue Ambient) ---- */
+  --primary: #F5A524;
+  --primary-hover: #FFB84D;
+  --primary-active: #D9840A;
+  --primary-subtle: rgba(245, 165, 36, 0.14);
+  --primary-border: rgba(245, 165, 36, 0.35);
+  --accent-subtle-bg: rgba(31, 111, 235, 0.18);
+  --accent-blue: #1F6FEB;
+  --accent-blue-hover: #3B82F6;
+  --accent-blue-subtle: rgba(31, 111, 235, 0.15);
+
+  /* ---- Semantic Status Accents ---- */
+  --status-success: #34D399;
+  --status-success-subtle: rgba(67, 197, 158, 0.12);
+  --status-success-border: rgba(67, 197, 158, 0.3);
+
+  --status-warning: #F5A524;
+  --status-warning-subtle: rgba(245, 165, 36, 0.14);
+  --status-warning-border: rgba(245, 165, 36, 0.35);
+
+  --status-error: #F07171;
+  --status-error-subtle: rgba(240, 113, 113, 0.12);
+  --status-error-border: rgba(240, 113, 113, 0.3);
+
+  /* ---- Gradients & Atmospheric Highlights ---- */
+  --gradient-amber-btn: linear-gradient(135deg, #F5A524 0%, #E08A0B 100%);
+  --gradient-amber-btn-hover: linear-gradient(135deg, #FFB84D 0%, #F5A524 100%);
+  --gradient-glass: linear-gradient(135deg, rgba(14, 46, 102, 0.20) 0%, rgba(7, 18, 38, 0.75) 100%);
+  --gradient-card: linear-gradient(180deg, rgba(11, 26, 51, 0.85) 0%, rgba(7, 18, 38, 0.92) 100%);
+  --gradient-blue-glow: radial-gradient(circle, rgba(31, 111, 235, 0.28) 0%, transparent 70%);
+
+  /* ---- Elevation & Shadows ---- */
+  --shadow-sm: 0 1px 3px rgba(2, 6, 15, 0.6);
+  --shadow-md: 0 4px 14px rgba(2, 6, 15, 0.75);
+  --shadow-lg: 0 10px 30px rgba(2, 6, 15, 0.9);
+  --shadow-blue-glow: 0 0 24px rgba(31, 111, 235, 0.35);
+  --shadow-amber-glow: 0 0 20px rgba(245, 165, 36, 0.30);
+  --overlay-bg: rgba(2, 6, 15, 0.88);
+
+  /* ---- Typography Families ---- */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+
+  /* ---- Spacing & Layout ---- */
+  --sidebar-width: 250px;
+  --sidebar-collapsed: 64px;
+  --topbar-height: 56px;
+
+  /* ---- Controlled Radii ---- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ---- Timing ---- */
+  --duration-fast: 150ms;
+  --duration-normal: 220ms;
+  --ease-default: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ---- Modern Component Prefixes (--cv-*) ---- */
+  --cv-bg-primary: #02060F;
+  --cv-bg-surface: #071226;
+  --cv-surface-card: #071226;
+  --cv-surface-card-hover: #0B1A33;
+  --cv-surface-input: #050D1D;
+  --cv-border-default: rgba(76, 154, 255, 0.20);
+  --cv-border-subtle: rgba(76, 154, 255, 0.12);
+  --cv-border-active: rgba(76, 154, 255, 0.38);
+  --cv-accent-primary: #F5A524;
+  --cv-accent-hover: #FFB84D;
+  --cv-accent-subtle: rgba(245, 165, 36, 0.14);
+  --cv-topbar-height: 56px;
+  --cv-radius-xs: 4px;
+  --cv-radius-sm: 6px;
+  --cv-radius-md: 8px;
+  --cv-radius-lg: 12px;
+  --cv-radius-full: 9999px;
+  --cv-duration-fast: 150ms;
+  --cv-duration-normal: 220ms;
+  --cv-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --cv-duration-fast: 0ms;
+    --cv-duration-normal: 0ms;
+  }
+}

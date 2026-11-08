@@ -1,0 +1,58 @@
+/* ===================================================
+   CODEVERSE Codebase Graph Workspace & React Flow Canvas
+   Dark Aurora Theme
+   =================================================== */
+
+.cv-graph-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background-color: #02060F;
+  display: flex;
+}
+
+.cv-reactflow-instance {
+  width: 100% !important;
+  height: 100% !important;
+  background-color: #02060F !important;
+}
+
+/* Subtle Graph-Paper Grid Background with Dark Aurora ambient blue hint */
+.cv-graph-grid-bg {
+  background-color: #02060F;
+}
+
+.cv-graph-grid-bg line {
+  stroke: rgba(31, 111, 235, 0.16);
+}
+
+/* MiniMap Styled to Match Dark Aurora Palette */
+.cv-graph-minimap {
+  background-color: rgba(7, 18, 38, 0.92) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(76, 154, 255, 0.22) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: 0 8px 24px rgba(2, 6, 15, 0.8) !important;
+  bottom: 16px !important;
+  left: 16px !important;
+  width: 156px !important;
+  height: 98px !important;
+}
+
+.cv-graph-minimap .react-flow__minimap-mask {
+  fill: rgba(2, 6, 15, 0.75) !important;
+  stroke: #F5A524 !important;
+  stroke-width: 1.5px !important;
+}
+
+/* Transitions for dynamic node entrance */
+.react-flow__node {
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+/* React Flow node focus outline removal */
+.react-flow__node:focus {
+  outline: none !important;
+}

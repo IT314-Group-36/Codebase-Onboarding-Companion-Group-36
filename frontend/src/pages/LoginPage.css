@@ -1,0 +1,521 @@
+/* ===================================================
+   CODEVERSE — Login Page (Dark Aurora UI)
+   - Deep Midnight Blue (#0E2E66) & Electric Blue (#1F6FEB)
+   - Warm Amber (#F5A524) Action Buttons
+   - Transparent Dark Aurora Glass Surfaces
+   =================================================== */
+
+.cv-login-view {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  padding: 48px 24px;
+  background-color: #02060F;
+}
+
+.cv-login-container {
+  max-width: 1120px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1.25fr 0.85fr;
+  align-items: center;
+  gap: 56px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Left Column: Product Narrative */
+.cv-login-narrative {
+  display: flex;
+  flex-direction: column;
+}
+
+.cv-login-brand-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background-color: rgba(11, 26, 51, 0.75);
+  border: 1px solid rgba(76, 154, 255, 0.22);
+  color: #4C9AFF;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  width: fit-content;
+  margin-bottom: 14px;
+}
+
+.cv-login-brand-tag__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #1F6FEB;
+  box-shadow: 0 0 8px #1F6FEB;
+}
+
+.cv-login-brand-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: #9AA7BD;
+  margin-bottom: 8px;
+  font-family: var(--font-mono);
+}
+
+.cv-login-brand-name {
+  color: #FFFFFF;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.cv-login-brand-sep {
+  opacity: 0.5;
+}
+
+.cv-login-headline {
+  font-size: 2.35rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  margin-bottom: 14px;
+}
+
+.cv-login-summary {
+  font-size: 0.94rem;
+  color: #9AA7BD;
+  line-height: 1.55;
+  margin-bottom: 24px;
+  max-width: 540px;
+}
+
+/* 3 Benefit Items */
+.cv-login-benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.cv-login-benefit-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cv-login-benefit-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  background: linear-gradient(135deg, rgba(14, 46, 102, 0.6) 0%, rgba(7, 18, 38, 0.9) 100%);
+  border: 1px solid rgba(76, 154, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4C9AFF;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.cv-login-benefit-text {
+  flex: 1;
+}
+
+.cv-login-benefit-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.cv-login-benefit-desc {
+  font-size: 0.78rem;
+  color: #9AA7BD;
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Decorative Architecture Accent Graphic */
+.cv-chrome-graphic-card {
+  background: linear-gradient(180deg, rgba(11, 26, 51, 0.75) 0%, rgba(7, 18, 38, 0.92) 100%);
+  border: 1px solid rgba(76, 154, 255, 0.22);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 24px rgba(2, 6, 15, 0.7), 0 0 16px rgba(31, 111, 235, 0.2);
+}
+
+.cv-chrome-graphic-card__head {
+  padding: 8px 14px;
+  background-color: rgba(14, 46, 102, 0.25);
+  border-bottom: 1px solid rgba(76, 154, 255, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cv-chrome-graphic-card__dots {
+  display: flex;
+  gap: 5px;
+}
+
+.cv-chrome-graphic-card__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: rgba(76, 154, 255, 0.35);
+}
+
+.cv-chrome-graphic-card__title {
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  color: #9AA7BD;
+}
+
+.cv-chrome-graphic-card__badge {
+  font-size: 0.62rem;
+  font-family: var(--font-mono);
+  color: #F5A524;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background-color: rgba(245, 165, 36, 0.14);
+  border: 1px solid rgba(245, 165, 36, 0.3);
+}
+
+.cv-chrome-graphic-card__diagram {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.cv-chrome-graphic-card__orb-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.cv-chrome-graphic-card__orb-label {
+  font-size: 0.62rem;
+  font-family: var(--font-mono);
+  color: #9AA7BD;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cv-chrome-graphic-card__diagram .cv-metal-node {
+  background: #0B1A33;
+  border: 1px solid rgba(76, 154, 255, 0.22);
+  border-radius: var(--radius-xs);
+  padding: 5px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cv-chrome-graphic-card__diagram .cv-metal-node code {
+  font-size: 0.74rem;
+  color: #FFFFFF;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.cv-chrome-graphic-card__diagram .cv-metal-node__type {
+  font-size: 0.62rem;
+  color: #9AA7BD;
+}
+
+.cv-chrome-graphic-card__diagram .cv-metal-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.cv-chrome-graphic-card__diagram .cv-metal-arrow__line {
+  width: 24px;
+  height: 1px;
+  background-color: rgba(76, 154, 255, 0.25);
+}
+
+.cv-chrome-graphic-card__diagram .cv-metal-arrow__label {
+  font-size: 0.6rem;
+  font-family: var(--font-mono);
+  color: #9AA7BD;
+}
+
+.cv-login-meta-pills {
+  display: flex;
+  gap: 16px;
+  font-size: 0.76rem;
+  color: #9AA7BD;
+}
+
+.cv-login-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Right Column: Authentication Card */
+.cv-login-panel-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.cv-auth-box {
+  background: linear-gradient(180deg, rgba(11, 26, 51, 0.85) 0%, rgba(7, 18, 38, 0.95) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(76, 154, 255, 0.24);
+  border-radius: var(--radius-lg);
+  padding: 32px 28px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 16px 42px rgba(2, 6, 15, 0.9), 0 0 24px rgba(31, 111, 235, 0.28);
+}
+
+.cv-auth-box__header {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.cv-auth-box__logo {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #0E2E66 0%, #071226 100%);
+  border: 1px solid rgba(76, 154, 255, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #F5A524;
+  margin: 0 auto 10px;
+  box-shadow: 0 0 16px rgba(31, 111, 235, 0.35);
+}
+
+.cv-auth-box__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.cv-auth-box__tagline {
+  font-size: 0.76rem;
+  color: #9AA7BD;
+  margin-top: 2px;
+}
+
+/* Tabs */
+.cv-auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  background-color: #050D1D;
+  border: 1px solid rgba(76, 154, 255, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  margin-bottom: 18px;
+}
+
+.cv-auth-tab {
+  padding: 6px 10px;
+  border-radius: var(--radius-xs);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #9AA7BD;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+  text-align: center;
+}
+
+.cv-auth-tab:hover {
+  color: #FFFFFF;
+}
+
+.cv-auth-tab--active {
+  background-color: #0B1A33;
+  color: #FFFFFF;
+  border: 1px solid rgba(76, 154, 255, 0.25);
+  box-shadow: 0 1px 4px rgba(2, 6, 15, 0.5);
+}
+
+/* Form inputs */
+.cv-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.cv-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cv-auth-label {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: #9AA7BD;
+}
+
+.cv-auth-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cv-auth-input-icon {
+  position: absolute;
+  left: 10px;
+  color: #9AA7BD;
+  pointer-events: none;
+}
+
+.cv-auth-input {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  background-color: #050D1D;
+  border: 1px solid rgba(76, 154, 255, 0.22);
+  border-radius: var(--radius-sm);
+  color: #FFFFFF;
+  font-size: 0.84rem;
+  font-family: var(--font-sans);
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.cv-auth-input:focus {
+  border-color: #1F6FEB;
+  box-shadow: 0 0 12px rgba(31, 111, 235, 0.35);
+  outline: none;
+}
+
+.cv-auth-input--with-action {
+  padding-right: 36px;
+}
+
+.cv-auth-pwd-toggle {
+  position: absolute;
+  right: 8px;
+  padding: 4px;
+  color: #9AA7BD;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+.cv-auth-pwd-toggle:hover {
+  color: #F5A524;
+}
+
+/* Instructions & Banners */
+.cv-auth-box__instruction {
+  font-size: 0.82rem;
+  color: #9AA7BD;
+  line-height: 1.45;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.cv-auth-demo-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background-color: rgba(31, 111, 235, 0.12);
+  border: 1px solid rgba(76, 154, 255, 0.24);
+  border-radius: var(--radius-sm);
+  font-size: 0.74rem;
+  color: #E2E8F0;
+  margin-bottom: 18px;
+}
+
+.cv-auth-demo-banner__icon {
+  color: #4C9AFF;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.cv-auth-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: rgba(240, 113, 113, 0.14);
+  border: 1px solid rgba(240, 113, 113, 0.35);
+  border-radius: var(--radius-sm);
+  font-size: 0.76rem;
+  color: #F07171;
+  margin-bottom: 14px;
+}
+
+.cv-auth-cta-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cv-auth-submit-btn {
+  width: 100%;
+}
+
+.cv-auth-simulate-toggle {
+  font-size: 0.72rem;
+  color: #9AA7BD;
+  cursor: pointer;
+  text-align: center;
+  transition: color var(--duration-fast) var(--ease-default);
+  padding: 4px;
+}
+
+.cv-auth-simulate-toggle:hover {
+  color: #F5A524;
+}
+
+.cv-auth-box__terms {
+  font-size: 0.7rem;
+  color: #9AA7BD;
+  text-align: center;
+  margin-top: 18px;
+  line-height: 1.4;
+}
+
+.cv-auth-box__terms a {
+  color: #4C9AFF;
+  text-decoration: underline;
+}
+
+.cv-auth-success-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 24px 0;
+}
+
+.cv-auth-success-icon {
+  color: #34D399;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 900px) {
+  .cv-login-container {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+}

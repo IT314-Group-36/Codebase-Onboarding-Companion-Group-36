@@ -1,0 +1,77 @@
+.cv-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background-color: rgba(2, 6, 15, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: cv-fade-in 0.15s ease;
+}
+
+.cv-dialog {
+  background: linear-gradient(180deg, #0B1A33 0%, #071226 100%);
+  border: 1px solid rgba(76, 154, 255, 0.25);
+  border-radius: var(--radius-lg);
+  padding: 26px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 16px 42px rgba(2, 6, 15, 0.9), 0 0 24px rgba(31, 111, 235, 0.25);
+  animation: cv-slide-up 0.18s ease;
+}
+
+.cv-dialog__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px;
+}
+
+.cv-dialog__icon--danger {
+  background-color: rgba(240, 113, 113, 0.14);
+  color: #F07171;
+  border: 1px solid rgba(240, 113, 113, 0.35);
+}
+
+.cv-dialog__icon--primary {
+  background-color: rgba(245, 165, 36, 0.14);
+  color: #F5A524;
+  border: 1px solid rgba(245, 165, 36, 0.35);
+}
+
+.cv-dialog__title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin-bottom: 6px;
+}
+
+.cv-dialog__message {
+  font-size: 0.86rem;
+  color: #9AA7BD;
+  line-height: 1.5;
+  margin-bottom: 22px;
+}
+
+.cv-dialog__actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+@keyframes cv-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cv-slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

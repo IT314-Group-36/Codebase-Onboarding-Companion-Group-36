@@ -1,0 +1,117 @@
+/* ===================================================
+   CODEVERSE — RepositoryCard Component (Dark Aurora UI)
+   =================================================== */
+
+.cv-repo-card {
+  background: linear-gradient(180deg, rgba(11, 26, 51, 0.70) 0%, rgba(7, 18, 38, 0.88) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(76, 154, 255, 0.20);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(2, 6, 15, 0.6);
+}
+
+.cv-repo-card:hover {
+  background: linear-gradient(180deg, rgba(20, 32, 50, 0.80) 0%, rgba(12, 20, 34, 0.92) 100%);
+  border-color: rgba(31, 111, 235, 0.55);
+  box-shadow: 0 8px 26px rgba(2, 6, 15, 0.8), 0 0 18px rgba(31, 111, 235, 0.24);
+  transform: translateY(-1.5px);
+}
+
+.cv-repo-card:focus-visible {
+  outline: 2px solid var(--cv-electric-blue);
+  outline-offset: 2px;
+}
+
+.cv-repo-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cv-repo-card__title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.cv-repo-card__owner {
+  font-size: 0.74rem;
+  color: #9AA7BD;
+  font-family: var(--font-mono);
+}
+
+.cv-repo-card__name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  letter-spacing: -0.01em;
+  margin-top: 1px;
+}
+
+.cv-repo-card__desc {
+  font-size: 0.82rem;
+  color: #9AA7BD;
+  line-height: 1.45;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cv-repo-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid rgba(76, 154, 255, 0.14);
+  font-size: 0.74rem;
+  color: #B8C3D6;
+}
+
+.cv-repo-card__lang {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: #E2E8F0;
+}
+
+.cv-repo-card__lang-color {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.cv-repo-card__stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cv-repo-card__stat-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cv-repo-card__arrow {
+  color: #F5A524;
+  opacity: 0.8;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.cv-repo-card:hover .cv-repo-card__arrow {
+  opacity: 1;
+  transform: translate(2px, -2px);
+}

@@ -1,0 +1,61 @@
+/* ========================================================
+   CODEVERSE — Dark Aurora 3D Core Visual Styles
+   ======================================================== */
+
+.cv-liquid-chrome-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: grab;
+  user-select: none;
+  border-radius: 50%;
+  transition: transform var(--cv-duration-fast, 0.2s) ease-out;
+}
+
+.cv-liquid-chrome-container:active {
+  cursor: grabbing;
+}
+
+.cv-liquid-chrome-canvas {
+  display: block;
+  pointer-events: none;
+  filter: drop-shadow(0 8px 24px rgba(2, 6, 15, 0.8)) drop-shadow(0 0 16px rgba(31, 111, 235, 0.35));
+}
+
+/* Diffuse ambient glow reflection under orb */
+.cv-liquid-chrome-reflection {
+  position: absolute;
+  bottom: 4%;
+  left: 15%;
+  right: 15%;
+  height: 14px;
+  background: radial-gradient(ellipse at center, rgba(31, 111, 235, 0.25) 0%, rgba(245, 165, 36, 0.12) 50%, transparent 75%);
+  border-radius: 50%;
+  filter: blur(6px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Fallback if WebGL is unsupported */
+.cv-liquid-chrome-fallback {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #4C9AFF 0%, #1F6FEB 35%, #0E2E66 70%, #02060F 100%);
+  border: 1px solid rgba(76, 154, 255, 0.35);
+  box-shadow:
+    inset -4px -4px 12px rgba(2, 6, 15, 0.8),
+    inset 4px 4px 10px rgba(76, 154, 255, 0.4),
+    0 8px 20px rgba(2, 6, 15, 0.7);
+}
+
+.cv-liquid-chrome-fallback__sphere {
+  width: 78%;
+  height: 78%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(245, 165, 36, 0.25) 60%, transparent 100%);
+}

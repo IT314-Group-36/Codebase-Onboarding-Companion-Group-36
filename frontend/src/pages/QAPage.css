@@ -1,0 +1,402 @@
+/* ========================================================
+   CODEVERSE — Dedicated Codebase Q&A Interface Styles
+   Dark Aurora Theme
+   ======================================================== */
+
+.cv-qa-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--topbar-height));
+  background: #02060F;
+  overflow: hidden;
+}
+
+/* Header */
+.cv-qa-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 2rem;
+  background: rgba(7, 18, 38, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(76, 154, 255, 0.16);
+  gap: 1.5rem;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.cv-qa-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(31, 111, 235, 0.45) 0%, rgba(76, 154, 255, 0.2) 50%, rgba(245, 165, 36, 0.3) 100%);
+  pointer-events: none;
+}
+
+.cv-qa-header__left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.cv-qa-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: rgba(11, 26, 51, 0.7);
+  border: 1px solid rgba(76, 154, 255, 0.22);
+  color: #4C9AFF;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.cv-qa-back-btn:hover {
+  background: rgba(245, 165, 36, 0.14);
+  border-color: #F5A524;
+  color: #F5A524;
+}
+
+.cv-qa-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.cv-qa-owner {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.cv-qa-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0;
+  letter-spacing: -0.015em;
+}
+
+.cv-qa-branch-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: #4C9AFF;
+  background: rgba(14, 46, 102, 0.3);
+  border: 1px solid rgba(31, 111, 235, 0.3);
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-xs);
+}
+
+.cv-qa-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin: 0.2rem 0 0;
+}
+
+.cv-qa-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Body */
+.cv-qa-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  overflow: hidden;
+  padding: 1rem 1.5rem 1.5rem;
+}
+
+/* Suggested inquiries strip */
+.cv-qa-suggestions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  margin-bottom: 0.5rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.cv-qa-suggestions__title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #4C9AFF;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+}
+
+.cv-qa-suggestions__title svg {
+  color: #F5A524;
+}
+
+.cv-qa-suggestions__chips {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cv-qa-chip {
+  background: rgba(7, 18, 38, 0.7);
+  border: 1px solid rgba(76, 154, 255, 0.18);
+  border-radius: var(--radius-full);
+  padding: 0.28rem 0.8rem;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.cv-qa-chip:hover:not(:disabled) {
+  background: rgba(14, 46, 102, 0.35);
+  border-color: rgba(31, 111, 235, 0.45);
+  color: #FFFFFF;
+}
+
+.cv-qa-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Feed */
+.cv-qa-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.cv-qa-msg {
+  display: flex;
+  gap: 1rem;
+  max-width: 85%;
+}
+
+.cv-qa-msg--user {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+
+.cv-qa-msg__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.cv-qa-msg--user .cv-qa-msg__avatar {
+  background: rgba(245, 165, 36, 0.18);
+  border: 1px solid rgba(245, 165, 36, 0.35);
+  color: #F5A524;
+}
+
+.cv-qa-msg--assistant .cv-qa-msg__avatar {
+  background: rgba(14, 46, 102, 0.35);
+  border: 1px solid rgba(31, 111, 235, 0.4);
+  color: #4C9AFF;
+  box-shadow: 0 0 12px rgba(31, 111, 235, 0.25);
+}
+
+.cv-qa-msg__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cv-qa-msg--user .cv-qa-msg__content {
+  align-items: flex-end;
+}
+
+.cv-qa-msg__bubble {
+  background: rgba(7, 18, 38, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(76, 154, 255, 0.18);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.35rem;
+  box-shadow: 0 8px 24px -8px rgba(2, 6, 15, 0.6);
+}
+
+.cv-qa-msg--user .cv-qa-msg__bubble {
+  background: rgba(31, 111, 235, 0.22);
+  border: 1px solid rgba(31, 111, 235, 0.5);
+  box-shadow: 0 8px 24px -8px rgba(2, 6, 15, 0.6), 0 0 16px rgba(31, 111, 235, 0.18);
+}
+
+.cv-qa-msg__text {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: #FFFFFF;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.cv-qa-msg__files {
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(76, 154, 255, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cv-qa-msg__files-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.cv-qa-msg__files-list {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.cv-qa-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  background: rgba(11, 26, 51, 0.75);
+  border: 1px solid rgba(76, 154, 255, 0.2);
+  border-radius: var(--radius-xs);
+  color: #F5A524;
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.cv-qa-file-chip:hover {
+  background: rgba(14, 46, 102, 0.4);
+  border-color: rgba(31, 111, 235, 0.5);
+  color: #FFFFFF;
+}
+
+.cv-qa-file-chip code {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+}
+
+.cv-qa-msg__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.25rem;
+}
+
+.cv-qa-msg__time {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.cv-qa-msg__conf {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  color: #4C9AFF;
+  font-family: var(--font-mono);
+}
+
+/* Typing Bubble */
+.cv-qa-msg__bubble--typing {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.9rem 1.35rem;
+}
+
+.cv-qa-typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #F5A524;
+  box-shadow: 0 0 6px rgba(245, 165, 36, 0.6);
+  animation: cv-typing 1.4s infinite ease-in-out both;
+}
+
+.cv-qa-typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.cv-qa-typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes cv-typing {
+  0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* Input Area */
+.cv-qa-input-strip {
+  padding-top: 0.75rem;
+  flex-shrink: 0;
+}
+
+.cv-qa-input-box {
+  display: flex;
+  gap: 0.75rem;
+  background: rgba(7, 18, 38, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(76, 154, 255, 0.2);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.5rem 0.5rem 1.1rem;
+  box-shadow: 0 8px 24px -8px rgba(2, 6, 15, 0.7);
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.cv-qa-input-box:focus-within {
+  border-color: rgba(31, 111, 235, 0.6);
+  box-shadow: 0 0 16px rgba(31, 111, 235, 0.25);
+}
+
+.cv-qa-input-field {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #FFFFFF;
+  font-size: 0.92rem;
+  outline: none;
+}
+
+.cv-qa-input-field::placeholder {
+  color: var(--text-muted);
+}
+
+.cv-qa-input-footer {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+.cv-qa-input-footer strong {
+  color: #4C9AFF;
+}
