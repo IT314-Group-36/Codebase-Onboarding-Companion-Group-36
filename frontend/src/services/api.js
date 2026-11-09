@@ -12,8 +12,8 @@ import {
   adaptFileDetails,
   generateOnboardingTasks,
   saveTaskStatus,
+  adaptUser,
 } from './adapters';
-import { sampleUser } from '../data/sampleData';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -22,6 +22,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
  */
 async function parseError(response) {
   let detailMessage = '';
+  let code = null;
   try {
     const errorBody = await response.json();
     if (errorBody && errorBody.detail) {
@@ -33,6 +34,7 @@ async function parseError(response) {
           .map((err) => `${err.loc ? err.loc.join('.') + ': ' : ''}${err.msg || 'Invalid field'}`)
           .join('; ');
       } else if (typeof errorBody.detail === 'object') {
+        code = errorBody.detail.code || null;
         detailMessage =
           errorBody.detail.message || JSON.stringify(errorBody.detail);
       }
@@ -44,36 +46,25 @@ async function parseError(response) {
     detailMessage = await response.text().catch(() => '');
   }
 
-  if (response.status === 409) {
-    return new Error(
-      detailMessage ||
-        'Repository is not ready for this operation or indexing is already in progress (HTTP 409).'
-    );
-  }
-  if (response.status === 404) {
-    return new Error(detailMessage || 'Requested resource not found (HTTP 404).');
-  }
-  if (response.status === 422) {
-    return new Error(
-      detailMessage || 'Invalid request payload or URL format (HTTP 422).'
-    );
-  }
-  if (response.status === 503) {
-    return new Error(
-      detailMessage ||
-        'LLM is not configured on the backend (LLM_API_KEY). Code search, file explorer, and dependency maps are available without it.'
-    );
-  }
-  if (response.status === 502) {
-    return new Error(
-      detailMessage ||
-        'The backend AI provider call failed (rate limit or timeout).'
-    );
-  }
+  const fallbacks = {
+    401: 'Your session has expired. Please sign in with GitHub again.',
+    409: 'Repository is not ready for this operation or indexing is already in progress (HTTP 409).',
+    404: 'Requested resource not found (HTTP 404).',
+    422: 'Invalid request payload or URL format (HTTP 422).',
+    429: 'GitHub rate limit reached. Please try again in a few minutes.',
+    503: 'LLM is not configured on the backend (LLM_API_KEY). Code search, file explorer, and dependency maps are available without it.',
+    502: 'The backend AI provider call failed (rate limit or timeout).',
+  };
+  const message =
+    detailMessage ||
+    fallbacks[response.status] ||
+    `Backend request failed: ${response.status} ${response.statusText}`;
 
-  return new Error(
-    detailMessage || `Backend request failed: ${response.status} ${response.statusText}`
-  );
+  // `status` and `code` let callers react (e.g. code "github_reauth_required" means: sign in with GitHub again)
+  const error = new Error(message);
+  error.status = response.status;
+  error.code = code;
+  return error;
 }
 
 /**
@@ -92,6 +83,7 @@ export async function request(endpoint, options = {}) {
     response = await fetch(url, {
       ...options,
       headers,
+      credentials: 'include', // send the session cookie
     });
   } catch (err) {
     throw new Error(
@@ -102,6 +94,10 @@ export async function request(endpoint, options = {}) {
 
   if (!response.ok) {
     const error = await parseError(response);
+    // Signed out (or the session expired): let the app send the user back to the login page.
+    if (response.status === 401 && !endpoint.startsWith('/auth/')) {
+      window.dispatchEvent(new Event('auth:expired'));
+    }
     throw error;
   }
 
@@ -121,30 +117,35 @@ export async function checkHealth() {
 }
 
 // ============================================
-// AUTHENTICATION (Frontend Session)
+// AUTHENTICATION (GitHub OAuth, session cookie)
 // ============================================
-// The backend does not implement auth tables or JWT tokens.
-// These methods manage a clean local developer session.
+// The backend signs the user in with GitHub and keeps the session in an HttpOnly cookie,
+// so the frontend never sees the GitHub token.
 
-export async function loginWithGitHub() {
-  return {
-    success: true,
-    user: sampleUser,
-    token: 'local-dev-session-token',
-    isLocalSession: true,
-  };
+/** Whether the backend has GitHub sign-in configured. GET /auth/config */
+export async function getAuthConfig() {
+  try {
+    return await request('/auth/config');
+  } catch {
+    return { github_login_enabled: false };
+  }
 }
 
+/** Sends the browser to GitHub (full-page redirect). GET /auth/github/login */
+export function loginWithGitHub() {
+  window.location.assign(`${BASE_URL}/auth/github/login`);
+}
+
+/** POST /auth/logout: clears the session cookie. */
 export async function logout() {
+  await request('/auth/logout', { method: 'POST' });
   return { success: true };
 }
 
+/** The signed-in user. GET /auth/me (rejects with status 401 when signed out) */
 export async function getUserProfile() {
-  return {
-    success: true,
-    user: sampleUser,
-    isLocalSession: true,
-  };
+  const raw = await request('/auth/me');
+  return { success: true, user: adaptUser(raw) };
 }
 
 // ============================================

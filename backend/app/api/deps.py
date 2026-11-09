@@ -6,19 +6,7 @@ from app.core.security import read_session_token
 from app.db.session import get_session
 from app.models import Repository, User
 from app.services import runtime
-
-
-async def get_repo(repo_id: int, session: AsyncSession = Depends(get_session)) -> Repository:
-    repo = await session.get(Repository, repo_id)
-    if repo is None:
-        raise HTTPException(404, "Repository not found")
-    return repo
-
-
-async def get_ready_repo(repo: Repository = Depends(get_repo)) -> Repository:
-    if repo.status != "ready":
-        raise HTTPException(409, f"Repository is not ready (status: {repo.status})")
-    return repo
+from app.services.github import GitHubClient
 
 
 def get_queue(request: Request):
@@ -33,8 +21,12 @@ def get_embedder_dep():
     return runtime.get_embedder()
 
 
+def get_github_client() -> GitHubClient:
+    return GitHubClient()
+
+
 # ---------- authentication and ownership ----------
-# Not attached to the /repos routes yet: that happens together with the login endpoints.
+# Every /repos route uses get_user_repo / get_ready_user_repo, so a user only ever sees their own repositories.
 
 async def get_optional_user(request: Request, session: AsyncSession = Depends(get_session)) -> User | None:
     """The signed-in user from the session cookie, or None (no cookie, forged, expired, or user deleted)."""

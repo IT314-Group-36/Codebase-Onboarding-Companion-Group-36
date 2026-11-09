@@ -5,10 +5,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ai_pipeline.graph import impact as run_impact
 from ai_pipeline.graph import module_graph
 from ai_pipeline.repo import validate_branch, validate_repo_url
-from app.api.deps import get_embedder_dep, get_llm_dep, get_queue, get_ready_repo, get_repo
+from app.api.deps import (
+    get_current_user,
+    get_embedder_dep,
+    get_llm_dep,
+    get_queue,
+    get_ready_user_repo,
+    get_user_repo,
+)
 from app.core.config import get_settings
 from app.db.session import get_session
-from app.models import Edge, File, Repository, Symbol
+from app.models import Edge, File, Repository, Symbol, User
 from app.schemas import AskIn, FileOut, ReindexIn, RepoCreate, RepoDetail, RepoOut, SearchIn, SymbolOut
 from app.services.graph_service import find_symbols, load_graphs
 from app.services.qa import LLMCallError, answer_question, explain_impact
@@ -19,34 +26,39 @@ CAVEAT = "Static analysis: dynamic calls, reflection and string-based imports ar
 
 
 @router.post("", response_model=RepoOut, status_code=202)
-async def register_repo(body: RepoCreate, session: AsyncSession = Depends(get_session), queue=Depends(get_queue)):
+async def register_repo(body: RepoCreate, user: User = Depends(get_current_user),
+                        session: AsyncSession = Depends(get_session), queue=Depends(get_queue)):
     try:
         url = validate_repo_url(body.url, get_settings().allow_local_repos)
         branch = validate_branch(body.branch)
     except ValueError as e:
         raise HTTPException(422, str(e)) from e
-    existing = (await session.execute(select(Repository).where(Repository.url == url, Repository.branch == branch))).scalar_one_or_none()
+    existing = (await session.execute(select(Repository).where(
+        Repository.owner_id == user.id, Repository.url == url, Repository.branch == branch))).scalar_one_or_none()
     if existing:                                  # idempotent: use POST /repos/{id}/reindex to refresh
         return existing
-    repo = Repository(url=url, branch=branch, status="queued")
+    repo = Repository(owner_id=user.id, url=url, branch=branch, status="queued")
     session.add(repo)
     await session.commit()
+    # No pasted token: the worker loads the owner's saved GitHub token itself if the repo turns out to be private,
+    # so the token never travels through the job queue.
     await queue.enqueue_job("index_repository", repo.id, body.access_token)
     return repo
 
 
 @router.get("", response_model=list[RepoOut])
-async def list_repos(session: AsyncSession = Depends(get_session)):
-    return (await session.execute(select(Repository).order_by(Repository.id.desc()))).scalars().all()
+async def list_repos(user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
+    return (await session.execute(
+        select(Repository).where(Repository.owner_id == user.id).order_by(Repository.id.desc()))).scalars().all()
 
 
 @router.get("/{repo_id}", response_model=RepoDetail)
-async def repo_detail(repo: Repository = Depends(get_repo)):
+async def repo_detail(repo: Repository = Depends(get_user_repo)):
     return repo
 
 
 @router.post("/{repo_id}/reindex", response_model=RepoOut, status_code=202)
-async def reindex(body: ReindexIn | None = None, repo: Repository = Depends(get_repo),
+async def reindex(body: ReindexIn | None = None, repo: Repository = Depends(get_user_repo),
                   session: AsyncSession = Depends(get_session), queue=Depends(get_queue)):
     if repo.status in ("queued", "indexing"):
         raise HTTPException(409, "Indexing is already in progress")
@@ -58,12 +70,12 @@ async def reindex(body: ReindexIn | None = None, repo: Repository = Depends(get_
 
 
 @router.get("/{repo_id}/files", response_model=list[FileOut])
-async def list_files(repo: Repository = Depends(get_ready_repo), session: AsyncSession = Depends(get_session)):
+async def list_files(repo: Repository = Depends(get_ready_user_repo), session: AsyncSession = Depends(get_session)):
     return (await session.execute(select(File).where(File.repo_id == repo.id).order_by(File.path))).scalars().all()
 
 
 @router.get("/{repo_id}/files/{path:path}")
-async def file_detail(path: str, repo: Repository = Depends(get_ready_repo), session: AsyncSession = Depends(get_session)):
+async def file_detail(path: str, repo: Repository = Depends(get_ready_user_repo), session: AsyncSession = Depends(get_session)):
     f = (await session.execute(select(File).where(File.repo_id == repo.id, File.path == path))).scalar_one_or_none()
     if f is None:
         raise HTTPException(404, "File not found")
@@ -76,7 +88,7 @@ async def file_detail(path: str, repo: Repository = Depends(get_ready_repo), ses
 
 
 @router.get("/{repo_id}/map")
-async def get_map(repo: Repository = Depends(get_ready_repo), session: AsyncSession = Depends(get_session)):
+async def get_map(repo: Repository = Depends(get_ready_user_repo), session: AsyncSession = Depends(get_session)):
     """Module map (LLM or deterministic) + module-to-module dependency graph for the visual map."""
     raw_edges = (await session.execute(
         select(Edge.src, Edge.dst, Edge.kind).where(
@@ -99,19 +111,19 @@ async def get_map(repo: Repository = Depends(get_ready_repo), session: AsyncSess
 
 @router.get("/{repo_id}/symbols", response_model=list[SymbolOut])
 async def search_symbols(q: str = Query(min_length=1), limit: int = Query(20, le=100),
-                         repo: Repository = Depends(get_ready_repo), session: AsyncSession = Depends(get_session)):
+                         repo: Repository = Depends(get_ready_user_repo), session: AsyncSession = Depends(get_session)):
     return await find_symbols(session, repo.id, q, limit)
 
 
 @router.post("/{repo_id}/search")
-async def search_code(body: SearchIn, repo: Repository = Depends(get_ready_repo), embedder=Depends(get_embedder_dep)):
+async def search_code(body: SearchIn, repo: Repository = Depends(get_ready_user_repo), embedder=Depends(get_embedder_dep)):
     """Retrieval only (no LLM): hybrid vector + keyword search over code chunks."""
     docs = await PgHybridRetriever(repo_id=repo.id, embeddings=embedder, k=body.k).ainvoke(body.query)
     return {"hits": [doc_to_hit(d) for d in docs]}
 
 
 @router.post("/{repo_id}/ask")
-async def ask(body: AskIn, repo: Repository = Depends(get_ready_repo), embedder=Depends(get_embedder_dep),
+async def ask(body: AskIn, repo: Repository = Depends(get_ready_user_repo), embedder=Depends(get_embedder_dep),
               llm=Depends(get_llm_dep)):
     if llm is None:
         raise HTTPException(503, "LLM is not configured (set LLM_API_KEY). /search works without it.")
@@ -123,7 +135,7 @@ async def ask(body: AskIn, repo: Repository = Depends(get_ready_repo), embedder=
 
 @router.get("/{repo_id}/impact")
 async def impact(symbol: str | None = None, file: str | None = None, depth: int = Query(3, ge=1, le=6),
-                 explain: bool = False, repo: Repository = Depends(get_ready_repo),
+                 explain: bool = False, repo: Repository = Depends(get_ready_user_repo),
                  session: AsyncSession = Depends(get_session), llm=Depends(get_llm_dep)):
     """What is likely affected if this symbol (uid or name) or file changes? Reverse traversal with NetworkX."""
     if not symbol and not file:

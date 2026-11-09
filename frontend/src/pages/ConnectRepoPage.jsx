@@ -351,10 +351,13 @@ export default function ConnectRepoPage() {
                 style={{ background: 'none', border: 'none', color: 'var(--cv-primary)', fontSize: '0.8125rem', cursor: 'pointer' }}
                 onClick={() => setShowTokenField(!showTokenField)}
               >
-                {showTokenField ? 'Hide Token Field' : 'Add GitHub Token for Private Repo'}
+                {showTokenField ? 'Hide Token Field' : 'Use a different token'}
               </button>
             </div>
 
+            <p className="cv-connect-hint-text">
+              Private repositories your GitHub account can access are cloned automatically. A token is only needed to use different credentials.
+            </p>
             {showTokenField && (
               <div className="cv-connect-input-wrap">
                 <KeyRound size={16} className="cv-connect-input-icon" />

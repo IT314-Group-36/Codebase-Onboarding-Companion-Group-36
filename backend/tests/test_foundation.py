@@ -20,7 +20,7 @@ SECRET = "s" * 48
 
 def use_settings(monkeypatch, **overrides) -> Settings:
     """Point the security and deps modules at a Settings object with the given overrides."""
-    cfg = Settings(**overrides)
+    cfg = Settings(_env_file=None, **overrides)
     monkeypatch.setattr(security, "get_settings", lambda: cfg)
     monkeypatch.setattr(deps, "get_settings", lambda: cfg)
     return cfg
@@ -94,9 +94,9 @@ def test_session_needs_a_long_secret(monkeypatch):
 
 
 def test_oauth_configured_flag():
-    assert not Settings(github_client_id="a").github_oauth_configured
-    assert Settings(github_client_id="a", github_client_secret="b", session_secret=SECRET,
-                    token_encryption_key="k").github_oauth_configured
+    assert not Settings(_env_file=None, github_client_id="a").github_oauth_configured
+    assert Settings(_env_file=None, github_client_id="a", github_client_secret="b",
+                    session_secret=SECRET, token_encryption_key="k").github_oauth_configured
 
 
 def test_user_schema_never_exposes_token_fields():

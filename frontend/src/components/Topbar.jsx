@@ -8,7 +8,6 @@ import {
   ChevronRight,
   LogOut,
 } from 'lucide-react';
-import { sampleUser } from '../data/sampleData';
 import { useAuth } from '../context/useAuth';
 import './Topbar.css';
 
@@ -19,7 +18,7 @@ export default function Topbar({ onToggleMobileMenu, onLogoutRequest }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user: authUser } = useAuth();
-  const currentUser = authUser || sampleUser;
+  const currentUser = authUser || { name: 'User', email: '', githubUsername: '' };
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notifMenuOpen, setNotifMenuOpen] = useState(false);

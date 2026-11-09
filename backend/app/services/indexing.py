@@ -17,7 +17,8 @@ from ai_pipeline.stack_detector import EXT_LANG
 from ai_pipeline.summary import RETRIEVAL_QUERIES, format_context, generate_summary
 from app.core.config import get_settings
 from app.db.session import SessionLocal
-from app.models import Chunk, Edge, File, Repository, Symbol
+from app.core.security import SecurityConfigError, TokenDecryptError, decrypt_token
+from app.models import Chunk, Edge, File, Repository, Symbol, User
 from app.services.retrieval import PgHybridRetriever
 
 log = logging.getLogger(__name__)
@@ -82,6 +83,51 @@ async def _describe(repo_id: int, root: Path, a, llm, embedder) -> tuple[dict, d
     return module_map.model_dump(), (summary.model_dump() if summary else None), warnings
 
 
+async def _saved_token(repo_id: int) -> str | None:
+    """The repo owner's GitHub token (stored encrypted at sign-in), or None if there is none."""
+    async with SessionLocal() as s:
+        repo = await s.get(Repository, repo_id)
+        user = await s.get(User, repo.owner_id) if repo is not None and repo.owner_id is not None else None
+        cipher = user.encrypted_access_token if user is not None else None
+    if not cipher:
+        return None
+    try:
+        return decrypt_token(cipher)
+    except (TokenDecryptError, SecurityConfigError) as e:
+        raise RuntimeError("Could not clone the repo: your saved GitHub sign-in can no longer be used. "
+                           "Sign in with GitHub again, then retry.") from e
+
+
+def _explain_failure_with_token(err: str) -> str:
+    low = err.lower()
+    if "authentication failed" in low or "invalid username" in low or "bad credentials" in low:
+        head = "Could not clone the repo: GitHub rejected your saved sign-in. Sign in with GitHub again, then retry."
+    else:
+        head = ("Could not clone the repo with your GitHub account. If it is private, check the URL and that your account "
+                "can access it (for an organization's repo, an owner may need to approve this app on GitHub).")
+    return head + "\n" + err.partition("\n")[2]
+
+
+async def _clone(repo_id: int, url: str, branch: str, dest: Path, pasted_token: str | None) -> str:
+    """Clone with the pasted token if given. Otherwise try anonymously first (public repos, and a revoked saved token
+    can never break them), and only if that fails use the owner's saved GitHub token (private repos)."""
+    if pasted_token:
+        return await asyncio.to_thread(clone_repo, url, branch, dest, pasted_token)
+    try:
+        return await asyncio.to_thread(clone_repo, url, branch, dest, None)
+    except RuntimeError as anonymous_error:
+        low = str(anonymous_error).lower()
+        if "remote branch" in low or "timed out" in low:      # the repo is reachable; a token would not help
+            raise
+        saved = await _saved_token(repo_id)
+        if not saved:
+            raise
+    try:
+        return await asyncio.to_thread(clone_repo, url, branch, dest, saved)
+    except RuntimeError as e:
+        raise RuntimeError(_explain_failure_with_token(str(e))) from e
+
+
 async def run_indexing(repo_id: int, access_token: str | None, *, llm, embedder) -> None:
     cfg = get_settings()
     async with SessionLocal() as s:
@@ -94,7 +140,7 @@ async def run_indexing(repo_id: int, access_token: str | None, *, llm, embedder)
         await _update(repo_id, status="indexing", stage="cloning", error=None)
         url = validate_repo_url(url, cfg.allow_local_repos)                   # defence in depth (also checked by the API)
         branch = validate_branch(branch)
-        sha = await asyncio.to_thread(clone_repo, url, branch, work / "clone", access_token)
+        sha = await _clone(repo_id, url, branch, work / "clone", access_token)
         await _update(repo_id, stage="analyzing")
         a = await asyncio.to_thread(analyze_checkout, work / "clone", max_chunks=cfg.max_chunks,
                                     max_file_bytes=cfg.max_file_bytes)

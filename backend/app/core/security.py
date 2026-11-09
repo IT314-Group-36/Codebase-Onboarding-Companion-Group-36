@@ -60,6 +60,16 @@ def rotate_token(cipher: str) -> str:
         raise TokenDecryptError("Stored token cannot be decrypted (was TOKEN_ENCRYPTION_KEY changed?)") from e
 
 
+def config_problem() -> str | None:
+    """None when login secrets are usable, otherwise a short reason (used to disable the login button)."""
+    for check in (_fernet, _serializer):
+        try:
+            check()
+        except SecurityConfigError as e:
+            return str(e)
+    return None
+
+
 # ---------- signed session cookie ----------
 
 def _serializer() -> URLSafeTimedSerializer:

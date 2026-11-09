@@ -24,8 +24,8 @@ import { generateOnboardingTasks, saveTaskStatus } from '../services/adapters';
 import {
   sampleRepositories,
   sampleOnboardingTasks,
-  sampleUser,
 } from '../data/sampleData';
+import { useAuth } from '../context/useAuth';
 import { showToast } from '../utils/toast';
 import './DashboardPage.css';
 
@@ -36,6 +36,7 @@ import './DashboardPage.css';
  */
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [repos, setRepos] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -157,7 +158,7 @@ export default function DashboardPage() {
             <div className="cv-dashboard-header__title-row">
               <h1 className="cv-dashboard-title">Dashboard</h1>
               <span className="cv-dashboard-user-pill">
-                {sampleUser.name} · {sampleUser.plan}
+                {user?.name}{user?.githubUsername ? ` · @${user.githubUsername}` : ''}
               </span>
             </div>
             <p className="cv-dashboard-subtitle">
