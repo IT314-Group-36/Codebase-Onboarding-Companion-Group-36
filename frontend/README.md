@@ -1,149 +1,119 @@
-# Codebase Onboarding Companion
+# Codebase Onboarding Companion: frontend
 
-A web application designed to help developers understand and explore codebases more easily. The project combines a React frontend with a FastAPI backend to provide an interface for codebase exploration and onboarding.
+React single-page app ("Codeverse") for the Codebase Onboarding Companion. It talks to the FastAPI backend
+to connect repositories, explore files, view the dependency map, ask questions about the code and run impact analysis.
 
-## Tech Stack
+## Tech stack
 
-### Frontend
-- React
-- Vite
-- JavaScript
+- React 19, Vite, JavaScript (JSX)
+- React Router for pages
+- React Flow (`@xyflow/react`) and dagre for the dependency graph
+- lucide-react icons, plain CSS (design tokens in `src/styles/variables.css`)
 - ESLint
 
-### Backend
-- Python
-- FastAPI
+## Pages
 
-## Project Structure
+| Route | Page | Data source |
+|---|---|---|
+| `/` , `/auth/callback` | Login | Placeholder local session (no real GitHub OAuth yet) |
+| `/dashboard` | Dashboard | `GET /repos` |
+| `/connect` | Connect repository (progress polling) | `POST /repos`, `GET /repos/{id}`, `POST /repos/{id}/reindex` |
+| `/repository/:repoId` | Repository overview | `GET /repos/{id}` |
+| `/explorer/:repoId` | File explorer (symbols, imports) | `GET /repos/{id}/files`, `/files/{path}`, `/symbols` |
+| `/dependencies/:repoId` | Dependency map | `GET /repos/{id}/map`, `/impact` |
+| `/qa/:repoId` | Ask questions | `POST /repos/{id}/ask`, `/search` |
+| `/onboarding/:repoId` | First-week tasks | Generated in the browser for now (not from GitHub issues) |
+| `/settings` | Settings | Placeholder profile; hidden repos stored in localStorage |
 
-The frontend is maintained separately from the backend within the main repository.
+## Project structure
 
 ```text
-Codebase-Onboarding-Companion-Group-36/
-│
-├── backend/              # FastAPI backend
-│
-├── frontend/             # React + Vite frontend
-│   ├── public/
-│   ├── src/
-│   │   ├── components/   # Reusable UI components
-│   │   ├── context/      # React context and application state
-│   │   ├── pages/        # Application pages
-│   │   ├── services/     # API and backend communication
-│   │   └── utils/        # Utility functions
-│   │
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
-│   └── README.md
-│
-├── docker-compose.yml
-└── README.md
+frontend/
+├── src/
+│   ├── components/   reusable UI (graph/, 3d/, buttons, cards, modals)
+│   ├── context/      auth context
+│   ├── layouts/      app shell (sidebar + topbar)
+│   ├── pages/        one file per route
+│   ├── services/     api.js (HTTP client), adapters.js (backend -> UI shape), per-feature wrappers
+│   ├── data/         sampleData.js (placeholder user and demo data)
+│   ├── styles/       global CSS and design tokens
+│   └── utils/        helpers (toasts)
+├── public/
+├── Dockerfile        dev stage (Vite) and prod stage (nginx)
+├── nginx.conf        serves the build and proxies /api to the api container
+├── vite.config.js
+└── .env.example
 ```
 
 ## Prerequisites
 
-Make sure you have the following installed:
+- Node.js 22 (or 20.19+) and npm
+- A running backend (see the root README); the UI needs it for everything except the login screen
 
-- Node.js
-- npm
-- Python
-- Git
-
-The backend must also be configured and running for frontend features that require backend APIs.
-
-## Getting Started
-
-### 1. Clone the Repository
+## Run locally
 
 ```bash
-git clone https://github.com/IT314-Group-36/Codebase-Onboarding-Companion-Group-36.git
-```
-
-### 2. Navigate to the Frontend
-
-```bash
-cd Codebase-Onboarding-Companion-Group-36/frontend
-```
-
-### 3. Install Dependencies
-
-```bash
+cd frontend
 npm install
-```
-
-### 4. Configure Environment Variables
-
-Create a local environment file if required:
-
-```bash
-cp .env.example .env.local
-```
-
-The default API base URL is:
-
-```env
-VITE_API_BASE_URL=/api
-```
-
-Do not commit `.env.local` or other files containing private credentials.
-
-### 5. Start the Development Server
-
-```bash
 npm run dev
 ```
 
-The Vite development server runs at:
+Open http://localhost:5173. No `.env` file is needed: `VITE_API_BASE_URL` defaults to `/api`, and Vite proxies
+`/api/*` to `http://localhost:8000` (the `/api` prefix is removed). Copy `.env.example` to `.env.local` only if you
+want to change the API base URL.
 
-```text
-http://localhost:5173
+Start the backend first, for example from the repository root: `docker compose up db redis api worker`.
+
+## Run with Docker
+
+From the repository root:
+
+```bash
+docker compose up --build                                                  # production build served by nginx
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build  # hot reload (Vite in a container)
 ```
 
-## Backend Connection
+Both serve the app on http://localhost:5173 (change with `WEB_PORT`). In the container, nginx (or the Vite proxy in dev)
+forwards `/api` to the `api` service, so the browser only ever talks to one origin.
 
-The frontend communicates with the FastAPI backend through its API service layer.
+## Scripts
 
-During local development, Vite is configured to proxy requests beginning with `/api` to:
-
-```text
-http://localhost:8000
-```
-
-Make sure the backend is running on port `8000` when using features that require backend communication.
-
-## Available Scripts
-
-Run these commands from the `frontend/` directory.
+Run from `frontend/`.
 
 | Command | Description |
 |---|---|
-| `npm install` | Install project dependencies |
-| `npm run dev` | Start the development server |
-| `npm run lint` | Run ESLint checks |
-| `npm run build` | Build the production frontend |
+| `npm install` | Install dependencies |
+| `npm run dev` | Start the Vite dev server |
+| `npm run lint` | Run ESLint |
+| `npm run build` | Production build into `dist/` |
 | `npm run preview` | Preview the production build |
 
-## Development Workflow
+There is no frontend test suite yet; `npm run lint` and `npm run build` are the checks.
 
-1. Start the FastAPI backend using the instructions in the root project README.
-2. Open a separate terminal and navigate to the `frontend/` directory.
-3. Install dependencies if you have not already done so.
-4. Run `npm run dev`.
-5. Open the local development URL in your browser.
-6. Make frontend changes and validate them using ESLint and the production build.
+## Backend connection
 
-## Validation
+All requests go through `src/services/api.js`, which prepends `VITE_API_BASE_URL` and turns FastAPI errors into
+readable messages (409 not ready, 422 invalid input, 502/503 LLM problems). `adapters.js` converts backend objects
+into the shapes the pages expect (for example repo status `queued/indexing/ready/failed` becomes
+`pending/analyzing/analyzed/error`).
 
-Before submitting frontend changes, run:
+Known gaps between the UI and the API:
+
+- Sign-in, the user profile and the plan label are placeholders from `sampleData.js`.
+- "Remove repository" only hides it in this browser; the API has no delete endpoint.
+- Onboarding task completion is saved in localStorage, not on the server.
+- The branch dropdown on the connect page is a fixed list, not the repo's real branches.
+- Private repos need a GitHub token pasted on the connect page for each request.
+
+## Before you submit changes
 
 ```bash
 npm run lint
 npm run build
 ```
-Both commands should complete successfully.
 
+Both must pass.
 
-**IT314 – Group 36**
+---
 
-Codebase Onboarding Companion Project.
+**IT314 – Group 36** · Codebase Onboarding Companion

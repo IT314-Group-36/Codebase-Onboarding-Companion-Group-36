@@ -1,0 +1,25 @@
+# Development overrides. Use together with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# Code changes are picked up live: uvicorn --reload (api), arq --watch (worker), Vite HMR (web).
+
+services:
+  api:
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app --reload-dir /app/ai_pipeline
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/ai_pipeline:/app/ai_pipeline
+
+  worker:
+    command: arq app.worker.WorkerSettings --watch /app/app
+    volumes:
+      - models:/models
+      - ./backend/app:/app/app
+      - ./backend/ai_pipeline:/app/ai_pipeline
+
+  web:
+    build:
+      context: ./frontend
+      target: dev                      # Vite dev server on container port 80 (still published on ${WEB_PORT:-5173})
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules              # keep the image's node_modules, not the host's

@@ -9,11 +9,14 @@ From the repository root:
 
 ```bash
 cp backend/.env.example backend/.env   # put your free LLM_API_KEY in it (optional, see below; the old name GOOGLE_API_KEY still works)
-docker compose up --build              # db, redis, migrations, api (:8000), worker
-open http://localhost:8000/docs
+docker compose up --build              # db, redis, migrations, api (:8000), worker, web (:5173)
 ```
 
-Without Docker (uv only, no pip/venv/requirements.txt): start Postgres with the pgvector extension and Redis, then
+Then open http://localhost:8000/docs for the API, or http://localhost:5173 for the web app.
+For hot reload while developing: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build`.
+
+Without Docker for the backend itself (uv only, no pip/venv/requirements.txt): start Postgres with the pgvector extension and Redis
+(`docker compose up db redis` does exactly that), then
 ```bash
 cd backend
 uv sync                                   # creates .venv from uv.lock
@@ -33,6 +36,7 @@ Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv 
 
 | Method | Path | What |
 |---|---|---|
+| GET | `/health` | liveness check (used by the Docker healthcheck) |
 | POST | `/repos` | `{url, branch?, access_token?}` register + enqueue indexing (202). Idempotent per url+branch |
 | POST | `/repos/{id}/reindex` | re-run indexing (atomic swap, old data stays readable until done) |
 | GET | `/repos`, `/repos/{id}` | status (`queued/indexing/ready/failed`), `stage`, `error`, summary, tech stack, report, warnings |
@@ -44,6 +48,28 @@ Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv 
 | GET | `/repos/{id}/impact?symbol=\|file=&depth=&explain=` | "what breaks if I change this" (reverse traversal) |
 
 Poll `GET /repos/{id}` for progress; the other endpoints return 409 until `status == "ready"`.
+
+Private repos: send a GitHub token as `access_token` on `POST /repos` or `POST /repos/{id}/reindex`. It is passed to
+`git` through an environment header for that one job and is never stored or logged. There is no user login or
+per-user access control yet, so every registered repo is visible to every caller of the API.
+
+## Configuration
+
+Set these in `backend/.env` (environment variables of the same name also work). Defaults are in `app/core/config.py`.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `LLM_API_KEY` | empty | LLM key (`GOOGLE_API_KEY` also accepted). Empty means no `/ask`, no summary |
+| `LLM_MODEL` | `google_genai:gemini-3.6-flash` | `<provider>:<model>` (LangChain) |
+| `LLM_MIN_INTERVAL_SECONDS` | `4` | spacing between LLM calls (free-tier rate limits) |
+| `LLM_TIMEOUT_SECONDS`, `LLM_MAX_RETRIES` | `60`, `4` | per-call timeout and retries |
+| `DATABASE_URL` | local Postgres | overridden by `docker-compose.yml` inside Docker |
+| `REDIS_URL` | `redis://localhost:6379` | job queue; overridden by compose inside Docker |
+| `CORS_ORIGINS` | `["http://localhost:5173"]` | JSON list; only matters when the browser calls the API directly. Compose also sets it, which takes precedence over `.env` |
+| `EMBED_BACKEND`, `EMBED_MODEL`, `EMBED_DIM` | `fastembed`, `BAAI/bge-small-en-v1.5`, `384` | embeddings; `hash` backend is for tests only |
+| `MAX_CHUNKS`, `MAX_FILE_BYTES` | `5000`, `200000` | indexing caps |
+| `WORK_DIR` | `/tmp/onboarding_work` | where clones live during a job (deleted afterwards) |
+| `ALLOW_LOCAL_REPOS` | `false` | accept local directory paths instead of GitHub URLs (tests and demos only) |
 
 ## How indexing works
 
@@ -88,13 +114,15 @@ function-level chunks with exact line numbers), and the NetworkX graphs.
 - Call/impact analysis is static and name-based: dynamic dispatch, reflection and string imports are invisible, and a
   call to an unknown receiver (`x.save()`) only resolves inside the same file or imported files. The API says so in `caveat`.
 - Only Python, JS/JSX and TS/TSX are parsed; other languages are indexed as line-window text chunks (still searchable).
-- File contents are not stored after indexing (the clone is deleted, DR-03). The UI should fetch source from GitHub.
+- Whole files are not stored after indexing (the clone is deleted, DR-03); only the parsed symbols, graph edges and embedded code chunks are kept in the database. The UI cannot show full source yet.
 - Secret redaction is regex-based. For production add gitleaks in the worker.
 - `tree-sitter` is pinned `<0.26`: 0.26.0 segfaulted in the Python binding on larger files.
 - Changing `EMBED_DIM` needs a new Alembic migration and a reindex of every repo.
 - `google_genai:gemini-3.6-flash` is the default `LLM_MODEL`: confirm in AI Studio that it is available on your free tier.
 - Old `.env` files: `GOOGLE_API_KEY` still works, but `GEMINI_MODEL` is ignored now. Use `LLM_MODEL=google_genai:<model>`.
-- Not built yet: first-week task list from GitHub issues, SSE streaming for `/ask`, auth/users, webhook re-indexing.
+- Not built yet: first-week task list from GitHub issues, per-file and per-function explanations, graph-aware answers in `/ask`
+  ("what breaks if I change X" in plain English), streaming and follow-up questions for `/ask`, GitHub login and per-user
+  access control (needed before private repos are safe to share), a repo delete endpoint, a branch listing endpoint, webhook re-indexing.
 
 ## Later, when you move to paid services
 

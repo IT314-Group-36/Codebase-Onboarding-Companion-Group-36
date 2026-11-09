@@ -24,5 +24,6 @@ class WorkerSettings:
     on_startup = startup
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
     max_jobs = 2
+    health_check_interval = 30    # refreshes the redis key that `arq --check` (docker healthcheck) reads
     max_tries = 1                 # an indexing job is replaced wholesale, never retried half-way
     job_timeout = 1800
