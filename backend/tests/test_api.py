@@ -18,6 +18,7 @@ from app.services.indexing import run_indexing
 from app.services.qa import Answer, Citation, ImpactExplanation
 from app.services.retrieval import PgHybridRetriever
 from app.services.runtime import get_embedder
+from tests.conftest import FakeQueue
 
 
 class FakeLLM:
@@ -53,19 +54,14 @@ class FakeLLM:
         raise AssertionError(schema)
 
 
-class FakeQueue:
-    def __init__(self):
-        self.jobs = []
-
-    async def enqueue_job(self, name, *args):
-        self.jobs.append((name, args))
-
-
 @pytest.fixture
-async def client(db):
+async def client(db, make_user):
+    """An API client signed in as a test user (the routes require a session cookie)."""
     app.state.queue = FakeQueue()
     app.dependency_overrides[deps.get_llm_dep] = lambda: FakeLLM()
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+    user, headers = await make_user()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t", headers=headers) as c:
+        c.user = user
         yield c
     app.dependency_overrides.clear()
 

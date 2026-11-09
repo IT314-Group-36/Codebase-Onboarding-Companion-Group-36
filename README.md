@@ -10,15 +10,15 @@ for search, and (with an LLM key) writes a module map and summary. A React app l
 
 | Feature | Status | Notes |
 |---|---|---|
-| Connect a public GitHub repo | Done | Private repos only work by pasting a token per request (OAuth login in progress) |
+| Connect a GitHub repo, public or private | Done | Sign in with GitHub (OAuth); private repos your account can access are cloned with your saved, encrypted token. Connect page has a picker of your GitHub repos and a real branch dropdown (paste-a-URL and token fallback still work) |
 | Map of modules and responsibilities | Done | Module map + dependency graph |
 | Plain-English explanations | Partial | Repo summary, module purposes and an architecture paragraph; nothing per file or function yet |
 | Ask "where is the payment logic handled?" | Done | Answers do not stream and each question is independent |
 | "What would break if I change this function?" | Partial | `/impact` works if you pick the symbol; the Ask box does not use the graph yet |
 | First-week task list from beginner-friendly issues | Not built | No GitHub issues code yet |
 
-Also still local-only in the frontend: sign-in (a placeholder session, no real GitHub OAuth), task completion
-(browser localStorage) and "remove repository" (hides it in the browser; the API has no delete endpoint).
+Also still local-only in the frontend: task completion (browser localStorage) and
+"remove repository" (hides it in the browser; the API has no delete endpoint).
 
 ## Repository layout
 
@@ -54,10 +54,22 @@ The API returns immediately when you register a repo; the worker does the indexi
 
 ## Quick start (Docker, whole stack)
 
-Requires Docker with Compose v2.
+Requires Docker with Compose v2. The app signs users in with GitHub, so a one-time GitHub OAuth app is needed.
+
+1. Create an OAuth app at <https://github.com/settings/developers> (New OAuth App):
+   Homepage URL `http://localhost:5173`, Authorization callback URL `http://localhost:5173/api/auth/github/callback`.
+   Note the Client ID and generate a Client secret.
+2. Create `backend/.env` and generate the server secrets:
 
 ```bash
-cp backend/.env.example backend/.env      # optional: put your free LLM_API_KEY in it
+cp backend/.env.example backend/.env
+docker compose run --rm api python -m app.core.security     # prints TOKEN_ENCRYPTION_KEY and SESSION_SECRET
+```
+
+3. Put `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY` and `SESSION_SECRET` (and optionally your
+   free `LLM_API_KEY`) in `backend/.env`, then start everything:
+
+```bash
 docker compose up --build
 ```
 
@@ -112,7 +124,12 @@ cd frontend && npm run lint && npm run build
 |---|---|
 | Port 5173, 8000 or 5432 already in use | Stop the other process, or set `WEB_PORT` for the web app |
 | `/ask` returns 503 | `LLM_API_KEY` is not set in `backend/.env` (restart the stack after adding it) |
-| Indexing fails with "Could not clone the repo" | The repo is private or the URL/branch is wrong. For private repos paste a GitHub token with read access |
+| Login button says GitHub sign-in is not set up | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY` or `SESSION_SECRET` is missing or invalid in `backend/.env`; restart after editing. `http://localhost:8000/auth/config` shows the state |
+| GitHub says "redirect_uri is not associated with this application" | The OAuth app's callback URL must be exactly `http://localhost:5173/api/auth/github/callback` (or your `GITHUB_REDIRECT_URI`) |
+| Signed in but a private repo fails with "your account cannot access it" | Wrong URL or no access. For an organization repo, an org owner must approve the OAuth app (GitHub org settings, Third-party access) |
+| A repo fails with "Sign in with GitHub again" | The saved token was revoked or the encryption key changed. Sign out and sign in again |
+| Repos you indexed before login existed are missing | They have no owner yet: see "Repos indexed before login existed" in [backend/README.md](backend/README.md) |
+| Indexing fails with "Could not clone the repo" | URL or branch is wrong, or the repo is private and your GitHub account cannot access it (see above) |
 | Worker shows `unhealthy` right after start | Normal for up to 3 minutes while the embedding model downloads |
 | Frontend cannot reach the backend | Check `docker compose ps`; the web container waits for a healthy api |
 | Need a clean slate | `docker compose down -v` |

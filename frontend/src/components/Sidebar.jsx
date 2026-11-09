@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -13,6 +14,7 @@ import {
   Sparkles,
   ExternalLink,
 } from 'lucide-react';
+import { getRepositories } from '../services/api';
 import './Sidebar.css';
 
 /**
@@ -30,32 +32,50 @@ export default function Sidebar({
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Extract current repoId from path if active (e.g. /explorer/1 or /dependencies/1)
-  const currentPath = location.pathname;
-  const repoMatch = currentPath.match(/\/(?:repository|explorer|dependencies|onboarding|qa)\/([^/?]+)/);
-  if (repoMatch) {
+  // The repository the repo-specific links point at: the one in the URL, else the last one opened,
+  // else the first ready one. Only the user's own repositories are considered (GET /repos).
+  const [repos, setRepos] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    getRepositories()
+      .then((res) => { if (alive) setRepos(res.repositories || []); })
+      .catch(() => { if (alive) setRepos([]); });
+    return () => { alive = false; };
+  }, [location.pathname]);
+
+  const urlRepoId = location.pathname.match(
+    /\/(?:repository|explorer|dependencies|onboarding|qa)\/([^/?]+)/
+  )?.[1];
+  let lastRepoId = null;
+  try {
+    lastRepoId = localStorage.getItem('codeverse_last_repo_id');
+  } catch {
+    // ignore storage access errors
+  }
+  const byId = (id) => repos.find((r) => String(r.id) === String(id));
+  const activeRepo =
+    byId(urlRepoId) || byId(lastRepoId) || repos.find((r) => r.rawStatus === 'ready') || repos[0] || null;
+  const activeRepoId = activeRepo ? activeRepo.id : null;
+
+  useEffect(() => {
+    if (!activeRepoId) return;
     try {
-      localStorage.setItem('codeverse_last_repo_id', repoMatch[1]);
+      localStorage.setItem('codeverse_last_repo_id', String(activeRepoId));
     } catch {
       // ignore storage access errors
     }
-  }
-  const lastActiveRepoId = (() => {
-    try {
-      return localStorage.getItem('codeverse_last_repo_id') || '1';
-    } catch {
-      return '1';
-    }
-  })();
-  const activeRepoId = repoMatch ? repoMatch[1] : lastActiveRepoId;
+  }, [activeRepoId]);
+
+  // With no repository yet, the repo links lead to the connect page instead of a broken /explorer/1.
+  const repoLink = (section) => (activeRepoId ? `/${section}/${activeRepoId}` : '/connect');
 
   const navItems = [
     { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} strokeWidth={1.8} /> },
     { to: '/connect', label: 'Connect Repo', icon: <GitBranch size={18} strokeWidth={1.8} /> },
-    { to: `/explorer/${activeRepoId}`, label: 'Code Explorer', icon: <FolderTree size={18} strokeWidth={1.8} /> },
-    { to: `/dependencies/${activeRepoId}`, label: 'Module Map', icon: <Boxes size={18} strokeWidth={1.8} /> },
-    { to: `/onboarding/${activeRepoId}`, label: 'Onboarding', icon: <CheckSquare size={18} strokeWidth={1.8} /> },
-    { to: `/qa/${activeRepoId}`, label: 'Codebase Q&A', icon: <MessageSquare size={18} strokeWidth={1.8} /> },
+    { to: repoLink('explorer'), label: 'Code Explorer', icon: <FolderTree size={18} strokeWidth={1.8} /> },
+    { to: repoLink('dependencies'), label: 'Module Map', icon: <Boxes size={18} strokeWidth={1.8} /> },
+    { to: repoLink('onboarding'), label: 'Onboarding', icon: <CheckSquare size={18} strokeWidth={1.8} /> },
+    { to: repoLink('qa'), label: 'Codebase Q&A', icon: <MessageSquare size={18} strokeWidth={1.8} /> },
     { to: '/settings', label: 'Settings', icon: <Settings size={18} strokeWidth={1.8} /> },
   ];
 
@@ -121,11 +141,13 @@ export default function Sidebar({
           ))}
         </nav>
 
-        {!collapsed && (
+        {!collapsed && activeRepo && (
           <div className="cv-sidebar__repo-shortcut">
             <div className="cv-sidebar__shortcut-card">
               <span className="cv-sidebar__shortcut-badge">ACTIVE REPO</span>
-              <p className="cv-sidebar__shortcut-name">react-dashboard</p>
+              <p className="cv-sidebar__shortcut-name" title={`${activeRepo.owner}/${activeRepo.name}`}>
+                {activeRepo.name}
+              </p>
               <button
                 type="button"
                 className="cv-sidebar__shortcut-btn"

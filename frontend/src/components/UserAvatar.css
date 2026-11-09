@@ -1,0 +1,13 @@
+/* Shared avatar. The wrapper's size, radius and colours come from the class it is used with
+   (.cv-topbar__avatar, .cv-profile-avatar); this only makes the picture fill and clip to it. */
+.cv-user-avatar {
+  overflow: hidden;
+  user-select: none;
+}
+
+.cv-user-avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

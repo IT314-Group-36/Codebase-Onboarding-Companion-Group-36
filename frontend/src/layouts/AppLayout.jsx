@@ -53,7 +53,7 @@ export default function AppLayout() {
       <ConfirmDialog
         open={logoutModalOpen}
         title="Sign Out"
-        message="Are you sure you want to exit your demo session? You can sign back in at any time."
+        message="Sign out of Codeverse? You can sign back in with GitHub at any time."
         confirmLabel="Log Out"
         variant="danger"
         loading={loggingOut}

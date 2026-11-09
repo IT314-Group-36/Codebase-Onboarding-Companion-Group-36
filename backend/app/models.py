@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, Computed, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, Computed, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,11 +11,34 @@ from app.db.base import Base
 EMBED_DIM = get_settings().embed_dim
 
 
-class Repository(Base):
-    __tablename__ = "repositories"
-    __table_args__ = (UniqueConstraint("url", "branch", name="uq_repositories_url_branch"),)
+class User(Base):
+    """A GitHub account that signed in. The access token is stored encrypted (app.core.security)."""
+    __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    github_id: Mapped[int] = mapped_column(BigInteger, unique=True)         # stable; the login name can change
+    login: Mapped[str] = mapped_column(String(100))
+    name: Mapped[str | None] = mapped_column(String(200))
+    email: Mapped[str | None] = mapped_column(String(320))
+    avatar_url: Mapped[str | None] = mapped_column(String(500))
+    encrypted_access_token: Mapped[str | None] = mapped_column(Text)
+    token_scopes: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class Repository(Base):
+    __tablename__ = "repositories"
+    __table_args__ = (
+        # one copy of a repo+branch per owner; two users may index the same repo separately
+        UniqueConstraint("owner_id", "url", "branch", name="uq_repositories_owner_url_branch"),
+        # NULL owner_id (repos registered before login existed) are not "equal" to each other in a plain
+        # unique constraint, so keep the old url+branch rule for them with a partial index
+        Index("uq_repositories_unowned_url_branch", "url", "branch", unique=True, postgresql_where=text("owner_id IS NULL")),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     url: Mapped[str] = mapped_column(String(500))
     branch: Mapped[str] = mapped_column(String(100), default="")           # "" = default branch
     status: Mapped[str] = mapped_column(String(20), default="queued")       # queued|indexing|ready|failed

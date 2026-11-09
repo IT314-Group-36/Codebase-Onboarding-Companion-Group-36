@@ -12,9 +12,10 @@ import {
 import GithubIcon from '../components/GithubIcon';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
+import UserAvatar from '../components/UserAvatar';
 import { getRepositories, reindexRepository } from '../services/api';
 import { showToast } from '../utils/toast';
-import { sampleUser } from '../data/sampleData';
+import { useAuth } from '../context/useAuth';
 import './SettingsPage.css';
 
 /**
@@ -24,6 +25,7 @@ import './SettingsPage.css';
  */
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [repos, setRepos] = useState([]);
   const [disconnectCandidate, setDisconnectCandidate] = useState(null);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -101,10 +103,9 @@ export default function SettingsPage() {
 
   const handleConfirmLogout = async () => {
     setLoggingOut(true);
-    await new Promise((r) => setTimeout(r, 400));
+    await logout();
     setLoggingOut(false);
     setLogoutModalOpen(false);
-    showToast('Signed out of session.', 'info');
     navigate('/');
   };
 
@@ -127,21 +128,18 @@ export default function SettingsPage() {
                 <User size={16} className="cv-settings-section__icon" />
                 <h2 className="cv-settings-section__title">Developer Profile</h2>
               </div>
-              <span className="cv-status-chip">Developer Session</span>
+              <span className="cv-status-chip">GitHub Account</span>
             </div>
 
             <div className="cv-profile-box">
-              <div className="cv-profile-avatar" aria-hidden="true">
-                {sampleUser.name.split(' ').map((n) => n[0]).join('')}
-              </div>
+              <UserAvatar user={user} className="cv-profile-avatar" />
               <div className="cv-profile-info">
-                <h3 className="cv-profile-name">{sampleUser.name}</h3>
-                <p className="cv-profile-email">{sampleUser.email}</p>
+                <h3 className="cv-profile-name">{user?.name}</h3>
+                <p className="cv-profile-email">{user?.email || 'No public email on GitHub'}</p>
                 <div className="cv-profile-meta-tags">
-                  <span className="cv-profile-tag">@{sampleUser.githubUsername}</span>
-                  <span className="cv-profile-tag">{sampleUser.plan}</span>
+                  <span className="cv-profile-tag">@{user?.githubUsername}</span>
                   <span className="cv-profile-tag">
-                    Joined {new Date(sampleUser.joinedAt).toLocaleDateString()}
+                    {user?.githubConnected ? 'Private repos enabled' : 'GitHub not connected'}
                   </span>
                 </div>
               </div>
@@ -318,7 +316,7 @@ export default function SettingsPage() {
           <section className="cv-settings-section cv-settings-section--danger" aria-label="Session Termination">
             <h2 className="cv-settings-section__title cv-settings-section__title--danger">Session Controls</h2>
             <p className="cv-danger-desc">
-              Signing out will reset local session storage and return you to the login screen.
+              Signing out ends your session on this browser and returns you to the login screen.
             </p>
             <Button
               variant="danger"

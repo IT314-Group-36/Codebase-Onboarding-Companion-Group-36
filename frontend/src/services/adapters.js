@@ -105,11 +105,14 @@ export function parseIndexingError(rawError) {
   if (clean.includes('Could not clone the repo') || clean.includes('Authentication failed') || clean.includes('terminal prompts disabled')) {
     return {
       title: 'Repository Access Restricted',
-      message:
-        'Could not clone repository. If this repository is private, please provide a valid GitHub Personal Access Token.',
+      message: clean.includes('Sign in with GitHub again')
+        ? 'GitHub rejected your saved sign-in. Sign in with GitHub again, then retry.'
+        : 'Could not clone repository. If it is private, make sure your GitHub account can access it (for an organization repo, an owner may need to approve this app), or provide a Personal Access Token.',
       failingFile: null,
       isRetryable: true,
-      advisory: 'Provide a Personal Access Token with repository read permissions and retry.',
+      advisory: clean.includes('Sign in with GitHub again')
+        ? 'Use the "Sign in with GitHub again" button below to refresh your access, then retry.'
+        : 'Private repositories your GitHub account can access are cloned automatically. Otherwise provide a Personal Access Token with repository read permission.',
       technicalDetails: clean,
     };
   }
@@ -556,5 +559,20 @@ export function saveTaskStatus(repoId, taskId, status) {
     localStorage.setItem(repoKey, JSON.stringify(state));
   } catch (err) {
     console.error('Failed to save task status to localStorage:', err);
+  }
+}
+
+/**
+ * Maps GET /auth/me to the shape the UI uses.
+ */
+export function adaptUser(raw) {
+  return {
+    id: raw.id,
+    name: raw.name || raw.login,
+    email: raw.email || '',
+    githubUsername: raw.login,
+    avatarUrl: raw.avatar_url || null,
+    githubConnected: Boolean(raw.github_connected),
+    tokenScopes: raw.token_scopes || '',
   }
 }

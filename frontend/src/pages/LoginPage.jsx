@@ -1,93 +1,49 @@
-import { useState, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { Navigate } from 'react-router-dom';
 import {
   Sparkles,
-  CheckCircle2,
   AlertCircle,
   FolderTree,
   Boxes,
   CheckSquare,
   ShieldCheck,
   GitBranch,
-  Eye,
-  EyeOff,
-  Mail,
-  Lock,
 } from 'lucide-react';
 import CosmicBackground from '../components/CosmicBackground';
 import Button from '../components/Button';
 import GithubIcon from '../components/GithubIcon';
 import { useAuth } from '../context/useAuth';
+import { getAuthConfig } from '../services/api';
 import './LoginPage.css';
 
 const LiquidChromeOrb = lazy(() => import('../components/3d/LiquidChromeOrb'));
 
 /**
- * Page 1: Authentication / Login (Dark Aurora UI)
- * Premium developer onboarding landing view with:
- * - Ambient blue illumination and deep-space black surfaces.
- * - Minimalist login form with password visibility toggle.
- * - Amber primary login CTA.
- * - One-click GitHub OAuth authentication.
+ * Page 1: Sign in with GitHub (OAuth).
+ * The button sends the browser to GitHub; GitHub sends it back to /auth/callback once the
+ * backend has created the session. Private repositories your account can access work after this.
  */
 export default function LoginPage() {
-  const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated, loading } = useAuth();
+  const [githubEnabled, setGithubEnabled] = useState(null); // null = still checking
+  const [redirecting, setRedirecting] = useState(false);
 
-  const [authMode, setAuthMode] = useState('github'); // 'github' | 'credentials'
-  const [email, setEmail] = useState('alex.rivera@codeverse.dev');
-  const [password, setPassword] = useState('••••••••••••');
-  const [showPassword, setShowPassword] = useState(false);
-  const [authState, setAuthState] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
-  const [errorMessage, setErrorMessage] = useState('');
+  useEffect(() => {
+    let alive = true;
+    getAuthConfig().then((config) => {
+      if (alive) setGithubEnabled(Boolean(config.github_login_enabled));
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  const handleGitHubAuth = async (shouldFail = false) => {
-    setAuthState('loading');
-    setErrorMessage('');
+  // Already signed in: skip the login screen
+  if (!loading && isAuthenticated) return <Navigate to="/dashboard" replace />;
 
-    try {
-      const res = await login(shouldFail);
-      if (res && res.success) {
-        setAuthState('success');
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 850);
-      } else {
-        setAuthState('error');
-        setErrorMessage(res?.error || 'Authentication error. Please try again.');
-      }
-    } catch (err) {
-      setAuthState('error');
-      setErrorMessage(err.message || 'Authentication error. Please try again.');
-    }
-  };
-
-  const handleCredentialsSubmit = async (e) => {
-    e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      setAuthState('error');
-      setErrorMessage('Please enter both work email and account password.');
-      return;
-    }
-
-    setAuthState('loading');
-    setErrorMessage('');
-
-    try {
-      const res = await login(false);
-      if (res && res.success) {
-        setAuthState('success');
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 850);
-      } else {
-        setAuthState('error');
-        setErrorMessage(res?.error || 'Invalid credentials. Please verify your email.');
-      }
-    } catch (err) {
-      setAuthState('error');
-      setErrorMessage(err.message || 'Failed to authenticate session.');
-    }
+  const handleGitHubAuth = () => {
+    setRedirecting(true);
+    login();
   };
 
   return (
@@ -228,147 +184,41 @@ export default function LoginPage() {
             </div>
 
             <div className="cv-auth-box__body">
-              {authState === 'success' ? (
-                <div className="cv-auth-success-state">
-                  <CheckCircle2 size={38} className="cv-auth-success-icon" />
-                  <h3>Session Initialized</h3>
-                  <p>Welcome back, Alex Rivera. Redirecting to your dashboard...</p>
-                </div>
-              ) : (
-                <>
-                  {/* Mode Selector: Credentials Form vs GitHub One-Click */}
-                  <div className="cv-auth-tabs">
-                    <button
-                      type="button"
-                      className={`cv-auth-tab ${authMode === 'github' ? 'cv-auth-tab--active' : ''}`}
-                      onClick={() => setAuthMode('github')}
-                    >
-                      GitHub OAuth
-                    </button>
-                    <button
-                      type="button"
-                      className={`cv-auth-tab ${authMode === 'credentials' ? 'cv-auth-tab--active' : ''}`}
-                      onClick={() => setAuthMode('credentials')}
-                    >
-                      Developer Login
-                    </button>
+              <p className="cv-auth-box__instruction">
+                Sign in with GitHub to connect repositories, including private ones your account can access,
+                and track onboarding roadmaps.
+              </p>
+
+              {githubEnabled === false && (
+                <div className="cv-auth-demo-banner" role="alert">
+                  <AlertCircle size={15} className="cv-auth-demo-banner__icon" />
+                  <div>
+                    <strong>GitHub sign-in is not set up</strong>
+                    <p>
+                      The server needs the GitHub OAuth settings in backend/.env. See the project README.
+                    </p>
                   </div>
-
-                  {authMode === 'credentials' ? (
-                    <form className="cv-auth-form" onSubmit={handleCredentialsSubmit}>
-                      <div className="cv-auth-field">
-                        <label className="cv-auth-label" htmlFor="login-email">
-                          Work Email
-                        </label>
-                        <div className="cv-auth-input-wrap">
-                          <Mail size={15} className="cv-auth-input-icon" />
-                          <input
-                            id="login-email"
-                            type="email"
-                            className="cv-auth-input"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="name@company.com"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div className="cv-auth-field">
-                        <label className="cv-auth-label" htmlFor="login-password">
-                          Password
-                        </label>
-                        <div className="cv-auth-input-wrap">
-                          <Lock size={15} className="cv-auth-input-icon" />
-                          <input
-                            id="login-password"
-                            type={showPassword ? 'text' : 'password'}
-                            className="cv-auth-input cv-auth-input--with-action"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Account password"
-                            required
-                          />
-                          <button
-                            type="button"
-                            className="cv-auth-pwd-toggle"
-                            onClick={() => setShowPassword(!showPassword)}
-                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                          >
-                            {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                          </button>
-                        </div>
-                      </div>
-
-                      {authState === 'error' && (
-                        <div className="cv-auth-error-banner" role="alert">
-                          <AlertCircle size={15} />
-                          <span>{errorMessage}</span>
-                        </div>
-                      )}
-
-                      <Button
-                        type="submit"
-                        variant="primary"
-                        size="lg"
-                        loading={authState === 'loading'}
-                        className="cv-auth-submit-btn"
-                      >
-                        Sign In to Codeverse
-                      </Button>
-                    </form>
-                  ) : (
-                    <>
-                      <p className="cv-auth-box__instruction">
-                        Sign in with GitHub to connect repositories, parse AST nodes, and track onboarding roadmaps.
-                      </p>
-
-                      <div className="cv-auth-demo-banner" role="status">
-                        <AlertCircle size={15} className="cv-auth-demo-banner__icon" />
-                        <div>
-                          <strong>Demo Environment</strong>
-                          <p>GitHub OAuth is simulated until backend integration. Click below to enter.</p>
-                        </div>
-                      </div>
-
-                      {authState === 'error' && (
-                        <div className="cv-auth-error-banner" role="alert">
-                          <AlertCircle size={15} />
-                          <span>{errorMessage}</span>
-                        </div>
-                      )}
-
-                      <div className="cv-auth-cta-stack">
-                        <Button
-                          variant="primary"
-                          size="lg"
-                          loading={authState === 'loading'}
-                          icon={<GithubIcon size={18} />}
-                          onClick={() => handleGitHubAuth(false)}
-                          className="cv-auth-submit-btn"
-                        >
-                          Continue with GitHub
-                        </Button>
-
-                        <button
-                          type="button"
-                          className="cv-auth-simulate-toggle"
-                          onClick={() => handleGitHubAuth(true)}
-                          disabled={authState === 'loading'}
-                        >
-                          Simulate network error
-                        </button>
-                      </div>
-                    </>
-                  )}
-
-                  <p className="cv-auth-box__terms">
-                    By signing in, you agree to our{' '}
-                    <a href="#terms" onClick={(e) => e.preventDefault()}>Terms</a> and{' '}
-                    <a href="#privacy" onClick={(e) => e.preventDefault()}>Privacy Policy</a>.
-                  </p>
-                </>
+                </div>
               )}
+
+              <div className="cv-auth-cta-stack">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  loading={redirecting || loading}
+                  disabled={githubEnabled === false}
+                  icon={<GithubIcon size={18} />}
+                  onClick={handleGitHubAuth}
+                  className="cv-auth-submit-btn"
+                >
+                  Continue with GitHub
+                </Button>
+              </div>
+
+              <p className="cv-auth-box__terms">
+                We ask GitHub for read access to your repositories so we can clone the ones you choose.
+                Your GitHub token is stored encrypted on the server and never sent to your browser.
+              </p>
             </div>
           </div>
         </div>

@@ -5,6 +5,8 @@ from arq.connections import RedisSettings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.auth import router as auth_router
+from app.api.github import router as github_router
 from app.api.repos import router as repos_router
 from app.core.config import get_settings
 
@@ -20,7 +22,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Codebase Onboarding Companion", version="0.2.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=get_settings().cors_origins, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=get_settings().cors_origins,
+                   allow_credentials=True, allow_methods=["*"], allow_headers=["*"])   # credentials: the session cookie
+app.include_router(auth_router)
+app.include_router(github_router)
 app.include_router(repos_router)
 
 

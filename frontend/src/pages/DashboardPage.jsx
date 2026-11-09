@@ -6,7 +6,6 @@ import {
   Box,
   CheckCircle,
   Plus,
-  Info,
   Check,
   Clock,
   Circle,
@@ -21,11 +20,7 @@ import LoadingState from '../components/LoadingState';
 import Button from '../components/Button';
 import { getRepositories } from '../services/api';
 import { generateOnboardingTasks, saveTaskStatus } from '../services/adapters';
-import {
-  sampleRepositories,
-  sampleOnboardingTasks,
-  sampleUser,
-} from '../data/sampleData';
+import { useAuth } from '../context/useAuth';
 import { showToast } from '../utils/toast';
 import './DashboardPage.css';
 
@@ -36,12 +31,13 @@ import './DashboardPage.css';
  */
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [repos, setRepos] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [tasks, setTasks] = useState([]);
-  const [demoMode, setDemoMode] = useState(false);
+  const [taskRepo, setTaskRepo] = useState(null);   // the repository the milestones belong to
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -55,22 +51,18 @@ export default function DashboardPage() {
         if (res.success) {
           setRepos(res.repositories || []);
 
-          // Synthesize onboarding tasks from the first ready repository if available
-          const firstReady = (res.repositories || []).find((r) => r.rawStatus === 'ready');
-          if (firstReady) {
-            const generated = generateOnboardingTasks(firstReady);
-            setTasks(generated);
-          } else if (res.repositories?.length > 0) {
-            const generated = generateOnboardingTasks(res.repositories[0]);
-            setTasks(generated);
-          } else {
-            setTasks(sampleOnboardingTasks);
-          }
+          // Milestones come from the first ready repository (else the first one); none without repositories
+          const list = res.repositories || [];
+          const source = list.find((r) => r.rawStatus === 'ready') || list[0] || null;
+          setTaskRepo(source);
+          setTasks(source ? generateOnboardingTasks(source) : []);
         }
       } catch (err) {
         if (!isMounted) return;
-        console.warn('Backend load failed, switching to local state:', err.message);
-        showToast('Could not reach backend. Check if FastAPI is running on port 8000.', 'error');
+        console.warn('Could not load repositories:', err.message);
+        if (err.status !== 401) {      // a 401 already sends the user back to sign in
+          showToast(err.message || 'Could not load your repositories.', 'error');
+        }
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -101,10 +93,8 @@ export default function DashboardPage() {
               ? 'pending'
               : 'completed';
 
-          // If we have an active repo, save to localStorage
-          const activeRepo = repos[0];
-          if (activeRepo) {
-            saveTaskStatus(activeRepo.id, taskId, nextStatus);
+          if (taskRepo) {
+            saveTaskStatus(taskRepo.id, taskId, nextStatus);
           }
           return { ...t, status: nextStatus };
         }
@@ -114,7 +104,7 @@ export default function DashboardPage() {
     showToast('Task status updated.', 'info');
   };
 
-  const activeRepos = demoMode ? sampleRepositories : repos;
+  const activeRepos = repos;
 
   const filteredRepos = useMemo(() => {
     return activeRepos.filter((repo) => {
@@ -157,7 +147,7 @@ export default function DashboardPage() {
             <div className="cv-dashboard-header__title-row">
               <h1 className="cv-dashboard-title">Dashboard</h1>
               <span className="cv-dashboard-user-pill">
-                {sampleUser.name} · {sampleUser.plan}
+                {user?.name}{user?.githubUsername ? ` · @${user.githubUsername}` : ''}
               </span>
             </div>
             <p className="cv-dashboard-subtitle">
@@ -172,18 +162,9 @@ export default function DashboardPage() {
             size="md"
             icon={<RefreshCw size={14} className={isRefreshing ? 'cv-icon-spin' : ''} />}
             onClick={handleManualRefresh}
-            title="Refresh repository list from FastAPI backend"
+            title="Reload your repositories"
           >
             Refresh
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={() => setDemoMode(!demoMode)}
-            title="Toggle between live backend data and demo fixtures"
-          >
-            {demoMode ? 'Live Backend Data' : 'Demo Fixtures'}
           </Button>
 
           <Button
@@ -196,17 +177,6 @@ export default function DashboardPage() {
           </Button>
         </div>
       </section>
-
-      {/* Backend Integration Strip */}
-      <div className="cv-dashboard-demo-strip">
-        <Info size={14} className="cv-dashboard-demo-strip__icon" />
-        <span>
-          <strong>{demoMode ? 'Demo preview mode:' : 'FastAPI Backend Live:'}</strong>{' '}
-          {demoMode
-            ? 'Viewing sample repository fixtures for UI layout testing.'
-            : 'Displaying real-time AST data from http://localhost:8000/repos.'}
-        </span>
-      </div>
 
       {/* Metric Cards Ribbon */}
       <section className="cv-dashboard-stats" aria-label="Summary Statistics">
@@ -318,6 +288,12 @@ export default function DashboardPage() {
               </span>
             </div>
 
+            {tasks.length === 0 && (
+              <p className="cv-section-desc" style={{ padding: '0.75rem 0' }}>
+                Connect a repository to get a first-week onboarding checklist for it.
+              </p>
+            )}
+
             <div className="cv-onboarding-task-list">
               {tasks.map((task) => {
                 const isDone = task.status === 'completed';
@@ -355,9 +331,11 @@ export default function DashboardPage() {
               })}
             </div>
 
-            <div className="cv-onboarding-tip">
-              <span>Tip: Click any task to toggle status between completed, in-progress, and pending.</span>
-            </div>
+            {tasks.length > 0 && (
+              <div className="cv-onboarding-tip">
+                <span>Tip: Click any task to toggle status between completed, in-progress, and pending.</span>
+              </div>
+            )}
           </div>
         </section>
       </div>

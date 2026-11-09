@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
@@ -7,61 +7,36 @@ import Button from '../components/Button';
 import './LoginPage.css';
 
 /**
- * Handles OAuth callback redirects: /auth/callback
- * Extracts authorization tokens or initiates simulated authentication handshakes.
+ * /auth/callback: GitHub sent the browser to the backend, which created the session and redirected here.
+ * We only report the result: an `error` query parameter means sign-in failed; otherwise we wait for
+ * GET /auth/me (done by AuthProvider) and continue to the dashboard.
  */
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login } = useAuth();
-  const [status, setStatus] = useState('processing'); // 'processing' | 'success' | 'error'
-  const [errorMsg, setErrorMsg] = useState('');
+  const { user, loading } = useAuth();
+  const error = searchParams.get('error');
+  const errorDescription = searchParams.get('error_description');
+
+  let status = 'processing'; // 'processing' | 'success' | 'error'
+  let errorMsg = '';
+  if (error) {
+    status = 'error';
+    errorMsg = errorDescription || 'GitHub sign-in failed. Please try again.';
+  } else if (!loading) {
+    if (user) {
+      status = 'success';
+    } else {
+      status = 'error';
+      errorMsg = 'Sign-in did not complete. Please try again.';
+    }
+  }
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function handleAuth() {
-      const error = searchParams.get('error');
-      const errorDescription = searchParams.get('error_description');
-
-      if (error) {
-        if (isMounted) {
-          setStatus('error');
-          setErrorMsg(errorDescription || error || 'GitHub authorization failed.');
-        }
-        return;
-      }
-
-      // Simulate handshake or process incoming token/code
-      try {
-        const result = await login(false);
-        if (result.success) {
-          if (isMounted) {
-            setStatus('success');
-            setTimeout(() => {
-              navigate('/dashboard', { replace: true });
-            }, 800);
-          }
-        } else {
-          if (isMounted) {
-            setStatus('error');
-            setErrorMsg(result.error || 'Failed to initialize session.');
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          setStatus('error');
-          setErrorMsg(err.message || 'Authentication error.');
-        }
-      }
-    }
-
-    handleAuth();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [login, navigate, searchParams]);
+    if (status !== 'success') return undefined;
+    const timer = setTimeout(() => navigate('/dashboard', { replace: true }), 600);
+    return () => clearTimeout(timer);
+  }, [status, navigate]);
 
   return (
     <div className="cv-login-view">
@@ -71,9 +46,9 @@ export default function AuthCallbackPage() {
           <div className="cv-login-card-header" style={{ alignItems: 'center' }}>
             <div className="cv-login-badge">
               <Sparkles size={16} />
-              <span>OAuth Callback</span>
+              <span>GitHub Sign-in</span>
             </div>
-            <h2 className="cv-login-card-title">Authenticating Session</h2>
+            <h2 className="cv-login-card-title">Signing you in</h2>
           </div>
 
           <div style={{ padding: '2rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.25rem' }}>
@@ -81,7 +56,7 @@ export default function AuthCallbackPage() {
               <>
                 <div className="cv-login-spinner" style={{ width: 36, height: 36, borderWidth: 3 }} />
                 <p style={{ color: 'var(--cv-text-secondary)', fontSize: '0.9375rem' }}>
-                  Negotiating OAuth session with GitHub provider...
+                  Finishing sign-in with GitHub...
                 </p>
               </>
             )}
@@ -90,7 +65,7 @@ export default function AuthCallbackPage() {
               <>
                 <CheckCircle2 size={42} style={{ color: 'var(--cv-success)' }} />
                 <div>
-                  <h3 style={{ color: 'var(--cv-text-primary)', marginBottom: '0.25rem' }}>Authentication Complete</h3>
+                  <h3 style={{ color: 'var(--cv-text-primary)', marginBottom: '0.25rem' }}>Signed in</h3>
                   <p style={{ color: 'var(--cv-text-secondary)', fontSize: '0.875rem' }}>
                     Redirecting to your dashboard...
                   </p>

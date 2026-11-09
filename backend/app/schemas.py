@@ -58,3 +58,49 @@ class AskIn(BaseModel):
 
 class ReindexIn(BaseModel):
     access_token: str | None = Field(default=None, description="GitHub token for private repos (not stored).")
+
+
+class MeOut(BaseModel):
+    """The signed-in user as the frontend needs it. `github_connected` says a GitHub token is stored; the token itself never leaves the server."""
+    id: int
+    github_id: int
+    login: str
+    name: str | None
+    email: str | None
+    avatar_url: str | None
+    github_connected: bool
+    token_scopes: str | None
+
+
+class GitHubRepoOut(BaseModel):
+    full_name: str
+    url: str
+    private: bool
+    default_branch: str | None
+    description: str | None
+    language: str | None
+    updated_at: str | None
+    owner: str
+
+
+class GitHubRepoList(BaseModel):
+    repos: list[GitHubRepoOut]
+    page: int
+    has_more: bool
+
+
+class BranchList(BaseModel):
+    default_branch: str | None
+    branches: list[str]
+    truncated: bool
+
+
+class UserOut(BaseModel):
+    """Public view of a user. Never add the token fields here."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    github_id: int
+    login: str
+    name: str | None
+    email: str | None
+    avatar_url: str | None
