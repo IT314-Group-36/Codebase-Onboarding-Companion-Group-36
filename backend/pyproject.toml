@@ -24,6 +24,8 @@ dependencies = [
     "langchain-google-genai>=3.0",
     "fastembed>=0.4",
     "numpy",
+    "cryptography>=43",          # Fernet: encrypts stored GitHub tokens
+    "itsdangerous>=2.2",         # signed, expiring session cookies
 ]
 
 [dependency-groups]

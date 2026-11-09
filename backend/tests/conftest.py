@@ -77,5 +77,5 @@ async def db(migrated_db):
     from sqlalchemy import text
     from app.db.session import engine
     async with engine.begin() as conn:
-        await conn.execute(text("TRUNCATE repositories RESTART IDENTITY CASCADE"))
+        await conn.execute(text("TRUNCATE users, repositories RESTART IDENTITY CASCADE"))
     yield

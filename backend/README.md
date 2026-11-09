@@ -51,7 +51,8 @@ Poll `GET /repos/{id}` for progress; the other endpoints return 409 until `statu
 
 Private repos: send a GitHub token as `access_token` on `POST /repos` or `POST /repos/{id}/reindex`. It is passed to
 `git` through an environment header for that one job and is never stored or logged. There is no user login or
-per-user access control yet, so every registered repo is visible to every caller of the API.
+per-user access control on the routes yet (the users table, token encryption and auth dependencies exist, see
+"Users, ownership and sessions"), so every registered repo is visible to every caller of the API.
 
 ## Configuration
 
@@ -67,9 +68,36 @@ Set these in `backend/.env` (environment variables of the same name also work). 
 | `REDIS_URL` | `redis://localhost:6379` | job queue; overridden by compose inside Docker |
 | `CORS_ORIGINS` | `["http://localhost:5173"]` | JSON list; only matters when the browser calls the API directly. Compose also sets it, which takes precedence over `.env` |
 | `EMBED_BACKEND`, `EMBED_MODEL`, `EMBED_DIM` | `fastembed`, `BAAI/bge-small-en-v1.5`, `384` | embeddings; `hash` backend is for tests only |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | empty | GitHub OAuth app credentials (for login and private repos) |
+| `GITHUB_REDIRECT_URI` | `http://localhost:5173/api/auth/github/callback` | must match the OAuth app's callback URL exactly |
+| `FRONTEND_URL` | `http://localhost:5173` | where the browser is sent after login |
+| `SESSION_SECRET` | empty | signs the login cookie; at least 32 characters |
+| `SESSION_COOKIE_NAME`, `SESSION_TTL_SECONDS`, `COOKIE_SECURE` | `session`, 7 days, `false` | cookie settings; set `COOKIE_SECURE=true` behind https |
+| `TOKEN_ENCRYPTION_KEY` | empty | Fernet key that encrypts stored GitHub tokens; comma-separate several keys to rotate |
 | `MAX_CHUNKS`, `MAX_FILE_BYTES` | `5000`, `200000` | indexing caps |
 | `WORK_DIR` | `/tmp/onboarding_work` | where clones live during a job (deleted afterwards) |
 | `ALLOW_LOCAL_REPOS` | `false` | accept local directory paths instead of GitHub URLs (tests and demos only) |
+
+## Users, ownership and sessions (foundation for private repos)
+
+Database (migration `0002`): a `users` table (GitHub id, login, profile, token stored encrypted) and
+`repositories.owner_id`. Uniqueness is now per owner: two users can index the same repo separately. Repos created
+before login existed keep `owner_id = NULL` and keep the old one-per-url+branch rule.
+
+Code that is in place:
+
+| Piece | Where | What it does |
+|---|---|---|
+| Token encryption | `app/core/security.py` `encrypt_token`, `decrypt_token`, `rotate_token` | Fernet; several keys in `TOKEN_ENCRYPTION_KEY` allow rotation |
+| Session cookie | `app/core/security.py` `create_session_token`, `read_session_token` | holds only the user id, signed and expiring |
+| Dependencies | `app/api/deps.py` | `get_current_user` (401), `get_user_repo` (404 for someone else's repo), `get_ready_user_repo` (409) |
+| Public user model | `app/schemas.py` `UserOut` | never includes token fields |
+
+Generate the two secrets with `docker compose run --rm api python -m app.core.security` and put them in `backend/.env`
+(see `.env.example` for creating the GitHub OAuth app). The API still starts without them.
+
+Not wired yet: the login/callback endpoints, and attaching the dependencies to the `/repos` routes. Until then every route
+is still open. Repos that already exist (`owner_id = NULL`) will need an owner or a re-register once ownership is enforced.
 
 ## How indexing works
 
@@ -121,8 +149,8 @@ function-level chunks with exact line numbers), and the NetworkX graphs.
 - `google_genai:gemini-3.6-flash` is the default `LLM_MODEL`: confirm in AI Studio that it is available on your free tier.
 - Old `.env` files: `GOOGLE_API_KEY` still works, but `GEMINI_MODEL` is ignored now. Use `LLM_MODEL=google_genai:<model>`.
 - Not built yet: first-week task list from GitHub issues, per-file and per-function explanations, graph-aware answers in `/ask`
-  ("what breaks if I change X" in plain English), streaming and follow-up questions for `/ask`, GitHub login and per-user
-  access control (needed before private repos are safe to share), a repo delete endpoint, a branch listing endpoint, webhook re-indexing.
+  ("what breaks if I change X" in plain English), streaming and follow-up questions for `/ask`, GitHub login endpoints and per-user
+  access control on the routes (the foundation exists; needed before private repos are safe to share), a repo delete endpoint, a branch listing endpoint, webhook re-indexing.
 
 ## Later, when you move to paid services
 

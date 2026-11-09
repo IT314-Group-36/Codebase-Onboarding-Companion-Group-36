@@ -10,7 +10,7 @@ for search, and (with an LLM key) writes a module map and summary. A React app l
 
 | Feature | Status | Notes |
 |---|---|---|
-| Connect a public GitHub repo | Done | Private repos only work by pasting a token per request (OAuth login in progress) |
+| Connect a public GitHub repo | Done | Private repos only work by pasting a token per request. GitHub login: database, token encryption and session helpers are done, login endpoints and the UI are next |
 | Map of modules and responsibilities | Done | Module map + dependency graph |
 | Plain-English explanations | Partial | Repo summary, module purposes and an architecture paragraph; nothing per file or function yet |
 | Ask "where is the payment logic handled?" | Done | Answers do not stream and each question is independent |

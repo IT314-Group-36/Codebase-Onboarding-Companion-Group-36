@@ -58,3 +58,14 @@ class AskIn(BaseModel):
 
 class ReindexIn(BaseModel):
     access_token: str | None = Field(default=None, description="GitHub token for private repos (not stored).")
+
+
+class UserOut(BaseModel):
+    """Public view of a user. Never add the token fields here."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    github_id: int
+    login: str
+    name: str | None
+    email: str | None
+    avatar_url: str | None
