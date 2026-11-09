@@ -14,6 +14,7 @@ import {
   saveTaskStatus,
   adaptUser,
 } from './adapters';
+import { parseGitHubUrl, isValidBranch } from '../utils/github';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -157,25 +158,24 @@ export async function getUserProfile() {
  * POST /repos -> 202 Accepted
  */
 export async function connectRepository(url, branch = '', accessToken = null) {
-  const cleanUrl = (url || '').trim();
-
-  // Validate GitHub URL
-  const match = cleanUrl.match(
-    /^https?:\/\/(?:www\.)?github\.com\/([^/\s]+)\/([^/\s]+)/
-  );
-  if (!match) {
+  // Same rules as the backend: https://github.com/<owner>/<repo> only
+  const parsed = parseGitHubUrl(url);
+  if (!parsed) {
     return {
       success: false,
       error:
         'Invalid GitHub URL. Must be in the format: https://github.com/owner/repository',
     };
   }
+  if (!isValidBranch(branch)) {
+    return { success: false, error: 'Invalid branch name.' };
+  }
 
   try {
     const rawRepo = await request('/repos', {
       method: 'POST',
       body: JSON.stringify({
-        url: cleanUrl,
+        url: parsed.url,
         branch: (branch || '').trim(),
         access_token: accessToken ? accessToken.trim() : null,
       }),
@@ -256,6 +256,35 @@ export async function disconnectRepository(repoId) {
     success: true,
     id: repoId,
     note: 'Removed from local frontend session. Backend repository records remain preserved.',
+  };
+}
+
+// ============================================
+// GITHUB (repo picker and branch list for the connect page)
+// ============================================
+
+/**
+ * One page of the repositories the signed-in user can read on GitHub (public and private).
+ * GET /github/repos. Rejects with error.code === 'github_reauth_required' when the GitHub sign-in must be refreshed.
+ */
+export async function listGitHubRepos({ page = 1, perPage = 30 } = {}) {
+  const res = await request(`/github/repos?page=${page}&per_page=${perPage}`);
+  return {
+    repos: res.repos || [],
+    page: res.page || page,
+    hasMore: Boolean(res.has_more),
+  };
+}
+
+/**
+ * Real branches of one repository ("owner/name"). GET /github/branches
+ */
+export async function listGitHubBranches(fullName) {
+  const res = await request(`/github/branches?repo=${encodeURIComponent(fullName)}`);
+  return {
+    defaultBranch: res.default_branch || null,
+    branches: res.branches || [],
+    truncated: Boolean(res.truncated),
   };
 }
 

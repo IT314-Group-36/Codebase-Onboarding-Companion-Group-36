@@ -300,3 +300,92 @@
     transform: translateX(0);
   }
 }
+
+/* ---------- Active repository shortcut, logout and collapse buttons (classes used by Sidebar.jsx) ---------- */
+.cv-sidebar__repo-shortcut {
+  margin-top: auto;
+  padding: 0 10px 10px;
+}
+
+.cv-sidebar__shortcut-card {
+  padding: 10px 12px;
+  background-color: rgba(11, 26, 51, 0.85);
+  border: 1px solid rgba(76, 154, 255, 0.20);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cv-sidebar__shortcut-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #F5A524;
+}
+
+.cv-sidebar__shortcut-name {
+  width: 100%;
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cv-sidebar__shortcut-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: #4C9AFF;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+.cv-sidebar__shortcut-btn:hover {
+  color: #FFFFFF;
+}
+
+.cv-sidebar__logout-btn {
+  width: 100%;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cv-sidebar__logout-btn:hover {
+  color: #F07171;
+  background-color: rgba(240, 113, 113, 0.10);
+  border-color: rgba(240, 113, 113, 0.25);
+}
+
+.cv-sidebar__logout-btn:hover .cv-sidebar__icon {
+  color: #F07171;
+}
+
+.cv-sidebar__collapse-btn {
+  align-self: center;
+  width: 32px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: #9AA7BD;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.cv-sidebar__collapse-btn:hover {
+  color: #FFFFFF;
+  background-color: rgba(31, 111, 235, 0.12);
+  border-color: rgba(76, 154, 255, 0.15);
+}

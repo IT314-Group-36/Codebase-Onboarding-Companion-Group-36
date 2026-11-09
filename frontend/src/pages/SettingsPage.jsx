@@ -12,6 +12,7 @@ import {
 import GithubIcon from '../components/GithubIcon';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
+import UserAvatar from '../components/UserAvatar';
 import { getRepositories, reindexRepository } from '../services/api';
 import { showToast } from '../utils/toast';
 import { useAuth } from '../context/useAuth';
@@ -131,9 +132,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="cv-profile-box">
-              <div className="cv-profile-avatar" aria-hidden="true">
-                {(user?.name || '?').split(' ').map((n) => n[0]).join('').slice(0, 2)}
-              </div>
+              <UserAvatar user={user} className="cv-profile-avatar" />
               <div className="cv-profile-info">
                 <h3 className="cv-profile-name">{user?.name}</h3>
                 <p className="cv-profile-email">{user?.email || 'No public email on GitHub'}</p>

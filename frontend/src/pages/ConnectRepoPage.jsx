@@ -14,11 +14,22 @@ import {
   ChevronDown,
   ChevronUp,
   FileWarning,
+  Lock,
+  Search,
 } from 'lucide-react';
 import GithubIcon from '../components/GithubIcon';
 import Button from '../components/Button';
-import { connectRepository, getRepositoryById, reindexRepository } from '../services/api';
+import {
+  connectRepository,
+  getRepositoryById,
+  reindexRepository,
+  listGitHubRepos,
+  listGitHubBranches,
+  loginWithGitHub,
+} from '../services/api';
 import { parseIndexingError } from '../services/adapters';
+import { parseGitHubUrl, isValidBranch } from '../utils/github';
+import { useAuth } from '../context/useAuth';
 import { showToast } from '../utils/toast';
 import './ConnectRepoPage.css';
 
@@ -39,8 +50,10 @@ const STAGE_ORDER = ['cloning', 'analyzing', 'embedding', 'saving', 'describing'
  */
 export default function ConnectRepoPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [source, setSource] = useState('picker'); // 'picker' (my GitHub repos) | 'url' (paste a URL)
   const [repoUrl, setRepoUrl] = useState('');
-  const [selectedBranch, setSelectedBranch] = useState('main');
+  const [selectedBranch, setSelectedBranch] = useState(''); // '' = the repository's default branch
   const [accessToken, setAccessToken] = useState('');
   const [showTokenField, setShowTokenField] = useState(false);
   const [urlError, setUrlError] = useState('');
@@ -53,16 +66,93 @@ export default function ConnectRepoPage() {
   const [completedSteps, setCompletedSteps] = useState([]);
   const [connectedRepoId, setConnectedRepoId] = useState(null);
 
+  // "My GitHub repos" picker: loaded page by page, filtered in the browser
+  const [ghRepos, setGhRepos] = useState([]);
+  const [ghPage, setGhPage] = useState(0);
+  const [ghHasMore, setGhHasMore] = useState(false);
+  const [ghLoadingMore, setGhLoadingMore] = useState(false);
+  const [ghError, setGhError] = useState(null); // { message, reauth }
+  const [ghFilter, setGhFilter] = useState('');
+
+  // Real branches of the chosen repository
+  const [branchInfo, setBranchInfo] = useState(null); // { fullName, defaultBranch, branches, truncated } | { fullName, failed, reauth }
+
   const pollIntervalRef = useRef(null);
 
-  const sampleBranches = [
-    'main',
-    'master',
-    'develop',
-    'staging',
-    'feature/onboarding-v1',
-    'release/v2.4',
-  ];
+  const parsedRepo = parseGitHubUrl(repoUrl);
+  const fullName = parsedRepo ? parsedRepo.fullName : null;
+  const branchesReady = branchInfo && branchInfo.fullName === fullName;       // result belongs to the current repo
+  const branchesLoading = Boolean(fullName) && !branchesReady;
+
+  const toGhError = (err) => ({
+    message: err.message || 'Could not load your GitHub repositories.',
+    reauth: err.code === 'github_reauth_required',
+  });
+
+  // First page of the picker (loaded when the picker is shown, and again after "Try again")
+  useEffect(() => {
+    if (source !== 'picker' || ghPage !== 0 || ghError) return undefined;
+    let cancelled = false;
+    listGitHubRepos({ page: 1 })
+      .then((res) => {
+        if (cancelled) return;
+        setGhRepos(res.repos);
+        setGhPage(res.page);
+        setGhHasMore(res.hasMore);
+      })
+      .catch((err) => {
+        if (!cancelled) setGhError(toGhError(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [source, ghPage, ghError]);
+
+  const loadMoreGitHubRepos = async () => {
+    setGhLoadingMore(true);
+    try {
+      const res = await listGitHubRepos({ page: ghPage + 1 });
+      setGhRepos((prev) => [...prev, ...res.repos]);
+      setGhPage(res.page);
+      setGhHasMore(res.hasMore);
+    } catch (err) {
+      setGhError(toGhError(err));
+    } finally {
+      setGhLoadingMore(false);
+    }
+  };
+  const ghLoading = (source === 'picker' && ghPage === 0 && !ghError) || ghLoadingMore;
+
+  // Branch list for the chosen repository (a pasted URL waits a moment until typing stops)
+  useEffect(() => {
+    if (!fullName) return undefined;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await listGitHubBranches(fullName);
+        if (!cancelled) setBranchInfo({ fullName, ...res });
+      } catch (err) {
+        if (!cancelled) {
+          setBranchInfo({ fullName, failed: true, reauth: err.code === 'github_reauth_required' });
+        }
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [fullName]);
+
+  const chooseRepo = (repo) => {
+    setRepoUrl(repo.url);
+    setSelectedBranch('');
+    setUrlError('');
+  };
+
+  const filteredGhRepos = ghRepos.filter((r) => {
+    const needle = ghFilter.trim().toLowerCase();
+    return !needle || r.full_name.toLowerCase().includes(needle) || (r.description || '').toLowerCase().includes(needle);
+  });
 
   const stopPolling = useCallback(() => {
     if (pollIntervalRef.current) {
@@ -79,12 +169,10 @@ export default function ConnectRepoPage() {
 
   const validateUrl = (url) => {
     if (!url.trim()) {
-      return 'Repository URL is required.';
+      return 'Choose a repository or enter its URL.';
     }
-    const githubRegex =
-      /^https?:\/\/(?:www\.)?github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)/;
-    if (!githubRegex.test(url.trim())) {
-      return 'Please enter a valid GitHub repository URL (e.g. https://github.com/facebook/react).';
+    if (!parseGitHubUrl(url)) {
+      return 'Use the form https://github.com/owner/repository (https only).';
     }
     return '';
   };
@@ -171,6 +259,10 @@ export default function ConnectRepoPage() {
     const error = validateUrl(repoUrl);
     if (error) {
       setUrlError(error);
+      return;
+    }
+    if (!isValidBranch(selectedBranch)) {
+      setUrlError('That branch name is not supported. Leave it empty to use the default branch.');
       return;
     }
     setUrlError('');
@@ -262,22 +354,26 @@ export default function ConnectRepoPage() {
       <div className="cv-connect-header">
         <h1 className="cv-connect-title">Connect Repository</h1>
         <p className="cv-connect-desc">
-          Enter a GitHub repository URL to index its directory structure, dependencies, and onboarding tasks.
+          Pick one of your GitHub repositories (private ones included) or paste a URL to index its structure, dependencies and onboarding tasks.
         </p>
       </div>
 
-      {/* GitHub Connection Status */}
+      {/* GitHub account */}
       <div className="cv-connect-status-box">
         <div className="cv-connect-status-box__icon">
           <GithubIcon size={18} />
         </div>
         <div className="cv-connect-status-box__body">
           <div className="cv-connect-status-box__title-row">
-            <span>FastAPI Ingestion Engine</span>
-            <span className="cv-status-pill cv-status-pill--ready">Backend Connected</span>
+            <span>{user?.githubUsername ? `Signed in as @${user.githubUsername}` : 'GitHub account'}</span>
+            {user?.githubConnected ? (
+              <span className="cv-status-pill cv-status-pill--ready">Private repos enabled</span>
+            ) : (
+              <span className="cv-status-pill">Sign in again</span>
+            )}
           </div>
           <p className="cv-connect-status-box__note">
-            Repositories are queued for background AST analysis, tree-sitter symbol extraction, and vector embedding.
+            Repositories your GitHub account can read are cloned with your sign-in. Your token is stored encrypted and is never shown in the browser.
           </p>
         </div>
       </div>
@@ -285,97 +381,257 @@ export default function ConnectRepoPage() {
       {/* PHASE 1: Form Input */}
       {phase === 'form' && (
         <div className="cv-connect-card">
-          <div className="cv-connect-field">
-            <label htmlFor="repo-url-input" className="cv-connect-label">
-              <span>Repository URL</span>
-              <span className="cv-connect-req">*</span>
-            </label>
-            <div className="cv-connect-input-wrap">
-              <Link2 size={16} className="cv-connect-input-icon" />
-              <input
-                id="repo-url-input"
-                type="url"
-                className={`cv-connect-input ${urlError ? 'cv-connect-input--error' : ''}`}
-                placeholder="https://github.com/owner/repository"
-                value={repoUrl}
-                onChange={(e) => {
-                  setRepoUrl(e.target.value);
-                  setUrlError('');
-                }}
-              />
-            </div>
-            {urlError ? (
-              <p className="cv-connect-error-text">
-                <AlertCircle size={13} />
-                <span>{urlError}</span>
-              </p>
-            ) : (
-              <p className="cv-connect-hint-text">
-                Public repositories or authorized GitHub organizations.
-              </p>
-            )}
+          <div className="cv-connect-tabs" role="tablist" aria-label="How to choose a repository">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={source === 'picker'}
+              className={`cv-connect-tab ${source === 'picker' ? 'cv-connect-tab--active' : ''}`}
+              onClick={() => setSource('picker')}
+            >
+              My GitHub repositories
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={source === 'url'}
+              className={`cv-connect-tab ${source === 'url' ? 'cv-connect-tab--active' : ''}`}
+              onClick={() => setSource('url')}
+            >
+              Paste a URL
+            </button>
           </div>
+
+          {source === 'picker' ? (
+            <div className="cv-connect-field">
+              <label htmlFor="repo-filter-input" className="cv-connect-label">
+                <span>Repository</span>
+                <span className="cv-connect-req">*</span>
+              </label>
+              <div className="cv-connect-input-wrap">
+                <Search size={16} className="cv-connect-input-icon" />
+                <input
+                  id="repo-filter-input"
+                  type="text"
+                  className="cv-connect-input"
+                  placeholder="Filter loaded repositories..."
+                  value={ghFilter}
+                  onChange={(e) => setGhFilter(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+
+              {ghError && (
+                <div className="cv-connect-notice cv-connect-notice--error" role="alert">
+                  <AlertCircle size={15} />
+                  <div>
+                    <p>{ghError.message}</p>
+                    <div className="cv-connect-notice__actions">
+                      {ghError.reauth && (
+                        <Button variant="primary" size="sm" onClick={loginWithGitHub}>
+                          Sign in with GitHub again
+                        </Button>
+                      )}
+                      <Button variant="secondary" size="sm" onClick={() => { setGhError(null); setGhRepos([]); setGhPage(0); }}>
+                        Try again
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!ghError && (
+                <div className="cv-connect-picker" role="listbox" aria-label="Your GitHub repositories">
+                  {filteredGhRepos.map((r) => (
+                    <button
+                      key={r.full_name}
+                      type="button"
+                      role="option"
+                      aria-selected={repoUrl === r.url}
+                      className={`cv-connect-picker__item ${repoUrl === r.url ? 'cv-connect-picker__item--selected' : ''}`}
+                      onClick={() => chooseRepo(r)}
+                    >
+                      <span className="cv-connect-picker__name">
+                        {r.private && <Lock size={12} aria-label="Private" />}
+                        {r.full_name}
+                      </span>
+                      {r.description && <span className="cv-connect-picker__desc">{r.description}</span>}
+                      <span className="cv-connect-picker__meta">
+                        {r.private ? 'Private' : 'Public'}
+                        {r.language ? ` · ${r.language}` : ''}
+                      </span>
+                    </button>
+                  ))}
+                  {ghLoading && <p className="cv-connect-hint-text">Loading your repositories...</p>}
+                  {!ghLoading && filteredGhRepos.length === 0 && (
+                    <p className="cv-connect-hint-text">
+                      {ghRepos.length === 0
+                        ? 'No repositories found on your GitHub account.'
+                        : 'No loaded repository matches that filter.'}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {!ghError && ghHasMore && !ghLoading && (
+                <button type="button" className="cv-connect-link-btn" onClick={loadMoreGitHubRepos}>
+                  Load more repositories
+                </button>
+              )}
+              {urlError ? (
+                <p className="cv-connect-error-text">
+                  <AlertCircle size={13} />
+                  <span>{urlError}</span>
+                </p>
+              ) : (
+                <p className="cv-connect-hint-text">
+                  Can&apos;t find it? Load more, or use &quot;Paste a URL&quot; (organization repos may need an owner to approve this app on GitHub).
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="cv-connect-field">
+              <label htmlFor="repo-url-input" className="cv-connect-label">
+                <span>Repository URL</span>
+                <span className="cv-connect-req">*</span>
+              </label>
+              <div className="cv-connect-input-wrap">
+                <Link2 size={16} className="cv-connect-input-icon" />
+                <input
+                  id="repo-url-input"
+                  type="url"
+                  className={`cv-connect-input ${urlError ? 'cv-connect-input--error' : ''}`}
+                  placeholder="https://github.com/owner/repository"
+                  value={repoUrl}
+                  onChange={(e) => {
+                    setRepoUrl(e.target.value);
+                    setSelectedBranch('');
+                    setUrlError('');
+                  }}
+                />
+              </div>
+              {urlError ? (
+                <p className="cv-connect-error-text">
+                  <AlertCircle size={13} />
+                  <span>{urlError}</span>
+                </p>
+              ) : (
+                <p className="cv-connect-hint-text">
+                  Public repositories, or private ones your GitHub account can access.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Selected repository summary (picker mode) */}
+          {source === 'picker' && parsedRepo && (
+            <p className="cv-connect-hint-text">
+              Selected: <code>{parsedRepo.fullName}</code>
+            </p>
+          )}
 
           <div className="cv-connect-field">
             <label htmlFor="branch-select" className="cv-connect-label">
               <span>Target Branch</span>
             </label>
-            <div className="cv-connect-input-wrap">
-              <GitBranch size={16} className="cv-connect-input-icon" />
-              <select
-                id="branch-select"
-                className="cv-connect-select"
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-              >
-                {sampleBranches.map((b) => (
-                  <option key={b} value={b}>
-                    {b} {b === 'main' || b === 'master' ? '(default)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {branchesReady && branchInfo.failed ? (
+              <>
+                <div className="cv-connect-input-wrap">
+                  <GitBranch size={16} className="cv-connect-input-icon" />
+                  <input
+                    id="branch-select"
+                    type="text"
+                    className="cv-connect-input"
+                    placeholder="Default branch (leave empty)"
+                    value={selectedBranch}
+                    onChange={(e) => setSelectedBranch(e.target.value)}
+                    autoComplete="off"
+                  />
+                </div>
+                {branchInfo.reauth ? (
+                  <div className="cv-connect-notice cv-connect-notice--error" role="alert">
+                    <AlertCircle size={15} />
+                    <div>
+                      <p>Your GitHub sign-in has expired, so branches cannot be listed.</p>
+                      <div className="cv-connect-notice__actions">
+                        <Button variant="primary" size="sm" onClick={loginWithGitHub}>
+                          Sign in with GitHub again
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="cv-connect-hint-text">
+                    Branches could not be listed for this repository. Leave this empty to use its default branch.
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="cv-connect-input-wrap">
+                  <GitBranch size={16} className="cv-connect-input-icon" />
+                  <select
+                    id="branch-select"
+                    className="cv-connect-select"
+                    value={selectedBranch}
+                    onChange={(e) => setSelectedBranch(e.target.value)}
+                    disabled={!fullName || branchesLoading}
+                  >
+                    <option value="">
+                      {!fullName
+                        ? 'Choose a repository first'
+                        : branchesLoading
+                        ? 'Loading branches...'
+                        : `Default branch${branchInfo?.defaultBranch ? ` (${branchInfo.defaultBranch})` : ''}`}
+                    </option>
+                    {branchesReady &&
+                      branchInfo.branches
+                        .filter((b) => isValidBranch(b))
+                        .map((b) => (
+                          <option key={b} value={b}>
+                            {b}
+                            {b === branchInfo.defaultBranch ? ' (default)' : ''}
+                          </option>
+                        ))}
+                  </select>
+                </div>
+                {branchesReady && branchInfo.truncated && (
+                  <p className="cv-connect-hint-text">Only the first 100 branches are listed.</p>
+                )}
+              </>
+            )}
           </div>
 
-          {/* Optional Private Repo Access Token */}
+          {/* Optional personal access token (fallback) */}
           <div className="cv-connect-field">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-              <label htmlFor="token-input" className="cv-connect-label" style={{ marginBottom: 0 }}>
-                <span>Private Repository Token</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--cv-text-muted)', marginLeft: '0.5rem' }}>
-                  (Optional)
-                </span>
-              </label>
-              <button
-                type="button"
-                style={{ background: 'none', border: 'none', color: 'var(--cv-primary)', fontSize: '0.8125rem', cursor: 'pointer' }}
-                onClick={() => setShowTokenField(!showTokenField)}
-              >
-                {showTokenField ? 'Hide Token Field' : 'Use a different token'}
-              </button>
-            </div>
-
-            <p className="cv-connect-hint-text">
-              Private repositories your GitHub account can access are cloned automatically. A token is only needed to use different credentials.
-            </p>
+            <button
+              type="button"
+              className="cv-connect-link-btn"
+              onClick={() => setShowTokenField(!showTokenField)}
+              aria-expanded={showTokenField}
+            >
+              {showTokenField ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              <span>Use a personal access token instead (optional)</span>
+            </button>
             {showTokenField && (
-              <div className="cv-connect-input-wrap">
-                <KeyRound size={16} className="cv-connect-input-icon" />
-                <input
-                  id="token-input"
-                  type="password"
-                  className="cv-connect-input"
-                  placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                  value={accessToken}
-                  onChange={(e) => setAccessToken(e.target.value)}
-                  autoComplete="off"
-                />
-              </div>
-            )}
-            {showTokenField && (
-              <p className="cv-connect-hint-text">
-                Used only in memory for this cloning job; never saved to the database.
-              </p>
+              <>
+                <div className="cv-connect-input-wrap">
+                  <KeyRound size={16} className="cv-connect-input-icon" />
+                  <input
+                    id="token-input"
+                    type="password"
+                    className="cv-connect-input"
+                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                    value={accessToken}
+                    onChange={(e) => setAccessToken(e.target.value)}
+                    autoComplete="off"
+                    aria-label="GitHub personal access token"
+                  />
+                </div>
+                <p className="cv-connect-hint-text">
+                  Only needed to use different credentials than your sign-in. It is used for this job and never saved.
+                </p>
+              </>
             )}
           </div>
 
@@ -440,7 +696,8 @@ export default function ConnectRepoPage() {
           </div>
           <h2>Repository Connected</h2>
           <p className="cv-connect-result-desc">
-            AST indexing is complete for <code>{repoUrl}</code> on branch <code>{selectedBranch}</code>.
+            AST indexing is complete for <code>{parsedRepo ? parsedRepo.fullName : repoUrl}</code> on{' '}
+            {selectedBranch ? <>branch <code>{selectedBranch}</code></> : 'its default branch'}.
             File hierarchy and dependency relations are ready.
           </p>
 
@@ -470,6 +727,7 @@ export default function ConnectRepoPage() {
                 setPhase('form');
                 setCompletedSteps([]);
                 setRepoUrl('');
+                setSelectedBranch('');
                 setAccessToken('');
               }}
             >
@@ -504,6 +762,14 @@ export default function ConnectRepoPage() {
             <div className="cv-connect-advisory-box">
               <AlertTriangle size={15} className="cv-connect-advisory-box__icon" />
               <p className="cv-connect-advisory-box__text">{failedDetails.advisory}</p>
+            </div>
+          )}
+
+          {/sign in with github again/i.test(`${failedDetails?.message || ''} ${failedDetails?.technicalDetails || ''}`) && (
+            <div className="cv-connect-result-buttons">
+              <Button variant="primary" size="md" onClick={loginWithGitHub}>
+                Sign in with GitHub again
+              </Button>
             </div>
           )}
 

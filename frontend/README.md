@@ -35,9 +35,8 @@ frontend/
 │   ├── layouts/      app shell (sidebar + topbar)
 │   ├── pages/        one file per route
 │   ├── services/     api.js (HTTP client), adapters.js (backend -> UI shape), per-feature wrappers
-│   ├── data/         sampleData.js (placeholder user and demo data)
 │   ├── styles/       global CSS and design tokens
-│   └── utils/        helpers (toasts)
+│   └── utils/        helpers (toasts, GitHub URL and branch rules shared with the backend)
 ├── public/
 ├── Dockerfile        dev stage (Vite) and prod stage (nginx)
 ├── nginx.conf        serves the build and proxies /api to the api container
@@ -109,9 +108,8 @@ Known gaps between the UI and the API:
 
 - "Remove repository" only hides it in this browser; the API has no delete endpoint.
 - Onboarding task completion is saved in localStorage, not on the server.
-- The branch dropdown on the connect page is a fixed list, not the repo's real branches (`GET /github/branches` exists).
-- There is no GitHub repo picker yet (`GET /github/repos` exists); URLs are typed or pasted.
-- The dashboard still falls back to demo data from `sampleData.js` when there are no repositories.
+- The repo picker lists the first pages GitHub returns (30 per page, "Load more" fetches the next) and filters them in the browser; a repo further down can be added with "Paste a URL".
+- Branches are listed from GitHub (first 100). Names the backend would reject (for example containing spaces) are left out of the dropdown.
 
 ## Before you submit changes
 

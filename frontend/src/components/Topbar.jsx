@@ -2,17 +2,17 @@ import { useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   Menu,
-  Bell,
   User,
   Sparkles,
   ChevronRight,
   LogOut,
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
+import UserAvatar from './UserAvatar';
 import './Topbar.css';
 
 /**
- * Top navigation bar with page title, dynamic breadcrumbs, notification panel, and user profile menu.
+ * Top navigation bar with dynamic breadcrumbs and the signed-in user's profile menu.
  */
 export default function Topbar({ onToggleMobileMenu, onLogoutRequest }) {
   const location = useLocation();
@@ -21,7 +21,6 @@ export default function Topbar({ onToggleMobileMenu, onLogoutRequest }) {
   const currentUser = authUser || { name: 'User', email: '', githubUsername: '' };
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [notifMenuOpen, setNotifMenuOpen] = useState(false);
 
   const getBreadcrumbs = () => {
     const path = location.pathname;
@@ -87,60 +86,21 @@ export default function Topbar({ onToggleMobileMenu, onLogoutRequest }) {
       </div>
 
       <div className="cv-topbar__right">
-        {/* Notifications */}
-        <div className="cv-topbar__action-wrapper">
-          <button
-            type="button"
-            className={`cv-topbar__icon-btn ${notifMenuOpen ? 'cv-topbar__icon-btn--active' : ''}`}
-            onClick={() => { setNotifMenuOpen(!notifMenuOpen); setProfileMenuOpen(false); }}
-            aria-label="Notifications"
-            title="Notifications"
-          >
-            <Bell size={18} />
-            <span className="cv-topbar__unread-dot" aria-hidden="true" />
-          </button>
-
-          {notifMenuOpen && (
-            <div className="cv-topbar__dropdown cv-topbar__dropdown--notif">
-              <div className="cv-topbar__dropdown-head">
-                <h4>Notifications</h4>
-                <span className="cv-badge cv-badge--analyzed">Demo</span>
-              </div>
-              <ul className="cv-topbar__notif-list">
-                <li className="cv-topbar__notif-item">
-                  <span className="cv-topbar__notif-point" />
-                  <div>
-                    <p className="cv-topbar__notif-text">Repository <code>alexrivera/react-dashboard</code> AST analysis complete.</p>
-                    <span className="cv-topbar__notif-time">2 hours ago</span>
-                  </div>
-                </li>
-                <li className="cv-topbar__notif-item">
-                  <span className="cv-topbar__notif-point" />
-                  <div>
-                    <p className="cv-topbar__notif-text">Onboarding task <code>t1</code> marked completed.</p>
-                    <span className="cv-topbar__notif-time">Yesterday</span>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          )}
-        </div>
-
         {/* User profile menu */}
         <div className="cv-topbar__action-wrapper">
           <button
             type="button"
             className="cv-topbar__profile-btn"
-            onClick={() => { setProfileMenuOpen(!profileMenuOpen); setNotifMenuOpen(false); }}
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
             aria-expanded={profileMenuOpen}
             aria-label="User profile menu"
           >
-            <div className="cv-topbar__avatar" aria-hidden="true">
-              {(currentUser.name || 'User').split(' ').map((n) => n[0]).join('')}
-            </div>
+            <UserAvatar user={currentUser} className="cv-topbar__avatar" />
             <div className="cv-topbar__user-info">
               <span className="cv-topbar__user-name">{currentUser.name}</span>
-              <span className="cv-topbar__user-plan">Demo Mode</span>
+              {currentUser.githubUsername && (
+                <span className="cv-topbar__user-handle">@{currentUser.githubUsername}</span>
+              )}
             </div>
           </button>
 
@@ -148,7 +108,7 @@ export default function Topbar({ onToggleMobileMenu, onLogoutRequest }) {
             <div className="cv-topbar__dropdown cv-topbar__dropdown--profile">
               <div className="cv-topbar__profile-card">
                 <p className="cv-topbar__profile-name">{currentUser.name}</p>
-                <p className="cv-topbar__profile-email">{currentUser.email}</p>
+                {currentUser.email && <p className="cv-topbar__profile-email">{currentUser.email}</p>}
                 <span className="cv-topbar__github-tag">@{currentUser.githubUsername || 'developer'}</span>
               </div>
               <div className="cv-topbar__dropdown-divider" />

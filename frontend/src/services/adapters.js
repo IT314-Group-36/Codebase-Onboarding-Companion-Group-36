@@ -111,7 +111,7 @@ export function parseIndexingError(rawError) {
       failingFile: null,
       isRetryable: true,
       advisory: clean.includes('Sign in with GitHub again')
-        ? 'Sign out, then choose Continue with GitHub to refresh your access.'
+        ? 'Use the "Sign in with GitHub again" button below to refresh your access, then retry.'
         : 'Private repositories your GitHub account can access are cloned automatically. Otherwise provide a Personal Access Token with repository read permission.',
       technicalDetails: clean,
     };
