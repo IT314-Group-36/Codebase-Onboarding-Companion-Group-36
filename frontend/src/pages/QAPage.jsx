@@ -15,6 +15,7 @@ import {
 import { askCodebaseQuestion, searchCode, getRepositoryById } from '../services/api';
 import LoadingState from '../components/LoadingState';
 import Button from '../components/Button';
+import ImpactReport, { ImpactAnswerExtras } from '../components/ImpactReport';
 import './QAPage.css';
 
 const INITIAL_MESSAGES = [
@@ -33,6 +34,8 @@ const SUGGESTED_QUESTIONS = [
   'Where are the main application entry points?',
   'What are the core modules and their responsibilities?',
   'How do modules communicate with each other?',
+  'What would break if I change the authentication logic?',
+  'Which files are affected if I modify the main entry point?',
 ];
 
 /**
@@ -81,7 +84,8 @@ export default function QAPage() {
   }, [messages, isAsking]);
 
   const handleSend = useCallback(
-    async (queryText) => {
+    // hints: { symbol | file, label } when the user picked one of the candidates offered for an ambiguous question
+    async (queryText, hints = null) => {
       const q = (queryText || inputQuery).trim();
       if (!q || isAsking) return;
 
@@ -104,7 +108,7 @@ export default function QAPage() {
       const userMsg = {
         id: `usr-${currentSeq}`,
         sender: 'user',
-        text: q,
+        text: hints?.label ? `Use ${hints.label}` : q,
         timestamp: 'Just now',
       };
 
@@ -113,7 +117,7 @@ export default function QAPage() {
       setIsAsking(true);
 
       try {
-        const res = await askCodebaseQuestion(repoId, q);
+        const res = await askCodebaseQuestion(repoId, q, hints || {});
         messageSeqRef.current += 1;
         const aiMsg = {
           id: `ai-${messageSeqRef.current}`,
@@ -121,6 +125,12 @@ export default function QAPage() {
           text: res.answer || 'I parsed the codebase AST but did not locate matching symbols for that query.',
           citations: res.citations || [],
           referencedFiles: res.referencedFiles || [],
+          intent: res.intent,
+          impact: res.impact,
+          candidates: res.needsClarification ? res.candidates : [],
+          warnings: res.warnings || [],
+          caveat: res.intent === 'impact' ? res.caveat : '',
+          question: q,
           timestamp: 'Just now',
         };
         setMessages((prev) => [...prev, aiMsg]);
@@ -410,7 +420,35 @@ export default function QAPage() {
 
                     <div className="cv-qa-msg__content">
                       <div className="cv-qa-msg__bubble" style={msg.isError ? { borderColor: 'rgba(235, 87, 87, 0.4)' } : undefined}>
-                        <p className="cv-qa-msg__text">{msg.text}</p>
+                        <p className="cv-qa-msg__text" style={msg.impact ? { whiteSpace: 'pre-line' } : undefined}>
+                          {/* Without an LLM the answer is the structured summary; the report below lists the same
+                              items, so only its headline sentence is shown here. */}
+                          {msg.impact && msg.text === msg.impact.summary ? msg.text.split('\n')[0] : msg.text}
+                        </p>
+
+                        {/* Impact analysis: affected functions/files/tests with reasons, or "which one do you mean?" */}
+                        {msg.impact && (
+                          <ImpactReport
+                            report={msg.impact}
+                            onOpenFile={(path) => path && navigate(`/explorer/${repoId}?file=${encodeURIComponent(path)}`)}
+                          />
+                        )}
+                        {msg.intent === 'impact' && (
+                          <ImpactAnswerExtras
+                            candidates={msg.candidates}
+                            warnings={msg.warnings}
+                            caveat={msg.caveat}
+                            disabled={isAsking}
+                            onPickCandidate={(c) =>
+                              handleSend(
+                                msg.question,
+                                c.uid
+                                  ? { symbol: c.uid, label: c.qualname }
+                                  : { file: c.path, label: c.path }
+                              )
+                            }
+                          />
+                        )}
 
                         {/* Citations with line numbers if returned */}
                         {msg.citations && msg.citations.length > 0 && (

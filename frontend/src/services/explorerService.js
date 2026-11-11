@@ -8,6 +8,8 @@ import {
   getFileContent,
   searchSymbols,
   getDependencyGraph,
+  getFileExplanation,
+  getSymbolExplanation,
 } from './api';
 
 export const explorerService = {
@@ -16,6 +18,8 @@ export const explorerService = {
   getFileContent,
   searchSymbols,
   getDependencyGraph,
+  getFileExplanation,
+  getSymbolExplanation,
 };
 
 export {
@@ -24,4 +28,6 @@ export {
   getFileContent,
   searchSymbols,
   getDependencyGraph,
+  getFileExplanation,
+  getSymbolExplanation,
 };

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Sparkles, Send, X, FileText, CheckCircle2 } from 'lucide-react';
 import Button from './Button';
+import ImpactReport, { ImpactAnswerExtras } from './ImpactReport';
+import { useNavigate } from 'react-router-dom';
 import { askCodebaseQuestion } from '../services/api';
 import './AskQuestionsModal.css';
 
@@ -8,6 +10,7 @@ import './AskQuestionsModal.css';
  * Ask Questions Modal — Codebase AI Companion interactive query interface.
  */
 export default function AskQuestionsModal({ open, onClose, repo }) {
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [conversation, setConversation] = useState([
@@ -19,17 +22,14 @@ export default function AskQuestionsModal({ open, onClose, repo }) {
 
   if (!open) return null;
 
-  const handleAsk = async (e) => {
-    e?.preventDefault();
-    if (!query.trim() || loading) return;
-
-    const userText = query.trim();
-    setQuery('');
-    setConversation((prev) => [...prev, { sender: 'user', text: userText }]);
+  // hints: { symbol | file, label } when the user picked a candidate for an ambiguous impact question
+  const ask = async (question, hints = null) => {
+    if (!question || loading) return;
+    setConversation((prev) => [...prev, { sender: 'user', text: hints?.label ? `Use ${hints.label}` : question }]);
     setLoading(true);
 
     try {
-      const res = await askCodebaseQuestion(repo?.id, userText);
+      const res = await askCodebaseQuestion(repo?.id, question, hints || {});
       if (res.success) {
         setConversation((prev) => [
           ...prev,
@@ -38,6 +38,12 @@ export default function AskQuestionsModal({ open, onClose, repo }) {
             text: res.answer,
             referencedFiles: res.referencedFiles,
             citations: res.citations,
+            intent: res.intent,
+            impact: res.impact,
+            candidates: res.needsClarification ? res.candidates : [],
+            warnings: res.warnings,
+            caveat: res.intent === 'impact' ? res.caveat : '',
+            question,
           },
         ]);
       }
@@ -55,10 +61,25 @@ export default function AskQuestionsModal({ open, onClose, repo }) {
     }
   };
 
+  const handleAsk = (e) => {
+    e?.preventDefault();
+    const userText = query.trim();
+    if (!userText || loading) return;
+    setQuery('');
+    ask(userText);
+  };
+
+  const openFile = (path) => {
+    if (!path || !repo?.id) return;
+    onClose?.();
+    navigate(`/explorer/${repo.id}?file=${encodeURIComponent(path)}`);
+  };
+
   const samplePrompts = [
     'Explain the high-level architecture of this codebase',
     'Where is the main entry point where execution starts?',
     'What are the core modules and their responsibilities?',
+    'What would break if I change the authentication logic?',
   ];
 
   return (
@@ -98,7 +119,21 @@ export default function AskQuestionsModal({ open, onClose, repo }) {
                 className={`cv-ask-msg cv-ask-msg--${msg.sender}`}
               >
                 <div className="cv-ask-msg__bubble" style={msg.isError ? { borderColor: 'rgba(235, 87, 87, 0.4)' } : undefined}>
-                  <p>{msg.text}</p>
+                  <p style={msg.impact ? { whiteSpace: 'pre-line' } : undefined}>
+                    {msg.impact && msg.text === msg.impact.summary ? msg.text.split('\n')[0] : msg.text}
+                  </p>
+                  {msg.impact && <ImpactReport report={msg.impact} onOpenFile={openFile} />}
+                  {msg.intent === 'impact' && (
+                    <ImpactAnswerExtras
+                      candidates={msg.candidates}
+                      warnings={msg.warnings}
+                      caveat={msg.caveat}
+                      disabled={loading}
+                      onPickCandidate={(c) =>
+                        ask(msg.question, c.uid ? { symbol: c.uid, label: c.qualname } : { file: c.path, label: c.path })
+                      }
+                    />
+                  )}
                   {msg.referencedFiles && msg.referencedFiles.length > 0 && (
                     <div className="cv-ask-msg__refs">
                       <span className="cv-ask-msg__refs-title">

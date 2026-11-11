@@ -387,6 +387,56 @@ export async function searchSymbols(repoId, query, limit = 20) {
 }
 
 // ============================================
+// PLAIN-ENGLISH EXPLANATIONS
+// ============================================
+
+/**
+ * Normalizes GET /explain. `explanation` is null when the backend has no LLM key
+ * (the relationship sentence and lists are still returned, they come from the import/call graphs).
+ */
+function adaptExplanation(raw) {
+  return {
+    success: true,
+    kind: raw.kind,
+    target: raw.target,
+    name: raw.qualname || raw.path || raw.target,
+    module: raw.module || null,
+    relationshipSummary: raw.relationship_summary || '',
+    relationships: raw.relationships || {},
+    explanation: raw.explanation || null,
+    source: raw.source || 'none', // 'llm' | 'cache' | 'none'
+    warnings: raw.warnings || [],
+    caveat: raw.caveat || '',
+    raw,
+  };
+}
+
+async function fetchExplanation(repoId, param, value, refresh) {
+  const numericId = parseInt(repoId, 10);
+  const targetId = Number.isNaN(numericId) ? repoId : numericId;
+  const params = new URLSearchParams({ [param]: value });
+  if (refresh) params.set('refresh', 'true');
+  const raw = await request(`/repos/${encodeURIComponent(targetId)}/explain?${params.toString()}`);
+  return adaptExplanation(raw);
+}
+
+/**
+ * Beginner-friendly explanation of one file + "this file uses X and is used by Y"
+ * GET /repos/{repo_id}/explain?file={path}
+ */
+export async function getFileExplanation(repoId, filePath, { refresh = false } = {}) {
+  return fetchExplanation(repoId, 'file', filePath, refresh);
+}
+
+/**
+ * Beginner-friendly explanation of one function/class/method + what it calls and who calls it
+ * GET /repos/{repo_id}/explain?symbol={uid or name}
+ */
+export async function getSymbolExplanation(repoId, symbol, { refresh = false } = {}) {
+  return fetchExplanation(repoId, 'symbol', symbol, refresh);
+}
+
+// ============================================
 // DEPENDENCY MAP
 // ============================================
 
@@ -433,29 +483,62 @@ export async function searchCode(repoId, query, k = 8) {
 }
 
 /**
- * Grounded AI Q&A over codebase with citations
+ * Adapts a backend "impact report" (shared by /ask and /impact) to camelCase fields used by the UI.
+ */
+function adaptImpactReport(r) {
+  if (!r) return null;
+  return {
+    target: r.target,
+    targetInfo: r.target_info || {},
+    depth: r.depth,
+    totals: r.totals || { symbols: 0, files: 0, tests: 0 },
+    affectedSymbols: r.affected_symbols || [],
+    affectedFiles: r.affected_files || [],
+    affectedTests: r.affected_tests || [],
+    dependencies: r.dependencies || { calls: [], imports: [] },
+    summary: r.summary || '',
+  };
+}
+
+/**
+ * Grounded AI Q&A over codebase with citations.
+ * "What would break if I change X?" style questions come back with intent "impact" and a structured report;
+ * when the question is ambiguous the backend returns needsClarification + candidates instead of guessing.
+ * Optional hints ({ symbol, file, depth }) pin the target, e.g. after the user picks a candidate.
  * POST /repos/{repo_id}/ask
  */
-export async function askCodebaseQuestion(repoId, question) {
+export async function askCodebaseQuestion(repoId, question, hints = {}) {
   const numericId = parseInt(repoId, 10);
   const targetId = Number.isNaN(numericId) ? repoId : numericId;
 
+  const body = { question };
+  if (hints.symbol) body.symbol = hints.symbol;
+  if (hints.file) body.file = hints.file;
+  if (hints.depth) body.depth = hints.depth;
+
   const res = await request(`/repos/${encodeURIComponent(targetId)}/ask`, {
     method: 'POST',
-    body: JSON.stringify({ question }),
+    body: JSON.stringify(body),
   });
 
   const citations = res.citations || [];
+  const impact = adaptImpactReport(res.impact);
   const referencedFiles = Array.from(
     new Set(citations.map((c) => c.path).concat((res.sources || []).map((s) => s.file_path)))
-  );
+  ).filter(Boolean);
 
   return {
     success: true,
     answer: res.answer,
+    intent: res.intent || 'question',
     citations,
     sources: res.sources || [],
     referencedFiles,
+    impact,
+    needsClarification: Boolean(res.needs_clarification),
+    candidates: res.candidates || [],
+    warnings: res.warnings || [],
+    caveat: res.caveat || '',
     raw: res,
   };
 }
@@ -489,6 +572,8 @@ export async function getImpactAnalysis(repoId, { symbol, file, depth = 3, expla
     affectedFiles: res.affected_files || [],
     caveat: res.caveat,
     explanation: res.explanation,
+    // Fields added for natural-language impact answers (absent on older backends, so always default them)
+    report: adaptImpactReport(res),
     raw: res,
   };
 }

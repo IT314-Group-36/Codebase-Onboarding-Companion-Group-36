@@ -1,0 +1,180 @@
+/* Plain-English explanation card (Explorer details pane). Reuses .cv-detail-card / .cv-dep-chip from ExplorerPage.css */
+
+.cv-expl {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-color: var(--border-active);
+}
+
+.cv-expl--error {
+  border-color: var(--status-error-border);
+}
+
+.cv-expl__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cv-expl__head-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cv-expl__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: var(--accent-blue-hover);
+}
+
+.cv-expl__badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+}
+
+.cv-expl__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.cv-expl__icon-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-hover);
+}
+
+.cv-expl__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.cv-expl__summary {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.cv-expl__relsentence {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 7px 9px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: var(--accent-blue-subtle);
+  border-radius: var(--radius-xs);
+  overflow-wrap: anywhere;
+}
+
+.cv-expl__relsentence svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--accent-blue-hover);
+}
+
+.cv-expl__body {
+  white-space: pre-line;
+}
+
+.cv-expl__block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cv-expl__block-title {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.cv-expl__keylist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.cv-expl__link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+}
+
+.cv-expl__link:hover {
+  text-decoration: underline;
+}
+
+.cv-expl__chip {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.cv-expl__chip:hover {
+  border-color: var(--border-active);
+  background: var(--bg-surface-hover);
+}
+
+.cv-expl__more {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  align-self: center;
+}
+
+.cv-expl__warn {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--status-warning);
+}
+
+.cv-expl__warn svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.cv-expl__caveat {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
