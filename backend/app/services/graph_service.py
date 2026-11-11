@@ -23,3 +23,12 @@ async def find_symbols(session: AsyncSession, repo_id: int, q: str, limit: int =
                                  or_(Symbol.uid == q, Symbol.name.ilike(like), Symbol.qualname.ilike(like)))
             .order_by((Symbol.uid == q).desc(), (Symbol.name == q).desc(), Symbol.qualname).limit(limit))
     return list((await session.execute(stmt)).scalars())
+
+
+async def resolve_symbol(session: AsyncSession, repo_id: int, q: str) -> tuple[Symbol | None, list[Symbol]]:
+    """Resolve a uid or a name to ONE symbol. Returns (symbol, candidates); symbol is None when the query is
+    unknown (no candidates) or ambiguous (several candidates). Same rules the /impact endpoint has always used."""
+    matches = await find_symbols(session, repo_id, q, limit=10)
+    exact = ([m for m in matches if m.uid == q] or ([matches[0]] if len(matches) == 1 else [m for m in matches if m.name == q])
+             or [m for m in matches if m.qualname == q])         # "Class.method" is exact when it names one symbol
+    return (exact[0] if len(exact) == 1 else None), matches

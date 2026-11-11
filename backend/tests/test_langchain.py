@@ -13,7 +13,8 @@ from ai_pipeline.llm import build_chat_model, structured_chain
 from ai_pipeline.module_map import ModuleMap
 from ai_pipeline.summary import RepoSummary
 from app.core.config import Settings
-from app.services.qa import IMPACT_PROMPT, QA_PROMPT, Answer, ImpactExplanation
+from app.services.qa import (FILE_EXPLAIN_PROMPT, IMPACT_PROMPT, NL_IMPACT_PROMPT, QA_PROMPT, SYMBOL_EXPLAIN_PROMPT, Answer,
+                             FileExplanation, ImpactExplanation, SymbolExplanation)
 
 warnings.filterwarnings("ignore")
 
@@ -26,7 +27,7 @@ def test_chat_model_is_built_from_a_provider_model_string():
     assert build_chat_model("google_genai:gemini-3.6-flash", "k", min_interval_s=0).rate_limiter is None
 
 
-@pytest.mark.parametrize("schema", [ModuleMap, RepoSummary, Answer, ImpactExplanation])
+@pytest.mark.parametrize("schema", [ModuleMap, RepoSummary, Answer, ImpactExplanation, FileExplanation, SymbolExplanation])
 def test_every_schema_binds_to_the_real_chat_model(schema):
     m = build_chat_model("google_genai:gemini-3.6-flash", "dummy-key")
     assert m.with_structured_output(schema) is not None                    # schema conversion happens at bind time
@@ -39,6 +40,10 @@ def test_prompts_render_even_when_values_contain_braces():
         (summary._PROMPT, dict(tech_stack=tricky, readme=tricky, tree=tricky, context=tricky)),
         (QA_PROMPT, dict(question=tricky, excerpts=tricky)),
         (IMPACT_PROMPT, dict(target=tricky, callers=tricky, files=tricky)),
+        (NL_IMPACT_PROMPT, dict(question=tricky, target=tricky, facts=tricky)),
+        (FILE_EXPLAIN_PROMPT, dict(project=tricky, module=tricky, path=tricky, relationships=tricky, symbols=tricky, code=tricky)),
+        (SYMBOL_EXPLAIN_PROMPT, dict(project=tricky, module=tricky, target=tricky, kind=tricky, path=tricky, signature=tricky,
+                                     relationships=tricky, code=tricky)),
     ]
     for prompt, variables in cases:
         assert set(prompt.input_variables) == set(variables)
