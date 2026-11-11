@@ -1,0 +1,188 @@
+/* ===================================================
+   CODEVERSE Codebase Node — Dark Aurora Theme
+   =================================================== */
+
+.cv-node-card {
+  width: 240px;
+  height: 82px;
+  box-sizing: border-box;
+  background: rgba(7, 18, 38, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(76, 154, 255, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 9px 13px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 4px 16px rgba(2, 6, 15, 0.7);
+  transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cv-node-card:hover {
+  background: rgba(11, 26, 51, 0.95);
+  border-color: rgba(31, 111, 235, 0.55);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(2, 6, 15, 0.8), 0 0 16px rgba(31, 111, 235, 0.22);
+}
+
+/* Selected state: Warm Amber (#F5A524) with restrained glow */
+.cv-node-card--selected {
+  border-color: #F5A524 !important;
+  border-width: 1.5px;
+  background: rgba(20, 28, 42, 0.98) !important;
+  box-shadow: 0 0 20px rgba(245, 165, 36, 0.35), 0 8px 24px rgba(2, 6, 15, 0.8) !important;
+}
+
+/* Search match state */
+.cv-node-card--search-match {
+  outline: 2px solid #F5A524;
+  outline-offset: 2px;
+}
+
+/* Root entrypoint node subtle distinct indicator */
+.cv-node-card--root {
+  border-left: 3px solid #1F6FEB;
+}
+
+/* Dimmed node when layer filter doesn't match */
+.cv-node-card--dimmed {
+  opacity: 0.32;
+}
+
+/* Header: Type Badge & Expand Button */
+.cv-node-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 18px;
+}
+
+.cv-node-card__type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.64rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #4C9AFF;
+}
+
+.cv-node-type-icon {
+  color: #4C9AFF;
+  flex-shrink: 0;
+}
+
+.cv-node-card--selected .cv-node-type-icon {
+  color: #F5A524;
+}
+
+.cv-node-card__type-text {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Expand / Collapse Button */
+.cv-node-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid rgba(76, 154, 255, 0.22);
+  background-color: rgba(11, 26, 51, 0.7);
+  color: #4C9AFF;
+  transition: all 140ms ease;
+  line-height: 1;
+}
+
+.cv-node-expand-btn:hover {
+  border-color: #F5A524;
+  color: #F5A524;
+  background-color: rgba(245, 165, 36, 0.14);
+}
+
+.cv-node-expand-btn--collapsed {
+  border-color: rgba(245, 165, 36, 0.4);
+  color: #F5A524;
+  background-color: rgba(245, 165, 36, 0.1);
+}
+
+.cv-node-expand-btn--expanded {
+  border-color: rgba(76, 154, 255, 0.25);
+  color: var(--text-muted);
+  background-color: rgba(11, 26, 51, 0.8);
+}
+
+/* Primary Module Name */
+.cv-node-card__name {
+  font-size: 0.84rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: #FFFFFF;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+/* File Path */
+.cv-node-card__path {
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+/* Footer row */
+.cv-node-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.64rem;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  border-top: 1px solid rgba(76, 154, 255, 0.14);
+  padding-top: 4px;
+}
+
+.cv-node-card__metric {
+  font-weight: 500;
+}
+
+/* Connection Handles for @xyflow/react */
+.cv-node-handle {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background-color: rgba(76, 154, 255, 0.35) !important;
+  border: 1px solid #071226 !important;
+  transition: all 150ms ease;
+}
+
+.cv-node-handle--left {
+  left: -4px !important;
+}
+
+.cv-node-handle--right {
+  right: -4px !important;
+}
+
+.cv-node-card:hover .cv-node-handle,
+.cv-node-card--selected .cv-node-handle {
+  background-color: #F5A524 !important;
+  transform: scale(1.25);
+  box-shadow: 0 0 8px rgba(245, 165, 36, 0.6);
+}

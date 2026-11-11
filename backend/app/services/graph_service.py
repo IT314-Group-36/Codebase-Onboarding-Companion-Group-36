@@ -1,0 +1,25 @@
+"""Load a repo's stored graphs into NetworkX and answer structural questions."""
+import networkx as nx
+from sqlalchemy import or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Edge, File, Symbol
+
+
+async def load_graphs(session: AsyncSession, repo_id: int) -> tuple[nx.DiGraph, nx.DiGraph]:
+    fg, sg = nx.DiGraph(), nx.DiGraph()
+    fg.add_nodes_from((await session.execute(select(File.path).where(File.repo_id == repo_id))).scalars())
+    for s in (await session.execute(select(Symbol).where(Symbol.repo_id == repo_id))).scalars():
+        sg.add_node(s.uid, path=s.file_path, name=s.name, qualname=s.qualname, kind=s.kind,
+                    start_line=s.start_line, end_line=s.end_line)
+    for e in (await session.execute(select(Edge).where(Edge.repo_id == repo_id))).scalars():
+        (fg if e.kind == "imports" else sg).add_edge(e.src, e.dst)
+    return fg, sg
+
+
+async def find_symbols(session: AsyncSession, repo_id: int, q: str, limit: int = 20) -> list[Symbol]:
+    like = f"%{q}%"
+    stmt = (select(Symbol).where(Symbol.repo_id == repo_id,
+                                 or_(Symbol.uid == q, Symbol.name.ilike(like), Symbol.qualname.ilike(like)))
+            .order_by((Symbol.uid == q).desc(), (Symbol.name == q).desc(), Symbol.qualname).limit(limit))
+    return list((await session.execute(stmt)).scalars())

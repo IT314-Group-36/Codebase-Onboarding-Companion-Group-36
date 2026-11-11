@@ -1,0 +1,135 @@
+/* ===================================================
+   CODEVERSE — Button Component (Dark Aurora UI)
+   - Primary: Warm Amber #F5A524
+   - Secondary: Dark Elevated Surface #0B1A33 + Blue Accent
+   =================================================== */
+
+.cv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast) var(--ease-default);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  position: relative;
+  border: 1px solid transparent;
+  line-height: 1;
+}
+
+.cv-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Sizing */
+.cv-btn--sm {
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  height: 28px;
+}
+
+.cv-btn--md {
+  font-size: 0.86rem;
+  padding: 8px 16px;
+  height: 34px;
+}
+
+.cv-btn--lg {
+  font-size: 0.92rem;
+  padding: 10px 22px;
+  height: 42px;
+  font-weight: 600;
+}
+
+/* Primary Action: Warm Amber with Subtle Glow */
+.cv-btn--primary {
+  background: linear-gradient(135deg, #F5A524 0%, #E08A0B 100%);
+  color: #FFFFFF;
+  font-weight: 600;
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 1px 3px rgba(2, 6, 15, 0.5), 0 0 16px rgba(245, 165, 36, 0.30);
+}
+
+.cv-btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #FFB84D 0%, #F5A524 100%);
+  box-shadow: 0 0 20px rgba(245, 165, 36, 0.45), 0 2px 6px rgba(2, 6, 15, 0.4);
+  transform: translateY(-0.5px);
+}
+
+.cv-btn--primary:active:not(:disabled) {
+  background: #E08A0B;
+  transform: translateY(0);
+}
+
+/* Secondary Button: Elevated Surface + Subtle Blue Border */
+.cv-btn--secondary {
+  background-color: #0B1A33;
+  color: #FFFFFF;
+  border-color: rgba(76, 154, 255, 0.24);
+  box-shadow: var(--shadow-sm);
+}
+
+.cv-btn--secondary:hover:not(:disabled) {
+  background-color: #112850;
+  border-color: rgba(31, 111, 235, 0.55);
+  box-shadow: 0 0 14px rgba(31, 111, 235, 0.22);
+}
+
+/* Outline Button */
+.cv-btn--outline {
+  background-color: transparent;
+  color: #4C9AFF;
+  border-color: rgba(76, 154, 255, 0.30);
+}
+
+.cv-btn--outline:hover:not(:disabled) {
+  background-color: rgba(31, 111, 235, 0.12);
+  border-color: #1F6FEB;
+  color: #FFFFFF;
+}
+
+/* Ghost Button */
+.cv-btn--ghost {
+  background-color: transparent;
+  color: #9AA7BD;
+}
+
+.cv-btn--ghost:hover:not(:disabled) {
+  color: #FFFFFF;
+  background-color: rgba(31, 111, 235, 0.14);
+}
+
+/* Danger Button */
+.cv-btn--danger {
+  background-color: rgba(240, 113, 113, 0.12);
+  color: #F07171;
+  border-color: rgba(240, 113, 113, 0.35);
+}
+
+.cv-btn--danger:hover:not(:disabled) {
+  background-color: rgba(240, 113, 113, 0.22);
+  border-color: #F07171;
+  color: #FFFFFF;
+}
+
+/* Spinner */
+.cv-btn__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #FFFFFF;
+  border-radius: 50%;
+  animation: cvSpin 0.7s linear infinite;
+}
+
+@keyframes cvSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}

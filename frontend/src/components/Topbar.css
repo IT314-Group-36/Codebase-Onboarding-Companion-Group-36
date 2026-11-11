@@ -1,0 +1,359 @@
+/* ===================================================
+   CODEVERSE — Topbar Component (Dark Aurora UI)
+   - Background: rgba(7, 18, 38, 0.78)
+   - Border: rgba(76, 154, 255, 0.16)
+   - Accent: Warm Amber #F5A524 & Soft Blue #4C9AFF
+   =================================================== */
+
+.cv-topbar {
+  height: var(--topbar-height);
+  background-color: rgba(7, 18, 38, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(76, 154, 255, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 2px 14px rgba(2, 6, 15, 0.5);
+}
+
+.cv-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cv-topbar__menu-toggle {
+  display: none;
+  padding: 6px;
+  color: #9AA7BD;
+  border-radius: var(--radius-xs);
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.cv-topbar__menu-toggle:hover {
+  color: #FFFFFF;
+  background-color: rgba(31, 111, 235, 0.15);
+}
+
+/* Breadcrumbs */
+.cv-topbar__breadcrumbs {
+  display: flex;
+  align-items: center;
+  font-size: 0.84rem;
+}
+
+.cv-topbar__crumb-item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.cv-topbar__crumb-sep {
+  color: #B8C3D6;
+  margin: 0 6px;
+  opacity: 0.6;
+}
+
+.cv-topbar__crumb-link {
+  color: #9AA7BD;
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+.cv-topbar__crumb-link:hover {
+  color: #FFFFFF;
+}
+
+.cv-topbar__crumb-current {
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+/* Right Controls */
+.cv-topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Demo Badge */
+.cv-topbar__demo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  background: rgba(245, 165, 36, 0.14);
+  border: 1px solid rgba(245, 165, 36, 0.35);
+  color: #F5A524;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* Action Icons */
+.cv-topbar__icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9AA7BD;
+  position: relative;
+  transition: all var(--duration-fast) var(--ease-default);
+  border: 1px solid transparent;
+}
+
+.cv-topbar__icon-btn:hover {
+  color: #FFFFFF;
+  background-color: rgba(31, 111, 235, 0.15);
+  border-color: rgba(76, 154, 255, 0.20);
+}
+
+.cv-topbar__notif-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #F5A524;
+  box-shadow: 0 0 6px #F5A524;
+}
+
+/* User Avatar & Button */
+.cv-topbar__user-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 3px 9px 3px 4px;
+  border-radius: var(--radius-full);
+  background-color: rgba(11, 26, 51, 0.7);
+  border: 1px solid rgba(76, 154, 255, 0.20);
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.cv-topbar__user-btn:hover {
+  border-color: rgba(31, 111, 235, 0.45);
+  background-color: rgba(11, 26, 51, 0.9);
+  box-shadow: 0 0 12px rgba(31, 111, 235, 0.25);
+}
+
+.cv-topbar__user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0E2E66 0%, #1F6FEB 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid rgba(76, 154, 255, 0.3);
+}
+
+.cv-topbar__user-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #FFFFFF;
+}
+
+/* Dropdown Menus */
+.cv-topbar__dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 20px;
+  width: 250px;
+  background-color: #071226;
+  border: 1px solid rgba(76, 154, 255, 0.24);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  box-shadow: 0 12px 36px rgba(2, 6, 15, 0.85), 0 0 16px rgba(31, 111, 235, 0.20);
+  z-index: 100;
+  animation: cvMenuFade 150ms var(--ease-default);
+}
+
+@keyframes cvMenuFade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cv-topbar__dropdown-head {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(76, 154, 255, 0.14);
+  margin-bottom: 4px;
+}
+
+.cv-topbar__dropdown-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.cv-topbar__dropdown-desc {
+  font-size: 0.7rem;
+  color: #9AA7BD;
+}
+
+.cv-topbar__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  color: #E2E8F0;
+  border-radius: var(--radius-xs);
+  transition: all var(--duration-fast) var(--ease-default);
+  text-decoration: none;
+}
+
+.cv-topbar__dropdown-item:hover {
+  color: #FFFFFF;
+  background-color: rgba(31, 111, 235, 0.16);
+}
+
+.cv-topbar__dropdown-item--danger:hover {
+  color: #F07171;
+  background-color: rgba(240, 113, 113, 0.14);
+}
+
+@media (max-width: 900px) {
+  .cv-topbar__menu-toggle {
+    display: flex;
+  }
+}
+
+/* ---------- Profile menu (classes used by Topbar.jsx) ---------- */
+.cv-topbar__profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 12px 3px 4px;
+  border-radius: var(--radius-full);
+  background-color: rgba(11, 26, 51, 0.7);
+  border: 1px solid rgba(76, 154, 255, 0.20);
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.cv-topbar__profile-btn:hover,
+.cv-topbar__profile-btn[aria-expanded='true'] {
+  border-color: rgba(31, 111, 235, 0.45);
+  background-color: rgba(11, 26, 51, 0.9);
+  box-shadow: 0 0 12px rgba(31, 111, 235, 0.25);
+}
+
+.cv-topbar__avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0E2E66 0%, #1F6FEB 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid rgba(76, 154, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.cv-topbar__user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.cv-topbar__user-handle {
+  font-size: 0.7rem;
+  color: #9AA7BD;
+}
+
+@media (max-width: 640px) {
+  .cv-topbar__user-info {
+    display: none;
+  }
+  .cv-topbar__profile-btn {
+    padding-right: 4px;
+  }
+}
+
+.cv-topbar__profile-card {
+  padding: 10px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cv-topbar__profile-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0;
+}
+
+.cv-topbar__profile-email {
+  font-size: 0.75rem;
+  color: #9AA7BD;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.cv-topbar__github-tag {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background-color: rgba(31, 111, 235, 0.15);
+  border: 1px solid rgba(76, 154, 255, 0.25);
+  color: #4C9AFF;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+}
+
+.cv-topbar__dropdown-divider {
+  height: 1px;
+  margin: 4px 0;
+  background-color: rgba(76, 154, 255, 0.14);
+}
+
+.cv-topbar__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  color: #B8C3D6;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.cv-topbar__menu-item:hover {
+  color: #FFFFFF;
+  background-color: rgba(31, 111, 235, 0.15);
+}
+
+.cv-topbar__menu-item--danger:hover {
+  color: #F07171;
+  background-color: rgba(240, 113, 113, 0.12);
+}

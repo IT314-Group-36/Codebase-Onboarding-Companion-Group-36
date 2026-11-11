@@ -3,165 +3,149 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class ORM(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-
-# ---------- Repositories ----------
 class RepoCreate(BaseModel):
-    source: str = Field(
-        ...,
-        description="Git URL (https:// or git@) or a local folder path on the server",
-        examples=["https://github.com/tiangolo/full-stack-fastapi-template", "."],
-    )
-    name: str | None = Field(None, description="Display name (derived from source if omitted)")
+    url: str = Field(description="https://github.com/<owner>/<repo>")
+    branch: str = ""
+    access_token: str | None = Field(default=None, description="GitHub token for private repos. Used for this job only; never stored in the DB.")
 
 
-class RepoOut(ORM):
+class RepoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
-    name: str
-    source: str
+    url: str
+    branch: str
     status: str
-    error: str | None = None
-    file_count: int
+    stage: str | None
+    error: str | None
+    commit_sha: str | None
+    warnings: list
     created_at: datetime
-    indexed_at: datetime | None = None
+    updated_at: datetime
 
 
-# ---------- Map / exploration ----------
-class FileSummary(ORM):
+class RepoDetail(RepoOut):
+    tech_stack: dict | None
+    summary: dict | None
+    index_report: dict | None
+
+
+class FileOut(BaseModel):
     path: str
-    module: str | None = None
-    language: str
-    line_count: int
-    summary: str | None = None
+    language: str | None
+    size: int
+    sensitive: bool
 
 
-class SourceOut(BaseModel):
-    path: str
-    language: str
-    content: str
-    line_count: int
+class SymbolOut(BaseModel):
+    uid: str
+    name: str
+    qualname: str
+    kind: str
+    file_path: str
+    start_line: int
+    end_line: int
+    signature: str
+
+
+class SearchIn(BaseModel):
+    query: str = Field(min_length=2, max_length=500)
+    k: int = Field(default=8, ge=1, le=20)
+
+
+class AskIn(BaseModel):
+    question: str = Field(min_length=3, max_length=1000)
+
+
+class ReindexIn(BaseModel):
+    access_token: str | None = Field(default=None, description="GitHub token for private repos (not stored).")
+
+
+class MeOut(BaseModel):
+    """The signed-in user as the frontend needs it. `github_connected` says a GitHub token is stored; the token itself never leaves the server."""
+    id: int
+    github_id: int
+    login: str
+    name: str | None
+    email: str | None
+    avatar_url: str | None
+    github_connected: bool
+    token_scopes: str | None
+
+
+class GitHubRepoOut(BaseModel):
+    full_name: str
+    url: str
+    private: bool
+    default_branch: str | None
+    description: str | None
+    language: str | None
+    updated_at: str | None
+    owner: str
+
+
+class GitHubRepoList(BaseModel):
+    repos: list[GitHubRepoOut]
+    page: int
+    has_more: bool
+
+
+class BranchList(BaseModel):
+    default_branch: str | None
+    branches: list[str]
     truncated: bool
 
 
-class SymbolOut(ORM):
-    name: str
-    kind: str
-    line: int
-    file_path: str
-    signature: str | None = None
-    docstring: str | None = None
-
-
-class ModuleOut(BaseModel):
-    name: str
-    description: str
-    file_count: int
-    line_count: int
-    languages: list[str]
-    key_files: list[FileSummary]
-
-
-class RepoMap(BaseModel):
-    repo: RepoOut
-    modules: list[ModuleOut]
-
-
-class FileExplanation(BaseModel):
-    path: str
-    module: str
-    language: str
-    line_count: int
-    summary: str | None
-    explanation: str
-    used_ai: bool
-    provider: str | None = None
-    symbols: list[SymbolOut]
-    imports: list[str] = Field(description="Internal files this file imports")
-    external_imports: list[str] = Field(description="Libraries / unresolved imports")
-    imported_by: list[str] = Field(description="Internal files that import this file")
-
-
-class GraphNode(BaseModel):
-    id: str
-    label: str
-    module: str | None = None
-    language: str | None = None
-
-
-class GraphEdge(BaseModel):
-    source: str
-    target: str
-    weight: int = 1
-
-
-class Graph(BaseModel):
-    level: str
-    nodes: list[GraphNode]
-    edges: list[GraphEdge]
-
-
-# ---------- Q&A ----------
-class AskRequest(BaseModel):
-    question: str = Field(..., min_length=3, examples=["Where is the payment logic handled?"])
-
-
-class SourceRef(BaseModel):
-    path: str
-    reason: str
-    score: float
-    line: int | None = None
-
-
-class AskResponse(BaseModel):
-    question: str
-    answer: str
-    sources: list[SourceRef]
-    used_ai: bool
-    provider: str | None = None
-
-
-class QuestionOut(ORM):
+class UserOut(BaseModel):
+    """Public view of a user. Never add the token fields here."""
+    model_config = ConfigDict(from_attributes=True)
     id: int
-    question: str
-    answer: str
-    sources: list
-    created_at: datetime
+    github_id: int
+    login: str
+    name: str | None
+    email: str | None
+    avatar_url: str | None
 
 
-class ImpactRequest(BaseModel):
-    target: str = Field(
-        ..., description="A file path or a function/class name", examples=["app/models.py", "index_repository"]
-    )
+class SyncOut(BaseModel):
+    status: Literal["never", "queued", "syncing", "ok", "failed"]
+    message: str | None = Field(default=None, description="The error when failed, or a note such as 'no labelled issues'.")
+    fetched: int = Field(default=0, description="Issues stored by the last successful sync.")
+    synced_at: datetime | None = Field(default=None, description="Time of the last SUCCESSFUL sync.")
 
 
-class ImpactResponse(BaseModel):
-    target: str
-    kind: str  # file | symbol | unknown
-    defined_in: list[str]
-    directly_affected: list[str]
-    transitively_affected: list[str]
-    affected_tests: list[str]
-    risk: str  # none | low | medium | high
-    notes: str
+class RelatedFileOut(BaseModel):
+    path: str
+    source: Literal["mentioned", "search", "suggested"] = Field(
+        description="mentioned: the issue names this file. search: matches the issue text. suggested: orientation task.")
 
 
-# ---------- Onboarding tasks ----------
-class TaskItem(BaseModel):
+class TaskGuideOut(BaseModel):
+    what_to_do: str
+    where_to_start: str
+    done_when: str
+
+
+class TaskOut(BaseModel):
+    source: Literal["issue", "generated"]
+    suggested_day: int = Field(ge=1, le=5)
     title: str
-    detail: str | None = None
-    source: str  # github | heuristic
+    difficulty: Literal["easy", "medium"]
+    summary: str
+    number: int | None = None
     url: str | None = None
     labels: list[str] = []
+    comments: int | None = None
+    score: float | None = None
+    reasons: list[str] = []
+    related_files: list[RelatedFileOut] = []
+    guide: TaskGuideOut | None = Field(default=None, description="Only with ?explain=true.")
 
 
-class DayPlan(BaseModel):
-    day: int
-    focus: str
-    tasks: list[str]
+class TaskPlanOut(BaseModel):
+    repo_id: int
+    sync: SyncOut
+    eligible_issues: int = Field(description="Synced issues that suit a newcomer (before the limit is applied).")
+    fallback_used: bool = Field(description="True when orientation tasks were added because too few issues qualified.")
+    notes: list[str]
+    tasks: list[TaskOut]
 
-
-class OnboardingTasks(BaseModel):
-    issues: list[TaskItem]
-    plan: list[DayPlan]

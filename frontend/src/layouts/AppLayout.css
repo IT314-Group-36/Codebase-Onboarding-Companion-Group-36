@@ -1,0 +1,40 @@
+.cv-app-shell {
+  min-height: 100vh;
+  display: flex;
+  position: relative;
+  z-index: 1;
+  background-color: #02060F;
+}
+
+.cv-app-shell__body {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  transition: margin-left var(--duration-normal) var(--ease-default);
+  position: relative;
+  z-index: 2;
+  background-color: transparent;
+}
+
+.cv-app-shell--collapsed .cv-app-shell__body {
+  margin-left: var(--sidebar-collapsed);
+}
+
+.cv-app-shell__content {
+  flex: 1;
+  padding: 24px 32px 48px;
+  overflow-y: auto;
+  position: relative;
+}
+
+@media (max-width: 900px) {
+  .cv-app-shell__body {
+    margin-left: 0 !important;
+  }
+
+  .cv-app-shell__content {
+    padding: 18px 16px 36px;
+  }
+}

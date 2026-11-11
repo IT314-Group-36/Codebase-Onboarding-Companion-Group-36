@@ -1,0 +1,140 @@
+/* ===================================================
+   CODEVERSE — Dark Aurora Ambient Lighting System
+   - Deep-space black: #02060F
+   - Deep Midnight Blue: #0E2E66
+   - Electric Blue: #1F6FEB
+   - Warm Amber: #F5A524
+   =================================================== */
+
+.cv-aurora-backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background-color: #02060F;
+}
+
+/* Base dark atmosphere */
+.cv-aurora-base {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(14, 46, 102, 0.40) 0%, transparent 65%),
+    linear-gradient(180deg, #02060F 0%, #060A12 100%);
+  z-index: 1;
+}
+
+/* Layered diffused radial light sources spreading through dark space */
+.cv-aurora-light {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* Top diffused Midnight Blue source */
+.cv-aurora-light--top {
+  top: -20%;
+  left: 20%;
+  width: 65vw;
+  height: 55vh;
+  background: radial-gradient(ellipse at center, rgba(14, 46, 102, 0.70) 0%, rgba(31, 111, 235, 0.28) 45%, transparent 75%);
+  z-index: 2;
+  animation: cvAuroraBreath 24s ease-in-out infinite alternate;
+}
+
+/* Upper right Electric Blue illumination */
+.cv-aurora-light--electric {
+  top: 5%;
+  right: -5%;
+  width: 50vw;
+  height: 50vh;
+  background: radial-gradient(circle at center, rgba(31, 111, 235, 0.32) 0%, rgba(14, 46, 102, 0.15) 50%, transparent 70%);
+  z-index: 2;
+  animation: cvAuroraDrift 28s ease-in-out infinite alternate;
+}
+
+/* Bottom right Warm Amber ambient accent */
+.cv-aurora-light--amber {
+  bottom: -10%;
+  right: 5%;
+  width: 45vw;
+  height: 40vh;
+  background: radial-gradient(circle at center, rgba(245, 165, 36, 0.22) 0%, rgba(245, 165, 36, 0.05) 50%, transparent 70%);
+  z-index: 2;
+  opacity: 0.85;
+  animation: cvAmberPulse 22s ease-in-out infinite alternate;
+}
+
+/* Lower left deep blue ambient illumination */
+.cv-aurora-light--bottom {
+  bottom: -15%;
+  left: -10%;
+  width: 55vw;
+  height: 50vh;
+  background: radial-gradient(circle at center, rgba(14, 46, 102, 0.50) 0%, rgba(31, 111, 235, 0.18) 45%, transparent 75%);
+  z-index: 2;
+}
+
+/* Ambient subtle overlay sheen */
+.cv-aurora-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, transparent 50%, rgba(2, 6, 15, 0.4) 100%);
+  z-index: 3;
+}
+
+/* Intensity tiers */
+.cv-aurora-backdrop--subtle .cv-aurora-light {
+  opacity: 0.65;
+}
+
+.cv-aurora-backdrop--medium .cv-aurora-light {
+  opacity: 0.85;
+}
+
+.cv-aurora-backdrop--full .cv-aurora-light {
+  opacity: 1;
+}
+
+/* Slow, smooth, non-intrusive atmospheric motion */
+@keyframes cvAuroraBreath {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(4%) scale(1.04);
+    opacity: 0.95;
+  }
+}
+
+@keyframes cvAuroraDrift {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(-3%, 4%);
+  }
+}
+
+@keyframes cvAmberPulse {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 0.95;
+    transform: scale(1.03);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-aurora-light {
+    animation: none !important;
+  }
+}

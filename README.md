@@ -1,122 +1,140 @@
 # Codebase Onboarding Companion
 
-Helps a new developer get up to speed on an unfamiliar codebase: a navigable module map, plain-English
-file explanations, natural-language questions ("where is the payment logic handled?"), change-impact
-analysis ("what would break if I change this?"), and a suggested first-week plan.
+Maps an unfamiliar repository, explains key files in plain English, answers questions about the code,
+and shows what breaks when a function changes.
 
-```
- Browser ──► Frontend (static, :3000) ──► Backend (FastAPI, :8000) ──► AI engine (FastAPI, :9000)
-                                              │                            └─ Gemini API (optional)
-                                              └─ SQLite (default) or PostgreSQL
-```
+Point it at a GitHub repo and it clones it, parses the code, builds a dependency graph, embeds the code
+for search, and (with an LLM key) writes a module map and summary. A React app lets you explore the result.
 
-| Part | Team | Folder | What it is |
-|---|---|---|---|
-| Frontend | Frontend | `frontend/` | Static SPA (vanilla JS ES modules, no build step) |
-| Backend | Backend | `backend/` | REST API, repo indexing, search, impact analysis, DB |
-| AI engine | AI API | `ai_engine/` | `POST /v1/generate`: explanations and answers. Uses Google Gemini if a key is set, otherwise offline heuristics |
+## Current status
 
-## Run everything (one command)
-
-Needs Python 3.10+ (and `git` only if you index remote repos).
-
-**With uv**
-```bash
-uv sync
-uv run python run.py
-```
-
-**With pip**
-```bash
-python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-python run.py
-```
-
-Then open:
-- **App:** http://localhost:3000
-- **Backend API docs (Swagger):** http://localhost:8000/docs
-- **AI engine docs:** http://localhost:9000/docs
-
-Click **"Index this project as a demo"** on the welcome screen. It indexes the project itself
-(`..` relative to `backend/`), so you can immediately explore the Python and JavaScript code.
-Ctrl-C stops all three services.
-
-You can also run the services separately:
-```bash
-cd ai_engine && uv run uvicorn app.main:app --port 9000
-cd backend   && AI_API_URL=http://127.0.0.1:9000/v1/generate uv run uvicorn app.main:app --port 8000
-python -m http.server 3000 --directory frontend
-```
-
-## Configuration (optional)
-
-Copy `.env.example` to `.env` in the project root; `run.py` loads it.
-
-- **PostgreSQL:** `docker compose up -d`, then set
-  `DATABASE_URL=postgresql+psycopg2://onboard:onboard@localhost:5432/onboarding` in `.env`.
-  Tables are created automatically. Inspect with
-  `docker exec -it onboarding-db psql -U onboard -d onboarding -c "\dt"`.
-- **Real LLM answers:** set `GEMINI_API_KEY` (free key from https://aistudio.google.com/apikey; model via `GEMINI_MODEL`). Without it the engine uses
-  deterministic offline heuristics, and the UI labels which one answered.
-- **GitHub starter issues:** set `GITHUB_TOKEN` to avoid rate limits.
-- **Engine auth:** set `ENGINE_API_KEY` and the backend sends it as a Bearer token automatically.
-
-## Using the app
-
-1. **Map:** modules, their responsibilities, key files.
-2. **Files:** explanation, symbols, imports / imported-by, and source viewer for each file.
-3. **Ask:** natural-language questions with source links; history is stored in the database.
-4. **Impact:** enter a file path or a function name; get direct and transitive dependents, tests to run, and a risk level.
-5. **Graph:** dependency graph at module or file level; click a node to open it.
-6. **First week:** a 5-day plan plus starter tasks (GitHub "good first issue"s for GitHub repos, otherwise TODOs and undocumented functions).
-
-## Tests
-
-```bash
-cd backend   && uv run pytest        # end-to-end API test (indexes this project)
-cd ai_engine && uv run pytest        # engine tests
-# UI smoke test (needs the stack running: python run.py)
-cd frontend  && npm install && npm test
-```
-
-## Contract between backend and AI engine
-
-```
-POST {AI_API_URL}      (default http://127.0.0.1:9000/v1/generate)
-Authorization: Bearer <ENGINE_API_KEY>      (only if configured)
-
-{"task": "explain_file",    "input": {"path", "language", "code", "symbols": [{"name","kind","signature"}]}}
-{"task": "answer_question", "input": {"question", "contexts": [{"path","summary","reason","symbols"}]}}
-
--> {"output": "<plain-English text>", "provider": "gemini" | "offline"}
-```
-If the engine is down or errors, the backend falls back to built-in summaries and keyword search, so the app keeps working.
-
-## Backend endpoints
-
-| Method | Path | Purpose |
+| Feature | Status | Notes |
 |---|---|---|
-| GET | `/health` | DB + AI engine status |
-| POST | `/api/v1/repos` | Register a repo (git URL or server path) and index in the background (202) |
-| GET | `/api/v1/repos`, `/api/v1/repos/{id}` | List / status |
-| POST | `/api/v1/repos/{id}/reindex` | Re-index |
-| DELETE | `/api/v1/repos/{id}` | Delete repo + indexed data |
-| GET | `/api/v1/repos/{id}/map` | Module map |
-| GET | `/api/v1/repos/{id}/files` | List/filter files (`module`, `language`, `q`) |
-| GET | `/api/v1/repos/{id}/files/{path}` | File explanation |
-| GET | `/api/v1/repos/{id}/source?path=` | Raw source |
-| GET | `/api/v1/repos/{id}/symbols` | Search functions/classes |
-| GET | `/api/v1/repos/{id}/graph?level=module\|file` | Dependency graph |
-| POST | `/api/v1/repos/{id}/ask` | Natural-language question |
-| GET | `/api/v1/repos/{id}/questions` | Question history |
-| POST | `/api/v1/repos/{id}/impact` | Change-impact analysis |
-| GET | `/api/v1/repos/{id}/onboarding-tasks` | First-week plan + starter tasks |
+| Connect a GitHub repo, public or private | Done | Sign in with GitHub (OAuth); private repos your account can access are cloned with your saved, encrypted token. Connect page has a picker of your GitHub repos and a real branch dropdown (paste-a-URL and token fallback still work) |
+| Map of modules and responsibilities | Done | Module map + dependency graph |
+| Plain-English explanations | Partial | Repo summary, module purposes and an architecture paragraph; nothing per file or function yet |
+| Ask "where is the payment logic handled?" | Done | Answers do not stream and each question is independent |
+| "What would break if I change this function?" | Partial | `/impact` works if you pick the symbol; the Ask box does not use the graph yet |
+| First-week task list from beginner-friendly issues | Not built | No GitHub issues code yet |
 
-## Known limits
+Also still local-only in the frontend: task completion (browser localStorage) and
+"remove repository" (hides it in the browser; the API has no delete endpoint).
 
-- Analysis is static: full symbol parsing for Python, regex-level for JS/TS, file-level info only for other languages. Dynamic imports and runtime wiring are not detected.
-- Question answering is keyword/symbol based, with an LLM (if configured) writing the final answer from the retrieved files; there are no embeddings yet.
-- Indexing runs in-process as a background task. Use Celery/RQ for very large repos.
-- No user authentication yet. The `..`/local-path source option lets API callers index any folder the server can read, so set `ALLOW_LOCAL_PATHS=false` for any shared deployment.
-- The PostgreSQL path and the live Gemini API call are implemented but were not exercised in my test environment (SQLite and the offline engine were).
+## Repository layout
+
+```
+.
+├── backend/                 FastAPI API + AI pipeline (details: backend/README.md)
+│   ├── app/                 FastAPI app: api/, core/, db/, services/, models.py, schemas.py, worker.py
+│   ├── ai_pipeline/         parser, graph, chunker, embeddings, LLM chains (imported by app/)
+│   ├── alembic/             database migrations
+│   ├── tests/
+│   ├── Dockerfile
+│   ├── pyproject.toml, uv.lock
+│   └── .env.example
+├── frontend/                React + Vite app (details: frontend/README.md)
+│   ├── Dockerfile           dev stage (Vite) and prod stage (nginx)
+│   └── nginx.conf           serves the build and proxies /api to the api container
+├── docker-compose.yml       db (pgvector), redis, migrate, api, worker, web
+├── docker-compose.dev.yml   development overrides: hot reload for api, worker and web
+├── .env.example             optional compose settings (WEB_PORT)
+└── .gitignore
+```
+
+## How the pieces fit
+
+```
+browser ──> web (nginx :5173) ──/api/*──> api (FastAPI :8000) ──> db (Postgres + pgvector)
+                                              │
+                                              └──> redis ──> worker (arq): clone, parse, embed, LLM steps
+```
+
+The API returns immediately when you register a repo; the worker does the indexing and the UI polls
+`GET /repos/{id}` for progress.
+
+## Quick start (Docker, whole stack)
+
+Requires Docker with Compose v2. The app signs users in with GitHub, so a one-time GitHub OAuth app is needed.
+
+1. Create an OAuth app at <https://github.com/settings/developers> (New OAuth App):
+   Homepage URL `http://localhost:5173`, Authorization callback URL `http://localhost:5173/api/auth/github/callback`.
+   Note the Client ID and generate a Client secret.
+2. Create `backend/.env` and generate the server secrets:
+
+```bash
+cp backend/.env.example backend/.env
+docker compose run --rm api python -m app.core.security     # prints TOKEN_ENCRYPTION_KEY and SESSION_SECRET
+```
+
+3. Put `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY` and `SESSION_SECRET` (and optionally your
+   free `LLM_API_KEY`) in `backend/.env`, then start everything:
+
+```bash
+docker compose up --build
+```
+
+| What | URL |
+|---|---|
+| Web app | http://localhost:5173 (change the port with `WEB_PORT` in a root `.env`) |
+| API docs (Swagger) | http://localhost:8000/docs |
+
+The first start is slow: the worker downloads the embedding model (about 130 MB) once and caches it in a Docker volume.
+Without `LLM_API_KEY` everything works except `/ask` and `/impact?explain=true`.
+
+Stop with `Ctrl+C`. To also delete the database and the model cache: `docker compose down -v`.
+
+## Development with hot reload
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+Edits under `backend/app` and `backend/ai_pipeline` restart the api and worker automatically, and frontend edits
+appear through Vite HMR. The URLs are the same as above.
+
+## Running without Docker (optional)
+
+Run only the infrastructure in Docker, and the apps on your machine:
+
+```bash
+docker compose up db redis
+cd backend && uv sync && uv run alembic upgrade head
+uv run uvicorn app.main:app --reload          # terminal 1
+uv run arq app.worker.WorkerSettings          # terminal 2
+cd frontend && npm install && npm run dev     # terminal 3, http://localhost:5173
+```
+
+Vite proxies `/api` to `http://localhost:8000` in this mode. See the backend and frontend READMEs for details.
+
+## Configuration
+
+Backend settings live in `backend/.env` (see the table in [backend/README.md](backend/README.md#configuration)).
+Never commit `.env` files; only `.env.example` files are tracked.
+
+## Tests and checks
+
+```bash
+cd backend && uv run pytest        # needs Postgres with pgvector; skipped otherwise
+cd frontend && npm run lint && npm run build
+```
+
+## Troubleshooting
+
+| Symptom | Likely cause and fix |
+|---|---|
+| Port 5173, 8000 or 5432 already in use | Stop the other process, or set `WEB_PORT` for the web app |
+| `/ask` returns 503 | `LLM_API_KEY` is not set in `backend/.env` (restart the stack after adding it) |
+| Login button says GitHub sign-in is not set up | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY` or `SESSION_SECRET` is missing or invalid in `backend/.env`; restart after editing. `http://localhost:8000/auth/config` shows the state |
+| GitHub says "redirect_uri is not associated with this application" | The OAuth app's callback URL must be exactly `http://localhost:5173/api/auth/github/callback` (or your `GITHUB_REDIRECT_URI`) |
+| Signed in but a private repo fails with "your account cannot access it" | Wrong URL or no access. For an organization repo, an org owner must approve the OAuth app (GitHub org settings, Third-party access) |
+| A repo fails with "Sign in with GitHub again" | The saved token was revoked or the encryption key changed. Sign out and sign in again |
+| Repos you indexed before login existed are missing | They have no owner yet: see "Repos indexed before login existed" in [backend/README.md](backend/README.md) |
+| Indexing fails with "Could not clone the repo" | URL or branch is wrong, or the repo is private and your GitHub account cannot access it (see above) |
+| Worker shows `unhealthy` right after start | Normal for up to 3 minutes while the embedding model downloads |
+| Frontend cannot reach the backend | Check `docker compose ps`; the web container waits for a healthy api |
+| Need a clean slate | `docker compose down -v` |
+
+## Documentation
+
+- [backend/README.md](backend/README.md): API, indexing pipeline, configuration, known limits
+- [frontend/README.md](frontend/README.md): pages, services, scripts, running locally or in Docker

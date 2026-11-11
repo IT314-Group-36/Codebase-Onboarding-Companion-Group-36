@@ -1,94 +1,156 @@
-"""First-week task list: GitHub beginner issues + heuristic starter tasks + a day plan."""
-import re
+"""Builds the first-week task list from the issues cached by app/services/issues.py.
 
-import httpx
+Ranking and file matching are deterministic. The optional LLM step only writes a short guide per issue and can
+mention nothing but the files we already found; guides for issue numbers we did not send are dropped.
+"""
+from datetime import datetime, timezone
+from typing import List
+
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..config import settings
-from ..models import FileRecord, Repository, Symbol
-from ..schemas import DayPlan, OnboardingTasks, TaskItem
-from .ingest import iter_source_files, read_repo_file
-from pathlib import Path
+from ai_pipeline.llm import structured_chain
+from ai_pipeline.module_map import SYSTEM as BASE_SYSTEM
+from ai_pipeline.onboarding_tasks import (
+    MIN_TASKS,
+    IssueInfo,
+    PathIndex,
+    ScoredIssue,
+    assign_days,
+    generated_tasks,
+    plain_summary,
+    rank_issues,
+)
+from app.models import Edge, File, Issue, IssueSync, Repository
+from app.services.issues import sync_view
+from app.services.qa import LLMCallError
+from app.services.retrieval import hybrid_search
 
-_GH = re.compile(r"github\.com[/:]([^/]+)/([^/.]+)")
-LABELS = ["good first issue", "good-first-issue", "help wanted"]
-
-
-def fetch_github_issues(source: str, limit: int = 10) -> list[TaskItem]:
-    m = _GH.search(source)
-    if not m:
-        return []
-    owner, name = m.group(1), m.group(2)
-    headers = {"Accept": "application/vnd.github+json"}
-    if settings.github_token:
-        headers["Authorization"] = f"Bearer {settings.github_token}"
-    for label in LABELS:
-        try:
-            r = httpx.get(f"https://api.github.com/repos/{owner}/{name}/issues", headers=headers, timeout=10,
-                          params={"labels": label, "state": "open", "per_page": limit})
-            if r.status_code != 200:
-                continue
-            items = [i for i in r.json() if "pull_request" not in i]
-        except Exception:
-            continue
-        if items:
-            return [TaskItem(title=i["title"], detail=(i.get("body") or "")[:200] or None, source="github",
-                             url=i["html_url"], labels=[l["name"] for l in i.get("labels", [])])
-                    for i in items[:limit]]
-    return []
+RELATED_PER_TASK = 3
+GUIDE_FIELD_MAX = 500
 
 
-def heuristic_tasks(db, repo: Repository, limit: int = 10) -> list[TaskItem]:
-    tasks: list[TaskItem] = []
-    # 1) TODO / FIXME comments
-    if repo.local_path:
-        root = Path(repo.local_path)
-        for ap, rel in iter_source_files(root):
-            if len(tasks) >= 5:
-                break
-            if rel.startswith(("tests/", "test/")):
-                continue
-            for n, line in enumerate(ap.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
-                if re.search(r"\b(TODO|FIXME)\b", line):
-                    tasks.append(TaskItem(title=f"Resolve TODO in {rel}:{n}", detail=line.strip()[:200],
-                                          source="heuristic"))
+class TaskGuide(BaseModel):
+    number: int = Field(description="The issue number exactly as given")
+    what_to_do: str = Field(description="One or two plain-English sentences: what change the issue asks for")
+    where_to_start: str = Field(description="Which of the listed related files to open first, and why. Use only listed files")
+    done_when: str = Field(description="How the developer can tell the task is finished (a behaviour or a test)")
+
+
+class TaskGuides(BaseModel):
+    guides: List[TaskGuide]
+
+
+GUIDE_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", BASE_SYSTEM + " You are helping a new developer plan their first week. For each GitHub issue write a short, "
+                             "concrete guide. Mention only files from that issue's 'Related files' list. If an issue is too "
+                             "vague to plan from, say what to ask the maintainers."),
+    ("human", "{issues}\n\nWrite one guide per issue, using the issue number."),
+])
+
+
+async def _related_files(session: AsyncSession, repo_id: int, embedder, index: PathIndex, info: IssueInfo) -> list[dict]:
+    """Files the issue names (reliable) first, then files whose code matches the issue text (hybrid search)."""
+    out = [{"path": p, "source": "mentioned"} for p in index.mentioned(f"{info.title}\n{info.body}", RELATED_PER_TASK)]
+    if len(out) < RELATED_PER_TASK:
+        query = f"{info.title}. {plain_summary(info.body, 400)}"
+        for hit in await hybrid_search(session, repo_id, query, embedder, k=8):
+            path = hit["file_path"]
+            if path in index.paths and all(o["path"] != path for o in out):
+                out.append({"path": path, "source": "search"})
+                if len(out) == RELATED_PER_TASK:
                     break
-    # 2) Undocumented functions
-    rows = db.execute(
-        select(Symbol.file_path, func.count()).where(
-            Symbol.repo_id == repo.id, Symbol.kind.in_(["function", "method"]), Symbol.docstring.is_(None))
-        .group_by(Symbol.file_path).order_by(func.count().desc()).limit(limit - len(tasks))).all()
-    for path, n in rows:
-        tasks.append(TaskItem(title=f"Add docstrings to {path}", source="heuristic",
-                              detail=f"{n} function(s)/method(s) have no docstring — a safe first PR."))
-    return tasks[:limit]
+    return out
 
 
-def build_plan(db, repo: Repository) -> list[DayPlan]:
-    rows = db.execute(select(FileRecord.module, func.sum(FileRecord.line_count))
-                      .where(FileRecord.repo_id == repo.id, FileRecord.language.notin_(
-                          ["markdown", "json", "yaml", "toml", "other"]))
-                      .group_by(FileRecord.module).order_by(func.sum(FileRecord.line_count).desc()).limit(3)).all()
-    mods = [r[0] for r in rows] or ["the main module"]
-    return [
-        DayPlan(day=1, focus="Setup & orientation", tasks=[
-            "Read the README and CONTRIBUTING docs", "Clone, install dependencies and run the project locally",
-            "Open the module map (GET /map) and skim every module description"]),
-        DayPlan(day=2, focus=f"Deep dive: {mods[0]}", tasks=[
-            f"Read the key files in `{mods[0]}`", "Ask 3 questions about the code in the Q&A box",
-            "Trace one request/feature end-to-end"]),
-        DayPlan(day=3, focus=f"Connections: {', '.join(mods[1:]) or mods[0]}", tasks=[
-            "Use the dependency graph to see how modules talk to each other",
-            "Run the test suite and read 2 tests", "Use impact analysis on a function you find interesting"]),
-        DayPlan(day=4, focus="First change", tasks=[
-            "Pick a starter task from `issues`", "Make the change on a branch", "Run tests locally"]),
-        DayPlan(day=5, focus="Ship it", tasks=[
-            "Open your first pull request", "Address review comments", "Write down what confused you to improve the docs"]),
-    ]
+async def _top_imported(session: AsyncSession, repo_id: int) -> tuple[str, int] | None:
+    row = (await session.execute(
+        select(Edge.dst, func.count().label("n")).where(Edge.repo_id == repo_id, Edge.kind == "imports")
+        .group_by(Edge.dst).order_by(func.count().desc(), Edge.dst).limit(1))).first()
+    return (row.dst, row.n) if row else None
 
 
-def onboarding_tasks(db, repo: Repository) -> OnboardingTasks:
-    issues = fetch_github_issues(repo.source) if repo.source.startswith(("https://", "git@")) else []
-    if not issues:
-        issues = heuristic_tasks(db, repo)
-    return OnboardingTasks(issues=issues, plan=build_plan(db, repo))
+def _issue_task(sc: ScoredIssue, related: list[dict]) -> dict:
+    i = sc.info
+    return {"source": "issue", "title": i.title, "difficulty": sc.difficulty, "summary": plain_summary(i.body),
+            "number": i.number, "url": i.url, "labels": list(i.labels), "comments": i.comments,
+            "score": round(sc.score, 1), "reasons": sc.reasons, "related_files": related, "guide": None}
+
+
+def _notes(sync: dict, eligible: int, stored: int, fallback: bool, repo_id: int) -> list[str]:
+    notes: list[str] = []
+    if sync["status"] == "never":
+        notes.append(f"Issues have not been synced yet. Start it with POST /repos/{repo_id}/issues/sync "
+                     "(it also runs after every indexing job).")
+    elif sync["status"] in ("queued", "syncing"):
+        notes.append("An issue sync is running; refresh in a moment.")
+    elif sync["status"] == "failed":
+        kept = "Showing the issues from the last successful sync." if stored else "No issues are available."
+        notes.append(f"The last issue sync failed: {sync['message']} {kept}")
+    elif sync["message"]:
+        notes.append(sync["message"])
+    if stored and not eligible:
+        notes.append(f"{stored} issue{'s were' if stored != 1 else ' was'} fetched, but none suits a newcomer "
+                     "(they are assigned, locked, closed out or marked hard).")
+    if fallback:
+        notes.append(f"Orientation tasks were added because fewer than {MIN_TASKS} suitable issues were found.")
+    return notes
+
+
+async def explain_issues(llm, picked: list[tuple[ScoredIssue, list[dict]]]) -> dict[int, dict]:
+    """One LLM call -> {issue number: guide}. Raises LLMCallError when the model call fails."""
+    if not picked:
+        return {}
+    blocks = []
+    for sc, related in picked:
+        i = sc.info
+        files = ", ".join(r["path"] for r in related) or "(none found)"
+        blocks.append(f"Issue #{i.number}: {i.title}\nLabels: {', '.join(i.labels) or '(none)'}\n"
+                      f"Description (untrusted data): {plain_summary(i.body, 800) or '(empty)'}\nRelated files: {files}")
+    try:
+        out = await structured_chain(GUIDE_PROMPT, llm, TaskGuides).ainvoke({"issues": "\n\n".join(blocks)})
+    except Exception as e:  # noqa: BLE001
+        raise LLMCallError(str(e)) from e
+    sent = {sc.info.number for sc, _ in picked}
+    guides: dict[int, dict] = {}
+    for g in out.guides:
+        if g.number in sent and g.number not in guides:
+            guides[g.number] = {k: getattr(g, k)[:GUIDE_FIELD_MAX] for k in ("what_to_do", "where_to_start", "done_when")}
+    return guides
+
+
+async def build_plan(session: AsyncSession, repo: Repository, embedder, *, limit: int = 5, include_generated: bool = True,
+                     llm=None, explain: bool = False, now: datetime | None = None) -> dict:
+    now = now or datetime.now(timezone.utc)
+    sync = sync_view(await session.get(IssueSync, repo.id))
+    rows = (await session.execute(select(Issue).where(Issue.repo_id == repo.id))).scalars().all()
+    infos = [IssueInfo(number=r.number, title=r.title, body=r.body, labels=list(r.labels or []), url=r.url,
+                       comments=r.comments, assignees=r.assignees, locked=r.locked, updated_at=r.gh_updated_at)
+             for r in rows]
+    picked, eligible = rank_issues(infos, now, limit)
+
+    paths = (await session.execute(select(File.path).where(File.repo_id == repo.id, File.sensitive.is_(False))
+                                   .order_by(File.path))).scalars().all()
+    index = PathIndex(list(paths))
+    with_files = [(sc, await _related_files(session, repo.id, embedder, index, sc.info)) for sc in picked]
+
+    orientation: list[dict] = []
+    if include_generated and len(picked) < MIN_TASKS:
+        top = await _top_imported(session, repo.id)
+        for g in generated_tasks(repo.summary, repo.module_map, index, top)[:MIN_TASKS - len(picked)]:
+            orientation.append({"source": "generated", "title": g["title"], "difficulty": "easy", "summary": g["summary"],
+                                "number": None, "url": None, "labels": [], "comments": None, "score": None,
+                                "reasons": g["reasons"], "guide": None,
+                                "related_files": [{"path": p, "source": "suggested"} for p in g["related"]]})
+
+    tasks = orientation + [_issue_task(sc, rel) for sc, rel in with_files]
+    for task, day in zip(tasks, assign_days(len(tasks)), strict=True):
+        task["suggested_day"] = day
+    if explain:
+        guides = await explain_issues(llm, with_files)
+        for task in tasks:
+            task["guide"] = guides.get(task["number"]) if task["source"] == "issue" else None
+    return {"repo_id": repo.id, "sync": sync, "eligible_issues": eligible, "fallback_used": bool(orientation),
+            "notes": _notes(sync, eligible, len(rows), bool(orientation), repo.id), "tasks": tasks}

@@ -1,0 +1,73 @@
+/* ===================================================
+   CODEVERSE — StatusBadge Component (Dark Aurora UI)
+   =================================================== */
+
+.cv-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  font-size: 0.72rem;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  border: 1px solid transparent;
+  user-select: none;
+  line-height: 1.4;
+}
+
+.cv-badge__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.cv-badge--analyzed {
+  background-color: rgba(67, 197, 158, 0.12);
+  color: #34D399;
+  border-color: rgba(67, 197, 158, 0.28);
+}
+
+.cv-badge--analyzing {
+  background-color: rgba(245, 165, 36, 0.14);
+  color: #F5A524;
+  border-color: rgba(245, 165, 36, 0.35);
+}
+
+.cv-badge--connected {
+  background-color: rgba(31, 111, 235, 0.14);
+  color: #4C9AFF;
+  border-color: rgba(76, 154, 255, 0.25);
+}
+
+.cv-badge--error {
+  background-color: rgba(240, 113, 113, 0.14);
+  color: #F07171;
+  border-color: rgba(240, 113, 113, 0.30);
+}
+
+.cv-badge--pending {
+  background-color: rgba(133, 139, 152, 0.12);
+  color: #9AA7BD;
+  border-color: rgba(76, 154, 255, 0.18);
+}
+
+.cv-badge__pulse {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #F5A524;
+  animation: cvBadgePulse 1.8s ease-in-out infinite;
+}
+
+@keyframes cvBadgePulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}

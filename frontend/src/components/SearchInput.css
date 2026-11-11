@@ -1,0 +1,49 @@
+.cv-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.cv-search__icon {
+  position: absolute;
+  left: 10px;
+  color: #9AA7BD;
+  pointer-events: none;
+}
+
+.cv-search__input {
+  width: 100%;
+  padding: 6px 28px 6px 32px;
+  background-color: #050D1D;
+  border: 1px solid rgba(76, 154, 255, 0.22);
+  border-radius: var(--radius-sm);
+  color: #FFFFFF;
+  font-size: 0.82rem;
+  font-family: var(--font-sans);
+  height: 32px;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.cv-search__input:focus {
+  border-color: #1F6FEB;
+  box-shadow: 0 0 12px rgba(31, 111, 235, 0.35);
+  outline: none;
+}
+
+.cv-search__clear {
+  position: absolute;
+  right: 8px;
+  padding: 3px;
+  color: #9AA7BD;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.cv-search__clear:hover {
+  color: #F5A524;
+  background-color: rgba(245, 165, 36, 0.15);
+}
