@@ -242,28 +242,59 @@ def module_graph(modules: list[dict], file_edges: list[tuple[str, str]]) -> dict
 
 
 # ----------------------------------------------------------------------------- impact analysis
-def impact(sg: nx.DiGraph, fg: nx.DiGraph, symbol_uids: list[str], target_files: list[str], depth: int = 3) -> dict:
-    """Reverse traversal: who (transitively) calls the symbols / imports the files."""
+def _reverse_chains(g: nx.DiGraph, start: str, cutoff: int) -> dict[str, list[str]]:
+    """Breadth-first walk against the edge direction. Returns node -> [node, ..., start]: the chain along the real edges
+    (caller -> ... -> start). Neighbours are visited in sorted order, so the chain shown is the same on every run."""
+    chains = {start: [start]}
+    frontier = [start]
+    for _ in range(cutoff):
+        nxt = []
+        for cur in frontier:
+            for n in sorted(g.predecessors(cur)):
+                if n not in chains:
+                    chains[n] = [n] + chains[cur]
+                    nxt.append(n)
+        frontier = nxt
+    return chains
+
+
+def impact(sg: nx.DiGraph, fg: nx.DiGraph, symbol_uids: list[str], target_files: list[str], depth: int = 3,
+           with_paths: bool = False) -> dict:
+    """Reverse traversal: who (transitively) calls the symbols / imports the files.
+    with_paths=True adds a "via" chain to every result (affected -> ... -> target) so the answer can say WHY it is affected;
+    without it the output is exactly what Sprint 1 returned."""
     dist: dict[str, int] = {}
+    via: dict[str, list[str]] = {}
     rev = sg.reverse(copy=False)
-    for uid in symbol_uids:
+    for uid in sorted(symbol_uids) if with_paths else symbol_uids:
         if uid not in sg:
             continue
-        for node, d in nx.single_source_shortest_path_length(rev, uid, cutoff=depth).items():
-            if node not in symbol_uids:
-                dist[node] = min(d, dist.get(node, d))
+        if with_paths:
+            found = {n: (len(c) - 1, c) for n, c in _reverse_chains(sg, uid, depth).items()}
+        else:
+            found = {n: (d, None) for n, d in nx.single_source_shortest_path_length(rev, uid, cutoff=depth).items()}
+        for node, (d, chain) in found.items():
+            if node not in symbol_uids and (node not in dist or d < dist[node]):
+                dist[node], via[node] = d, chain
     fdist: dict[str, int] = {}
+    fvia: dict[str, list[str]] = {}
     frev = fg.reverse(copy=False)
-    for f in target_files:
+    for f in sorted(target_files) if with_paths else target_files:
         if f not in fg:
             continue
-        for node, d in nx.single_source_shortest_path_length(frev, f, cutoff=depth).items():
-            if node not in target_files:
-                fdist[node] = min(d, fdist.get(node, d))
+        if with_paths:
+            found = {n: (len(c) - 1, c) for n, c in _reverse_chains(fg, f, depth).items()}
+        else:
+            found = {n: (d, None) for n, d in nx.single_source_shortest_path_length(frev, f, cutoff=depth).items()}
+        for node, (d, chain) in found.items():
+            if node not in target_files and (node not in fdist or d < fdist[node]):
+                fdist[node], fvia[node] = d, chain
     affected_symbols = [{"uid": u, **{k: sg.nodes[u][k] for k in ("path", "name", "qualname", "kind", "start_line")},
-                         "distance": d} for u, d in sorted(dist.items(), key=lambda kv: (kv[1], kv[0]))]
-    for s in affected_symbols:      # files that hold affected symbols are affected too
+                         "distance": d, **({"via": via[u]} if with_paths else {})}
+                        for u, d in sorted(dist.items(), key=lambda kv: (kv[1], kv[0]))]
+    for s in affected_symbols:      # files that hold affected symbols are affected too (no import chain: via is None)
         if s["path"] not in fdist and s["path"] not in target_files:
-            fdist[s["path"]] = s["distance"]
-    affected_files = [{"path": p, "distance": d} for p, d in sorted(fdist.items(), key=lambda kv: (kv[1], kv[0]))]
+            fdist[s["path"]], fvia[s["path"]] = s["distance"], None
+    affected_files = [{"path": p, "distance": d, **({"via": fvia[p]} if with_paths else {})}
+                      for p, d in sorted(fdist.items(), key=lambda kv: (kv[1], kv[0]))]
     return {"affected_symbols": affected_symbols, "affected_files": affected_files}
