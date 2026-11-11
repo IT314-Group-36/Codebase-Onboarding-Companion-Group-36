@@ -104,3 +104,48 @@ class UserOut(BaseModel):
     name: str | None
     email: str | None
     avatar_url: str | None
+
+
+class SyncOut(BaseModel):
+    status: Literal["never", "queued", "syncing", "ok", "failed"]
+    message: str | None = Field(default=None, description="The error when failed, or a note such as 'no labelled issues'.")
+    fetched: int = Field(default=0, description="Issues stored by the last successful sync.")
+    synced_at: datetime | None = Field(default=None, description="Time of the last SUCCESSFUL sync.")
+
+
+class RelatedFileOut(BaseModel):
+    path: str
+    source: Literal["mentioned", "search", "suggested"] = Field(
+        description="mentioned: the issue names this file. search: matches the issue text. suggested: orientation task.")
+
+
+class TaskGuideOut(BaseModel):
+    what_to_do: str
+    where_to_start: str
+    done_when: str
+
+
+class TaskOut(BaseModel):
+    source: Literal["issue", "generated"]
+    suggested_day: int = Field(ge=1, le=5)
+    title: str
+    difficulty: Literal["easy", "medium"]
+    summary: str
+    number: int | None = None
+    url: str | None = None
+    labels: list[str] = []
+    comments: int | None = None
+    score: float | None = None
+    reasons: list[str] = []
+    related_files: list[RelatedFileOut] = []
+    guide: TaskGuideOut | None = Field(default=None, description="Only with ?explain=true.")
+
+
+class TaskPlanOut(BaseModel):
+    repo_id: int
+    sync: SyncOut
+    eligible_issues: int = Field(description="Synced issues that suit a newcomer (before the limit is applied).")
+    fallback_used: bool = Field(description="True when orientation tasks were added because too few issues qualified.")
+    notes: list[str]
+    tasks: list[TaskOut]
+

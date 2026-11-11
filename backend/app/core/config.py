@@ -47,6 +47,13 @@ class Settings(BaseSettings):
     def github_oauth_configured(self) -> bool:
         return bool(self.github_client_id and self.github_client_secret and self.session_secret and self.token_encryption_key)
 
+    # First-week task list (GitHub issues). Optional server token raises GitHub API rate limits.
+    github_token: str = ""
+    github_api_url: str = "https://api.github.com"
+    issue_labels: list[str] = ["good first issue", "good-first-issue", "beginner", "help wanted"]
+    issue_max_pages: int = 3
+    issue_timeout_seconds: int = 15
+
 
 @lru_cache
 def get_settings() -> Settings:

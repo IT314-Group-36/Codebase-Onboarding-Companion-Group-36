@@ -108,3 +108,35 @@ class Chunk(Base):
     content: Mapped[str] = mapped_column(Text)
     embedding = mapped_column(Vector(EMBED_DIM), nullable=False)
     content_tsv = mapped_column(TSVECTOR, Computed("to_tsvector('simple', content)", persisted=True))
+
+
+class Issue(Base):
+    """An open GitHub issue cached for the first-week task list. Replaced wholesale on every sync."""
+    __tablename__ = "issues"
+    __table_args__ = (UniqueConstraint("repo_id", "number", name="uq_issues_repo_number"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repo_id: Mapped[int] = mapped_column(ForeignKey("repositories.id", ondelete="CASCADE"), index=True)
+    number: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(Text)
+    body: Mapped[str] = mapped_column(Text, default="")            # truncated, secrets redacted
+    labels: Mapped[list] = mapped_column(JSONB, default=list)
+    url: Mapped[str] = mapped_column(Text, default="")
+    comments: Mapped[int] = mapped_column(Integer, default=0)
+    assignees: Mapped[int] = mapped_column(Integer, default=0)
+    locked: Mapped[bool] = mapped_column(Boolean, default=False)
+    gh_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    gh_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class IssueSync(Base):
+    """One row per repo: where the last issue sync stands. status: queued | syncing | ok | failed."""
+    __tablename__ = "issue_syncs"
+
+    repo_id: Mapped[int] = mapped_column(ForeignKey("repositories.id", ondelete="CASCADE"), primary_key=True)
+    status: Mapped[str] = mapped_column(String(10), default="queued")
+    message: Mapped[str | None] = mapped_column(Text)               # the error, or a note such as "no labelled issues"
+    fetched: Mapped[int] = mapped_column(Integer, default=0)       # issues stored by the last successful sync
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))   # last SUCCESSFUL sync
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
