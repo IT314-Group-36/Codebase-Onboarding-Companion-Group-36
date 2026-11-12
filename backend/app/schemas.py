@@ -54,6 +54,11 @@ class SearchIn(BaseModel):
 
 class AskIn(BaseModel):
     question: str = Field(min_length=3, max_length=1000)
+    # Optional hints for "what would break if I change X?" questions: the UI can pass the symbol/file the user picked
+    # (or chose from a clarification list), so the question does not have to name it. Ignored for other questions.
+    symbol: str | None = Field(default=None, max_length=500, description="Symbol uid or name the impact question is about")
+    file: str | None = Field(default=None, max_length=500, description="File path the impact question is about")
+    depth: int | None = Field(default=None, ge=1, le=6, description="How many call/import steps to follow (default 3)")
 
 
 class ReindexIn(BaseModel):

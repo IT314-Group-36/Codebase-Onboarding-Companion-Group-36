@@ -95,6 +95,20 @@ class Edge(Base):
     dst: Mapped[str] = mapped_column(Text)
 
 
+class Explanation(Base):
+    """Cached LLM explanation of one file or symbol. Relationships are NOT stored (they are recomputed from the graph)."""
+    __tablename__ = "explanations"
+    __table_args__ = (UniqueConstraint("repo_id", "kind", "target", name="uq_explanations_repo_kind_target"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repo_id: Mapped[int] = mapped_column(ForeignKey("repositories.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(10))           # file | symbol
+    target: Mapped[str] = mapped_column(Text)               # file path or symbol uid
+    commit_sha: Mapped[str | None] = mapped_column(String(40))
+    payload: Mapped[dict] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Chunk(Base):
     __tablename__ = "chunks"
     __table_args__ = (Index("ix_chunks_content_tsv", "content_tsv", postgresql_using="gin"),)

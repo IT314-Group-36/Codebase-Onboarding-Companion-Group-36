@@ -18,7 +18,7 @@ from ai_pipeline.summary import RETRIEVAL_QUERIES, format_context, generate_summ
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.core.security import SecurityConfigError, TokenDecryptError, decrypt_token
-from app.models import Chunk, Edge, File, Repository, Symbol, User
+from app.models import Chunk, Edge, Explanation, File, Repository, Symbol, User
 from app.services.retrieval import PgHybridRetriever
 
 log = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ async def _save(repo_id: int, sha: str, a, vectors: list[list[float]]) -> None:
     """Replace the repo's data atomically: readers keep seeing the old index until this commits."""
     from pathlib import PurePosixPath
     async with SessionLocal() as s, s.begin():
-        for m in (Chunk, Edge, Symbol, File):
+        for m in (Chunk, Edge, Symbol, File, Explanation):      # cached explanations describe the old code
             await s.execute(delete(m).where(m.repo_id == repo_id))
         safe = set(a.safe_files)
         await _bulk(s, File, [{"repo_id": repo_id, "path": p, "size": a.file_sizes.get(p, 0), "sensitive": p not in safe,

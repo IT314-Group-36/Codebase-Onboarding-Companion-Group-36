@@ -26,7 +26,8 @@ uv run arq app.worker.WorkerSettings      # terminal 2
 ```
 Add a dependency with `uv add <pkg>`; commit `pyproject.toml` and `uv.lock` together. First indexing downloads the embedding model (~130 MB) once.
 
-No `LLM_API_KEY`? Everything still works except `/ask` and `/impact?explain=true` (503). The module map falls back
+No `LLM_API_KEY`? Everything still works except general `/ask` questions and `/impact?explain=true` (503); "what would break if I change X?" questions in `/ask` are answered from the graphs without a key. `/explain` still returns the
+relationships ("uses X, used by Y"); only the prose is left out. The module map falls back
 to a deterministic one built from the import graph, and the repo summary is skipped (with a warning in the response).
 
 Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv run pytest`
@@ -47,12 +48,13 @@ Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv 
 | POST | `/repos` | `{url, branch?, access_token?}` register + enqueue indexing (202). Idempotent per user+url+branch |
 | POST | `/repos/{id}/reindex` | re-run indexing (atomic swap, old data stays readable until done) |
 | GET | `/repos`, `/repos/{id}` | status (`queued/indexing/ready/failed`), `stage`, `error`, summary, tech stack, report, warnings |
-| GET | `/repos/{id}/map` | modules, entry points, module-to-module dependency graph (for React Flow) |
+| GET | `/repos/{id}/map` | modules (each with `depends_on`, `used_by`, `relationship_summary`), entry points, module-to-module dependency graph (for React Flow) |
 | GET | `/repos/{id}/files`, `/files/{path}` | file tree; per file: symbols, imports, imported_by |
+| GET | `/repos/{id}/explain?file=\|symbol=&refresh=` | beginner-friendly explanation of one file or function + how it relates to the rest (see below) |
 | GET | `/repos/{id}/symbols?q=` | find functions/classes |
 | POST | `/repos/{id}/search` | hybrid retrieval, no LLM: `{query, k}` |
-| POST | `/repos/{id}/ask` | RAG answer with validated citations: `{question}` |
-| GET | `/repos/{id}/impact?symbol=\|file=&depth=&explain=` | "what breaks if I change this" (reverse traversal) |
+| POST | `/repos/{id}/ask` | `{question, symbol?, file?, depth?}`: "what would break if I change X?" is answered from the import/call graphs; any other question is RAG with validated citations (see below) |
+| GET | `/repos/{id}/impact?symbol=\|file=&depth=&explain=` | "what breaks if I change this" (reverse traversal); same report the Ask box shows, with a call chain and a reason per item |
 
 Every `/repos` and `/github` route needs the session cookie (401 otherwise), and a user only ever sees their own
 repositories: someone else's repo answers 404, the same as a missing one. Poll `GET /repos/{id}` for progress; the
@@ -137,6 +139,50 @@ user has signed in once):
 docker compose exec db psql -U onboard -c "UPDATE repositories SET owner_id = (SELECT id FROM users WHERE login = 'YOUR_GITHUB_LOGIN') WHERE owner_id IS NULL"
 ```
 
+### `/explain` response
+
+`GET /repos/{id}/explain?file=src/app.py` or `?symbol=<uid or name>` (exactly one). A name that matches several symbols returns 409 with `candidates`.
+
+| Field | Meaning |
+|---|---|
+| `relationship_summary` | one sentence, always present: ``"`a.py` uses `b.py`, and is used by `c.py`."`` (functions: calls / called by) |
+| `relationships` | the same facts as data: `uses`, `used_by`, `calls_into`, `called_from`, `symbols` (file) or `calls`, `called_by` (function) |
+| `explanation` | LLM prose (`summary`, `explanation`, `how_it_fits`, plus `key_symbols` for files or `inputs_outputs` for functions); `null` without an LLM key, for sensitive files, or for files with no indexed text. Always see `warnings` |
+| `source` | `llm` (just generated), `cache`, or `none` |
+| `module` | the module-map entry the file belongs to (name, path, purpose) |
+
+Relationships are computed from the stored graphs, so they are never invented; the LLM only writes prose around them and any symbol name it makes up is dropped.
+Explanations are cached per repo (table `explanations`, dropped on reindex, ignored if the commit changed); `refresh=true` regenerates.
+
+### Asking "what would break if I change X?" in the Ask box
+
+Send the normal `POST /repos/{id}/ask` body. The backend decides whether the question is an impact question (no extra LLM call),
+finds the function, file or folder it names (`charge_card`, `` `Serializer.dumps` ``, `shop/db.py`, `core/`, "the payments module"),
+runs the reverse-graph impact analysis and answers in plain English. Nothing has to be selected first.
+
+| Request field | Meaning |
+|---|---|
+| `question` | required, as before |
+| `symbol` / `file` | optional: what the question is about (a uid, a name or a path). Use it to answer a clarification, or when the UI already knows the selection ("this function") |
+| `depth` | optional, 1 to 6, default 3 ("directly" in the question means 1) |
+
+Every response now has `intent`: `"impact"` or `"question"`. Normal questions keep the Sprint 1 fields (`answer`, `citations`, `sources`).
+
+| Impact response field | Meaning |
+|---|---|
+| `answer` | plain-English answer: LLM prose when a key is set (grounded in the facts below), otherwise the deterministic `impact.summary` |
+| `needs_clarification`, `candidates` | `true` when the name is ambiguous or missing ("the serializer" matches a class and a test fixture, "the payment logic" names nothing). Show `candidates` as buttons and ask again with `symbol` or `file` set to the choice |
+| `impact.target`, `impact.target_info` | what was analysed (`kind` is `symbol`, `file` or `module` for a folder) |
+| `impact.affected_symbols[]` | `qualname`, `path`, `start_line`, `distance`, `chain` (names from the affected function down to the target), `reason`, `is_test` |
+| `impact.affected_files[]` | `path`, `distance`, `reason`, `is_test` |
+| `impact.affected_tests[]` | test files that reach the target |
+| `impact.dependencies` | what the target itself calls (`calls`) and imports (`imports`) |
+| `impact.totals`, `impact.summary` | counts and the deterministic text |
+| `citations` | the target plus its direct callers (path and line) |
+| `warnings`, `caveat` | no LLM key, LLM failed (the structured answer is still returned), other names in the question that were not analysed; static-analysis caveat |
+
+Unknown `symbol` or `file`: 404. `depth` out of range: 422. If the LLM call fails for an impact question the structured answer is still returned with a warning (general questions still return 502).
+
 ## How indexing works
 
 clone (shallow, token via env) -> scan (skip symlinks/sensitive files) -> redact secrets in content ->
@@ -177,6 +223,7 @@ function-level chunks with exact line numbers), and the NetworkX graphs.
 
 ## Known limits (honest list)
 
+- Impact analysis follows calls and imports only: subclasses, `except SomeError` handlers and `isinstance` checks are not edges, so changing a class or exception can affect more than the list shows.
 - Call/impact analysis is static and name-based: dynamic dispatch, reflection and string imports are invisible, and a
   call to an unknown receiver (`x.save()`) only resolves inside the same file or imported files. The API says so in `caveat`.
 - Only Python, JS/JSX and TS/TSX are parsed; other languages are indexed as line-window text chunks (still searchable).

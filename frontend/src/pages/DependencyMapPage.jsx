@@ -185,6 +185,14 @@ export default function DependencyMapPage() {
     return graphModel.nodesMap.get(selectedNodeId) || null;
   }, [selectedNodeId, graphModel.nodesMap]);
 
+  // Plain-English "uses X, used by Y" sentence for the selected module (comes from the /map modules list)
+  const moduleSummary = useMemo(() => {
+    if (!selectedNodeId || !rawGraphData?.modules) return '';
+    const norm = (p) => String(p || '').replace(/\/+$/, '');
+    const mod = rawGraphData.modules.find((m) => norm(m.path) === norm(selectedNodeId));
+    return mod?.relationship_summary || '';
+  }, [selectedNodeId, rawGraphData]);
+
   // Connected incoming (dependents) and outgoing (dependencies)
   const connectedLists = useMemo(() => {
     if (!selectedNodeId) return { incoming: [], outgoing: [] };
@@ -626,6 +634,11 @@ export default function DependencyMapPage() {
                       'Specialized algorithm and transformation helper maintaining pure deterministic computations.') ||
                     'Core codebase module participating in system architecture and execution flow.'}
                 </p>
+                {moduleSummary && (
+                  <p className="cv-depmap-inspector__box-text" style={{ marginTop: '0.5rem', opacity: 0.85 }}>
+                    {moduleSummary}
+                  </p>
+                )}
               </div>
             </div>
           </aside>

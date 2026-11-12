@@ -1,0 +1,219 @@
+/* Structured impact report shown under "what would break if I change X?" answers and in the Explorer */
+
+.cv-impact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--bg-surface-hover);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  min-width: 0;
+}
+
+.cv-impact__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  color: var(--accent-blue-hover);
+}
+
+.cv-impact__target code {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.cv-impact__stats {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.cv-impact__empty,
+.cv-impact__note,
+.cv-impact__warn {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.cv-impact__warn {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  color: var(--status-warning);
+}
+
+.cv-impact__warn svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.cv-impact__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cv-impact__group-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cv-impact__group-head:hover {
+  color: var(--text-primary);
+}
+
+.cv-impact__count {
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.cv-impact__list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.cv-impact__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cv-impact__file-link {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.cv-impact__file-link:hover {
+  text-decoration: underline;
+}
+
+.cv-impact__loc {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.cv-impact__reason {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.cv-impact__chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.cv-impact__chain-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.cv-impact__more {
+  align-self: flex-start;
+  margin-left: 18px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-decoration: underline;
+}
+
+.cv-impact__more:hover {
+  color: var(--text-primary);
+}
+
+/* Clarification buttons ("which one do you mean?") */
+.cv-impact-clarify {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.cv-impact-clarify__btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 6px 10px;
+  background: var(--bg-surface-hover);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  text-align: left;
+}
+
+.cv-impact-clarify__btn:hover {
+  border-color: var(--border-active);
+}
+
+.cv-impact-clarify__btn small {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+
+.cv-impact-warnings {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.72rem;
+  color: var(--status-warning);
+}
+
+.cv-impact-caveat {
+  margin: 8px 0 0;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.8;
+}

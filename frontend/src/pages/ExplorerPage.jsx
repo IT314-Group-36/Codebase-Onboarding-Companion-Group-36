@@ -20,6 +20,8 @@ import {
 import SearchInput from '../components/SearchInput';
 import Button from '../components/Button';
 import LoadingState from '../components/LoadingState';
+import ExplanationCard from '../components/ExplanationCard';
+import ImpactReport from '../components/ImpactReport';
 import {
   getRepositoryById,
   getFileTree,
@@ -54,6 +56,8 @@ export default function ExplorerPage() {
   const [currentFileDetails, setCurrentFileDetails] = useState(null);
   const [impactData, setImpactData] = useState(null);
   const [analyzingImpact, setAnalyzingImpact] = useState(false);
+  // Function picked for a plain-English explanation. Tied to the file it was picked in, so it resets on file change.
+  const [explainPick, setExplainPick] = useState(null); // { file, uid }
 
   // 1. Initial Load: Repository specifications & File tree
   useEffect(() => {
@@ -150,7 +154,13 @@ export default function ExplorerPage() {
     if (!selectedFileId || analyzingImpact) return;
     setAnalyzingImpact(true);
     try {
-      const res = await getImpactAnalysis(repoId, { file: selectedFileId, depth: 3, explain: true });
+      let res;
+      try {
+        res = await getImpactAnalysis(repoId, { file: selectedFileId, depth: 3, explain: true });
+      } catch {
+        // No LLM key (503) or the LLM call failed (502): the structured report is still a complete answer
+        res = await getImpactAnalysis(repoId, { file: selectedFileId, depth: 3 });
+      }
       if (res.success) {
         setImpactData(res);
         showToast(`Impact analysis complete: ${res.affectedFiles?.length || 0} files affected.`, 'info');
@@ -451,6 +461,26 @@ export default function ExplorerPage() {
                   <p className="cv-detail-text">{currentFileDetails.purpose}</p>
                 </div>
 
+                {/* Plain-English explanation of the file (and of a function picked below) */}
+                <ExplanationCard
+                  key={`file:${selectedFileId}`}
+                  repoId={repoId}
+                  kind="file"
+                  target={selectedFileId}
+                  onOpenFile={(path) => path && setSelectedFileId(path)}
+                  onSelectSymbol={(uid) => setExplainPick({ file: selectedFileId, uid })}
+                />
+                {explainPick && explainPick.file === selectedFileId && (
+                  <ExplanationCard
+                    key={`symbol:${explainPick.uid}`}
+                    repoId={repoId}
+                    kind="symbol"
+                    target={explainPick.uid}
+                    autoLoad
+                    onOpenFile={(path) => path && setSelectedFileId(path)}
+                  />
+                )}
+
                 {/* Status Badges */}
                 <div className="cv-detail-card cv-detail-card--row">
                   <div>
@@ -485,13 +515,17 @@ export default function ExplorerPage() {
                     <h4 className="cv-detail-label" style={{ color: 'var(--cv-primary)' }}>
                       Impact Analysis (Depth {impactData.depth})
                     </h4>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--cv-text-secondary)', marginBottom: '0.5rem' }}>
-                      {impactData.explanation || impactData.caveat}
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--cv-text-secondary)', marginBottom: '0.5rem', whiteSpace: 'pre-line' }}>
+                      {impactData.explanation ||
+                        (impactData.report?.summary ? impactData.report.summary.split('\n')[0] : impactData.caveat)}
                     </p>
                     <span style={{ fontSize: '0.75rem', color: 'var(--cv-text-muted)' }}>
                       Affected Files: {impactData.affectedFiles?.length || 0} · Affected Symbols:{' '}
                       {impactData.affectedSymbols?.length || 0}
                     </span>
+                    {impactData.report && (
+                      <ImpactReport report={impactData.report} onOpenFile={(path) => path && setSelectedFileId(path)} />
+                    )}
                   </div>
                 )}
 
@@ -547,13 +581,15 @@ export default function ExplorerPage() {
                   <div className="cv-dep-chips">
                     {currentFileDetails.symbols && currentFileDetails.symbols.length > 0 ? (
                       currentFileDetails.symbols.map((sym) => (
-                        <span
+                        <button
+                          type="button"
                           key={sym.uid || sym.name}
-                          className="cv-dep-chip cv-dep-chip--export"
-                          title={`${sym.kind} at lines ${sym.start_line}-${sym.end_line}: ${sym.signature || sym.name}`}
+                          className="cv-dep-chip cv-dep-chip--export cv-expl__chip"
+                          onClick={() => sym.uid && setExplainPick({ file: selectedFileId, uid: sym.uid })}
+                          title={`${sym.kind} at lines ${sym.start_line}-${sym.end_line}: ${sym.signature || sym.name}. Click for a plain-English explanation.`}
                         >
                           <code>{sym.signature || sym.qualname || sym.name}</code>
-                        </span>
+                        </button>
                       ))
                     ) : (
                       <span style={{ fontSize: '0.8125rem', color: 'var(--cv-text-muted)' }}>

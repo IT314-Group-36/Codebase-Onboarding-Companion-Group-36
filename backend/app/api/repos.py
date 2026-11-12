@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ai_pipeline.graph import impact as run_impact
 from ai_pipeline.graph import module_graph
 from ai_pipeline.repo import validate_branch, validate_repo_url
 from app.api.deps import (
@@ -17,12 +16,13 @@ from app.core.config import get_settings
 from app.db.session import get_session
 from app.models import Edge, File, Repository, Symbol, User
 from app.schemas import AskIn, FileOut, ReindexIn, RepoCreate, RepoDetail, RepoOut, SearchIn, SymbolOut
+from app.services.explain import TargetError, enrich_modules, explain_target
 from app.services.graph_service import find_symbols, load_graphs
+from app.services.impact_qa import CAVEAT, answer_impact_question, build_report, resolve_target
 from app.services.qa import LLMCallError, answer_question, explain_impact
 from app.services.retrieval import PgHybridRetriever, doc_to_hit
 
 router = APIRouter(prefix="/repos", tags=["repos"])
-CAVEAT = "Static analysis: dynamic calls, reflection and string-based imports are not visible. Treat as 'likely affected'."
 
 
 @router.post("", response_model=RepoOut, status_code=202)
@@ -105,8 +105,25 @@ async def get_map(repo: Repository = Depends(get_ready_user_repo), session: Asyn
             src_file, dst_file = src, dst
         file_edges.append((src_file, dst_file))
     mm = repo.module_map or {"modules": [], "entry_points": [], "project_summary": ""}
-    return {"project_summary": mm.get("project_summary"), "modules": mm["modules"], "entry_points": mm["entry_points"],
-            "graph": module_graph(mm["modules"], file_edges), "tech_stack": repo.tech_stack}
+    graph = module_graph(mm["modules"], file_edges)
+    return {"project_summary": mm.get("project_summary"), "modules": enrich_modules(mm["modules"], graph),
+            "entry_points": mm["entry_points"], "graph": graph, "tech_stack": repo.tech_stack}
+
+
+@router.get("/{repo_id}/explain")
+async def explain(file: str | None = None, symbol: str | None = None, refresh: bool = False,
+                  repo: Repository = Depends(get_ready_user_repo), session: AsyncSession = Depends(get_session),
+                  llm=Depends(get_llm_dep)):
+    """Beginner-friendly explanation of ONE file or function, plus how it relates to the rest of the code
+    ("uses X, used by Y"). Relationships always come back; the prose needs an LLM key and is cached per repo."""
+    if bool(file) == bool(symbol):
+        raise HTTPException(422, "Provide exactly one of ?file=<path> or ?symbol=<uid or name>")
+    try:
+        return await explain_target(session, repo, llm, file=file, symbol=symbol, refresh=refresh)
+    except TargetError as e:
+        raise HTTPException(e.status, e.detail) from e
+    except LLMCallError as e:
+        raise HTTPException(502, f"The LLM call failed: {str(e)[:300]}") from e
 
 
 @router.get("/{repo_id}/symbols", response_model=list[SymbolOut])
@@ -123,12 +140,21 @@ async def search_code(body: SearchIn, repo: Repository = Depends(get_ready_user_
 
 
 @router.post("/{repo_id}/ask")
-async def ask(body: AskIn, repo: Repository = Depends(get_ready_user_repo), embedder=Depends(get_embedder_dep),
-              llm=Depends(get_llm_dep)):
+async def ask(body: AskIn, repo: Repository = Depends(get_ready_user_repo), session: AsyncSession = Depends(get_session),
+              embedder=Depends(get_embedder_dep), llm=Depends(get_llm_dep)):
+    """Ask anything about the repo. "What would break if I change X?" questions are answered from the import/call graphs
+    (works without an LLM key); every other question is RAG Q&A exactly as before."""
+    try:
+        impact_answer = await answer_impact_question(session, repo, body.question, symbol=body.symbol, file=body.file,
+                                                     depth=body.depth, embedder=embedder, llm=llm)
+    except TargetError as e:
+        raise HTTPException(e.status, e.detail) from e
+    if impact_answer is not None:
+        return impact_answer
     if llm is None:
         raise HTTPException(503, "LLM is not configured (set LLM_API_KEY). /search works without it.")
     try:
-        return await answer_question(llm, embedder, repo.id, body.question)
+        return {"intent": "question", **await answer_question(llm, embedder, repo.id, body.question)}
     except LLMCallError as e:
         raise HTTPException(502, f"The LLM call failed: {str(e)[:300]}") from e
 
@@ -137,30 +163,25 @@ async def ask(body: AskIn, repo: Repository = Depends(get_ready_user_repo), embe
 async def impact(symbol: str | None = None, file: str | None = None, depth: int = Query(3, ge=1, le=6),
                  explain: bool = False, repo: Repository = Depends(get_ready_user_repo),
                  session: AsyncSession = Depends(get_session), llm=Depends(get_llm_dep)):
-    """What is likely affected if this symbol (uid or name) or file changes? Reverse traversal with NetworkX."""
+    """What is likely affected if this symbol (uid or name) or file changes? Reverse traversal with NetworkX.
+    Same facts the Ask box uses: each affected item carries its call chain and a plain-English reason."""
     if not symbol and not file:
         raise HTTPException(422, "Provide ?symbol=<uid or name> or ?file=<path>")
     fg, sg = await load_graphs(session, repo.id)
-    if file:
-        if file not in fg:
-            raise HTTPException(404, "File not found")
-        uids, files, target = [n for n, d in sg.nodes(data=True) if d["path"] == file], [file], file
-    else:
-        matches = await find_symbols(session, repo.id, symbol, limit=10)
-        exact = [m for m in matches if m.uid == symbol] or ([matches[0]] if len(matches) == 1 else [m for m in matches if m.name == symbol])
-        if len(exact) != 1:
-            if not matches:
-                raise HTTPException(404, "No symbol matches")
-            raise HTTPException(409, {"message": "Ambiguous symbol; pass an exact uid",
-                                      "candidates": [{"uid": m.uid, "file_path": m.file_path, "kind": m.kind} for m in matches]})
-        uids, files, target = [exact[0].uid], [], exact[0].uid
-    result = run_impact(sg, fg, uids, files, depth)
-    out = {"target": target, "depth": depth, **result, "caveat": CAVEAT, "explanation": None}
+    try:
+        res = await resolve_target(session, repo, fg, sg, "", symbol=None if file else symbol, file=file)
+    except TargetError as e:
+        raise HTTPException(e.status, e.detail) from e
+    if res.target is None:
+        raise HTTPException(409, {"message": "Ambiguous symbol; pass an exact uid",
+                                  "candidates": [{"uid": c["uid"], "file_path": c["file_path"], "kind": c["kind"]} for c in res.candidates]})
+    report = build_report(sg, fg, res.target, depth)
+    out = {**report, "caveat": CAVEAT, "explanation": None}
     if explain:
         if llm is None:
             raise HTTPException(503, "LLM is not configured (set LLM_API_KEY)")
         try:
-            out["explanation"] = await explain_impact(llm, target, result)
+            out["explanation"] = await explain_impact(llm, report["target"], report)
         except LLMCallError as e:
             raise HTTPException(502, f"The LLM call failed: {str(e)[:300]}") from e
     return out
