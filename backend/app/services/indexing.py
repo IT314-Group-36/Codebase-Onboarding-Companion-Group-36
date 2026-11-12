@@ -4,6 +4,7 @@ Blocking work (git, tree-sitter, embeddings) runs in threads; DB and LLM calls a
 import asyncio
 import logging
 import uuid
+from itertools import islice
 from pathlib import Path
 
 from sqlalchemy import delete, insert, update
@@ -22,6 +23,11 @@ from app.models import Chunk, Edge, Explanation, File, Repository, Symbol, User
 from app.services.retrieval import PgHybridRetriever
 
 log = logging.getLogger(__name__)
+
+
+def _take(iterator, count: int) -> list:
+    """Pull a bounded slice from a blocking embedding iterator without leaking StopIteration."""
+    return list(islice(iterator, count))
 
 
 async def _update(repo_id: int, **fields) -> None:
@@ -55,7 +61,7 @@ async def _save(repo_id: int, sha: str, a, vectors: list[list[float]]) -> None:
         await _bulk(s, Chunk, [{"repo_id": repo_id, "file_path": c.metadata["file_path"], "symbol_uid": c.metadata["symbol_uid"],
                                 "start_line": c.metadata["start_line"], "end_line": c.metadata["end_line"],
                                 "content": c.page_content, "embedding": v}
-                               for c, v in zip(a.chunks, vectors, strict=True)], size=200)
+                               for c, v in zip(a.chunks, vectors, strict=True)], size=1000)
         await s.execute(update(Repository).where(Repository.id == repo_id).values(
             commit_sha=sha, tech_stack=a.tech_stack, index_report=a.report, stage="describing"))
 
@@ -145,7 +151,31 @@ async def run_indexing(repo_id: int, access_token: str | None, *, llm, embedder)
         a = await asyncio.to_thread(analyze_checkout, work / "clone", max_chunks=cfg.max_chunks,
                                     max_file_bytes=cfg.max_file_bytes)
         await _update(repo_id, stage="embedding")
-        vectors = await embedder.aembed_documents([embed_text(c) for c in a.chunks])
+        texts = [embed_text(c) for c in a.chunks]
+        total = len(texts)
+        vectors = []
+        batch_size = max(1, cfg.embed_batch_size)
+        if hasattr(embedder, "iter_embed_documents"):
+            # FastEmbed owns a persistent worker pool for this full corpus; consume it in
+            # bounded slices so the UI gets progress without restarting workers per batch.
+            iterator = iter(embedder.iter_embed_documents(texts))
+            while True:
+                batch_vectors = await asyncio.to_thread(_take, iterator, batch_size)
+                if not batch_vectors:
+                    break
+                vectors.extend(batch_vectors)
+                await _update(repo_id, index_report={
+                    **a.report,
+                    "embedding_progress": {"completed": len(vectors), "total": total},
+                })
+        else:
+            for start in range(0, total, batch_size):
+                end = min(start + batch_size, total)
+                vectors.extend(await embedder.aembed_documents(texts[start:end]))
+                await _update(repo_id, index_report={
+                    **a.report,
+                    "embedding_progress": {"completed": end, "total": total},
+                })
         await _update(repo_id, stage="saving")
         await _save(repo_id, sha, a, vectors)
         module_map, summary, warnings = await _describe(repo_id, work / "clone", a, llm, embedder)

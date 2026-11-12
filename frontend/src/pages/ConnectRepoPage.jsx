@@ -63,6 +63,7 @@ export default function ConnectRepoPage() {
   const [isRetrying, setIsRetrying] = useState(false);
   const [phase, setPhase] = useState('form'); // 'form' | 'analyzing' | 'success' | 'error'
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [embeddingProgress, setEmbeddingProgress] = useState(null);
   const [completedSteps, setCompletedSteps] = useState([]);
   const [connectedRepoId, setConnectedRepoId] = useState(null);
 
@@ -207,6 +208,7 @@ export default function ConnectRepoPage() {
           pollFailures = 0; // reset consecutive failures on successful response
           const current = detailRes.repository;
           const stage = current.stage;
+          setEmbeddingProgress(current.indexReport?.embedding_progress || null);
 
           if (stage) {
             const stageIdx = STAGE_ORDER.indexOf(stage);
@@ -271,6 +273,7 @@ export default function ConnectRepoPage() {
     setShowTechDetails(false);
     setPhase('analyzing');
     setCurrentStepIndex(0);
+    setEmbeddingProgress(null);
     setCompletedSteps([]);
 
     const cleanUrl = repoUrl.trim();
@@ -330,6 +333,7 @@ export default function ConnectRepoPage() {
         showToast('Re-indexing job queued in backend worker.', 'info');
         setPhase('analyzing');
         setCurrentStepIndex(0);
+        setEmbeddingProgress(null);
         setCompletedSteps([]);
         setShowTechDetails(false);
         startPolling(connectedRepoId);
@@ -654,8 +658,12 @@ export default function ConnectRepoPage() {
           <div className="cv-connect-progress-head">
             <div className="cv-btn__spinner" />
             <div>
-              <h3>Parsing Repository Structure</h3>
-              <p>Analyzing AST definitions, imports, and component trees...</p>
+              <h3>{INDEXING_STEPS[currentStepIndex]?.label || 'Preparing Repository Index'}</h3>
+              <p>
+                {currentStepIndex === STAGE_ORDER.indexOf('embedding') && embeddingProgress?.total
+                  ? `Embedding ${embeddingProgress.total.toLocaleString()} code chunks. This can take a few minutes for large repositories.`
+                  : 'Analyzing AST definitions, imports, and component trees...'}
+              </p>
             </div>
           </div>
 
@@ -679,7 +687,13 @@ export default function ConnectRepoPage() {
                   </div>
                   <div className="cv-step-content">
                     <span className="cv-step-label">{step.label}</span>
-                    {isActive && <span className="cv-step-status">Processing...</span>}
+                    {isActive && (
+                      <span className="cv-step-status">
+                        {step.id === 'embedding' && embeddingProgress?.total
+                          ? `${embeddingProgress.completed.toLocaleString()} / ${embeddingProgress.total.toLocaleString()} chunks (${Math.floor((embeddingProgress.completed / embeddingProgress.total) * 100)}%)`
+                          : 'Processing...'}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
