@@ -233,9 +233,8 @@ function-level chunks with exact line numbers), and the NetworkX graphs.
 - Changing `EMBED_DIM` needs a new Alembic migration and a reindex of every repo.
 - `google_genai:gemini-3.6-flash` is the default `LLM_MODEL`: confirm in AI Studio that it is available on your free tier.
 - Old `.env` files: `GOOGLE_API_KEY` still works, but `GEMINI_MODEL` is ignored now. Use `LLM_MODEL=google_genai:<model>`.
-- Not built yet: first-week task list from GitHub issues, per-file and per-function explanations, graph-aware answers in `/ask`
-  ("what breaks if I change X" in plain English), streaming and follow-up questions for `/ask`, a repo delete endpoint,
-  webhook re-indexing. There is no "disconnect GitHub" endpoint yet (revoke the app on GitHub to cut access).
+- Not built yet: frontend UI for the GitHub-issues first-week task list (the API exists), streaming and follow-up
+  questions for `/ask`, a repo delete endpoint, webhook re-indexing. There is no "disconnect GitHub" endpoint yet (revoke the app on GitHub to cut access).
 - Private-repo access uses GitHub's broad `repo` OAuth scope (read and write at GitHub's end; this app only reads). A
   GitHub App with per-repo installs would be the least-privilege upgrade.
 - Organizations that restrict third-party apps must approve this OAuth app before their private repos can be cloned.

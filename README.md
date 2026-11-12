@@ -12,10 +12,10 @@ for search, and (with an LLM key) writes a module map and summary. A React app l
 |---|---|---|
 | Connect a GitHub repo, public or private | Done | Sign in with GitHub (OAuth); private repos your account can access are cloned with your saved, encrypted token. Connect page has a picker of your GitHub repos and a real branch dropdown (paste-a-URL and token fallback still work) |
 | Map of modules and responsibilities | Done | Module map + dependency graph |
-| Plain-English explanations | Partial | Repo summary, module purposes and an architecture paragraph; nothing per file or function yet |
+| Plain-English explanations | Done | Repo summary, module purposes, architecture paragraph, and per-file / per-function explanations (`/explain`) |
 | Ask "where is the payment logic handled?" | Done | Answers do not stream and each question is independent |
-| "What would break if I change this function?" | Partial | `/impact` works if you pick the symbol; the Ask box does not use the graph yet |
-| First-week task list from beginner-friendly issues | Not built | No GitHub issues code yet |
+| "What would break if I change this function?" | Done | `/impact` plus plain-English impact questions in the Ask box |
+| First-week task list from beginner-friendly issues | Partial | Backend API done (`/issues/sync`, `/onboarding-tasks`); the frontend checklist is still generated locally |
 
 Also still local-only in the frontend: task completion (browser localStorage) and
 "remove repository" (hides it in the browser; the API has no delete endpoint).
