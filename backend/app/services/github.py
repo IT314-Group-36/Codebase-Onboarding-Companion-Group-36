@@ -114,3 +114,14 @@ class GitHubClient:
         info = (await self._get(f"/repos/{full_name}", token)).json()
         r = await self._get(f"/repos/{full_name}/branches", token, {"per_page": 100})
         return info.get("default_branch"), [b["name"] for b in r.json()], "next" in r.links
+
+    async def list_commits(self, token: str, full_name: str, *, branch: str | None = None,
+                          path: str | None = None, per_page: int = 50) -> list[dict]:
+        """Read a bounded recent commit sample, optionally scoped to a branch and file/folder path."""
+        params: dict[str, str | int] = {"per_page": min(max(per_page, 1), 100)}
+        if branch:
+            params["sha"] = branch
+        if path:
+            params["path"] = path
+        r = await self._get(f"/repos/{full_name}/commits", token, params)
+        return r.json()
