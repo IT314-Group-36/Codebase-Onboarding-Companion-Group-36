@@ -1,14 +1,14 @@
 """explanations: cache for LLM file/function explanations
 
-Revision ID: 0003
-Revises: 0002
+Revision ID: 0004_explanations
+Revises: 0003_issues
 """
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql as pg
 
-revision = "0003"
-down_revision = "0002"
+revision = "0004_explanations"
+down_revision = "0003_issues"
 branch_labels = None
 depends_on = None
 
