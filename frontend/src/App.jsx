@@ -11,6 +11,7 @@ import ExplorerPage from './pages/ExplorerPage';
 import DependencyMapPage from './pages/DependencyMapPage';
 import OnboardingPage from './pages/OnboardingPage';
 import QAPage from './pages/QAPage';
+import HistoryPage from './pages/HistoryPage';
 import SettingsPage from './pages/SettingsPage';
 import NotFoundPage from './pages/NotFoundPage';
 
@@ -37,6 +38,7 @@ export default function App() {
               <Route path="/dependencies/:repoId" element={<DependencyMapPage />} />
               <Route path="/onboarding/:repoId" element={<OnboardingPage />} />
               <Route path="/qa/:repoId" element={<QAPage />} />
+              <Route path="/history/:repoId" element={<HistoryPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>

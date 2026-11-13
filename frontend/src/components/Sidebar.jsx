@@ -13,6 +13,7 @@ import {
   LogOut,
   Sparkles,
   ExternalLink,
+  History,
 } from 'lucide-react';
 import { getRepositories } from '../services/api';
 import './Sidebar.css';
@@ -44,7 +45,7 @@ export default function Sidebar({
   }, [location.pathname]);
 
   const urlRepoId = location.pathname.match(
-    /\/(?:repository|explorer|dependencies|onboarding|qa)\/([^/?]+)/
+    /\/(?:repository|explorer|dependencies|onboarding|qa|history)\/([^/?]+)/
   )?.[1];
   let lastRepoId = null;
   try {
@@ -76,6 +77,7 @@ export default function Sidebar({
     { to: repoLink('dependencies'), label: 'Module Map', icon: <Boxes size={18} strokeWidth={1.8} /> },
     { to: repoLink('onboarding'), label: 'Onboarding', icon: <CheckSquare size={18} strokeWidth={1.8} /> },
     { to: repoLink('qa'), label: 'Codebase Q&A', icon: <MessageSquare size={18} strokeWidth={1.8} /> },
+    { to: repoLink('history'), label: 'Git History', icon: <History size={18} strokeWidth={1.8} /> },
     { to: '/settings', label: 'Settings', icon: <Settings size={18} strokeWidth={1.8} /> },
   ];
 

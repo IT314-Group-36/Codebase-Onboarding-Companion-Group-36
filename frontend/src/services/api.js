@@ -605,3 +605,10 @@ export async function updateOnboardingTask(repoId, taskId, status) {
   saveTaskStatus(repoId, taskId, status);
   return { success: true, taskId, status };
 }
+
+/** Recent GitHub commits and contributor activity, optionally scoped to a file or folder. */
+export async function getRepositoryHistory(repoId, { path = '', limit = 50 } = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (path) params.set('path', path);
+  return request(`/repos/${encodeURIComponent(repoId)}/history?${params.toString()}`);
+}

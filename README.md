@@ -15,6 +15,7 @@ for search, and (with an LLM key) writes a module map and summary. A React app l
 | Plain-English explanations | Done | Repo summary, module purposes, architecture paragraph, and per-file / per-function explanations (`/explain`) |
 | Ask "where is the payment logic handled?" | Done | Answers do not stream and each question is independent |
 | "What would break if I change this function?" | Done | `/impact` plus plain-English impact questions in the Ask box |
+| Git history and contribution activity | Done (initial version) | On-demand GitHub history page; latest 50 commits and contributor shares, optionally filtered by top-level folder |
 | First-week task list from beginner-friendly issues | Partial | Backend API done (`/issues/sync`, `/onboarding-tasks`); the frontend checklist is still generated locally |
 
 Also still local-only in the frontend: task completion (browser localStorage) and

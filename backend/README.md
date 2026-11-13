@@ -49,6 +49,7 @@ Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv 
 | POST | `/repos/{id}/reindex` | re-run indexing (atomic swap, old data stays readable until done) |
 | GET | `/repos`, `/repos/{id}` | status (`queued/indexing/ready/failed`), `stage`, `error`, summary, tech stack, report, warnings |
 | GET | `/repos/{id}/map` | modules (each with `depends_on`, `used_by`, `relationship_summary`), entry points, module-to-module dependency graph (for React Flow) |
+| GET | `/repos/{id}/history?path=&limit=50` | latest GitHub commits and contribution counts from that sample; optional file/folder path filter; fetched on demand and not stored |
 | GET | `/repos/{id}/files`, `/files/{path}` | file tree; per file: symbols, imports, imported_by |
 | GET | `/repos/{id}/explain?file=\|symbol=&refresh=` | beginner-friendly explanation of one file or function + how it relates to the rest (see below) |
 | GET | `/repos/{id}/symbols?q=` | find functions/classes |
