@@ -1,12 +1,16 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ai_pipeline.graph import module_graph
 from ai_pipeline.repo import validate_branch, validate_repo_url
+from ai_pipeline.secrets import redact_secrets
 from app.api.deps import (
     get_current_user,
     get_embedder_dep,
+    get_github_client,
     get_llm_dep,
     get_queue,
     get_ready_user_repo,
@@ -17,6 +21,7 @@ from app.db.session import get_session
 from app.models import Edge, File, Repository, Symbol, User
 from app.schemas import AskIn, FileOut, ReindexIn, RepoCreate, RepoDetail, RepoOut, SearchIn, SymbolOut
 from app.services.explain import TargetError, enrich_modules, explain_target
+from app.services.github import GitHubClient, GitHubError, user_github_token
 from app.services.graph_service import find_symbols, load_graphs
 from app.services.impact_qa import CAVEAT, answer_impact_question, build_report, resolve_target
 from app.services.qa import LLMCallError, answer_question, explain_impact
@@ -40,8 +45,8 @@ async def register_repo(body: RepoCreate, user: User = Depends(get_current_user)
     repo = Repository(owner_id=user.id, url=url, branch=branch, status="queued")
     session.add(repo)
     await session.commit()
-    # Normally no token is passed: the worker loads the owner's saved GitHub token itself if the repo turns out
-    # to be private. A token pasted in the request (optional) is handed to this one job only and never stored in the DB.
+    # No pasted token: the worker loads the owner's saved GitHub token itself if the repo turns out to be private,
+    # so the token never travels through the job queue.
     await queue.enqueue_job("index_repository", repo.id, body.access_token)
     return repo
 
@@ -72,6 +77,38 @@ async def reindex(body: ReindexIn | None = None, repo: Repository = Depends(get_
 @router.get("/{repo_id}/files", response_model=list[FileOut])
 async def list_files(repo: Repository = Depends(get_ready_user_repo), session: AsyncSession = Depends(get_session)):
     return (await session.execute(select(File).where(File.repo_id == repo.id).order_by(File.path))).scalars().all()
+
+
+@router.get("/{repo_id}/files/{path:path}/content")
+async def file_content(path: str, repo: Repository = Depends(get_ready_user_repo),
+                       user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session),
+                       github: GitHubClient = Depends(get_github_client)):
+    """Return the complete source for an indexed, non-sensitive file at the exact indexed commit.
+
+    Raw source is fetched on demand from GitHub rather than persisted in our database.
+    """
+    file_row = (await session.execute(select(File).where(File.repo_id == repo.id, File.path == path))).scalar_one_or_none()
+    if file_row is None:
+        raise HTTPException(404, "File not found in this indexed repository")
+    if file_row.sensitive:
+        raise HTTPException(403, "This file is marked sensitive; source content is not available")
+    if file_row.size > 1_000_000:
+        raise HTTPException(413, "This file exceeds the 1 MB source-viewer limit")
+    if not repo.commit_sha:
+        raise HTTPException(409, "This repository has no indexed commit SHA; reindex it first")
+    # Only GitHub-hosted repositories can be fetched after the temporary clone is removed.
+    match = re.fullmatch(r"https://github\.com/([\w.\-]+)/([\w.\-]+)", repo.url.rstrip("/"))
+    if not match:
+        raise HTTPException(501, "On-demand source viewing is currently supported for GitHub repositories only")
+    full_name = f"{match.group(1)}/{match.group(2).removesuffix('.git')}"
+    try:
+        content = await github.get_file_content(full_name, path, repo.commit_sha, user_github_token(user))
+        content, redactions = redact_secrets(content)
+    except GitHubError as e:
+        status = {"reauth": 403, "not_found": 404, "rate_limit": 429}.get(e.kind, 502)
+        raise HTTPException(status, str(e)) from e
+    return {"path": path, "content": content, "is_partial": False, "commit_sha": repo.commit_sha,
+            "secrets_redacted": redactions}
 
 
 @router.get("/{repo_id}/files/{path:path}")

@@ -333,40 +333,20 @@ export async function getFileDetails(repoId, filePath) {
 }
 
 /**
- * File source code content retrieval notice
- * Backend does not retain complete source files after AST parsing (safe_rmtree).
+ * Fetches the complete source file from GitHub at the exact commit that was indexed.
+ * GET /repos/{repo_id}/files/{path}/content
  */
 export async function getFileContent(repoId, filePath) {
-  // Check if we can get indexed chunks for this file
-  try {
-    const hits = await searchCode(repoId, filePath, 5);
-    const fileHits = (hits.hits || []).filter((h) => h.file_path === filePath);
-
-    if (fileHits.length > 0) {
-      const code = fileHits
-        .sort((a, b) => a.start_line - b.start_line)
-        .map(
-          (h) =>
-            `// --- Lines ${h.start_line}-${h.end_line} (from indexed AST chunk) ---\n${h.content}`
-        )
-        .join('\n\n');
-      return { success: true, content: code, isPartial: true };
-    }
-  } catch {
-    // ignore search failure
-  }
-
-  const notice = `// =========================================================================
-// Source File: ${filePath}
-//
-// NOTE: Complete raw file blobs are not stored in the backend database.
-// To conserve disk and avoid retaining external codebases, the backend AST
-// worker extracts symbols, dependency edges, and semantic vector chunks,
-// then purges the temporary git clone directory.
-//
-// See the right panel for extracted symbols, signatures, and imports.
-// =========================================================================`;
-  return { success: true, content: notice, isPartial: true };
+  const numericId = parseInt(repoId, 10);
+  const targetId = Number.isNaN(numericId) ? repoId : numericId;
+  const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
+  const raw = await request(`/repos/${encodeURIComponent(targetId)}/files/${encodedPath}/content`);
+  return {
+    success: true,
+    content: raw.content || '',
+    isPartial: Boolean(raw.is_partial),
+    commitSha: raw.commit_sha || null,
+  };
 }
 
 /**
@@ -605,6 +585,7 @@ export async function updateOnboardingTask(repoId, taskId, status) {
   saveTaskStatus(repoId, taskId, status);
   return { success: true, taskId, status };
 }
+
 
 /** Recent GitHub commits and contributor activity, optionally scoped to a file or folder. */
 export async function getRepositoryHistory(repoId, { path = '', limit = 50 } = {}) {

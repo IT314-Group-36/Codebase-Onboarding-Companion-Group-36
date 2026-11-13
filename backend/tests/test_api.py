@@ -17,7 +17,7 @@ from app.services.indexing import run_indexing
 from app.services.qa import Answer, Citation, ImpactExplanation
 from app.services.retrieval import PgHybridRetriever
 from app.services.runtime import get_embedder
-from tests.conftest import FakeQueue
+from tests.conftest import FakeGitHub, FakeQueue
 
 
 class FakeLLM:
@@ -47,6 +47,7 @@ class FakeLLM:
             first = re.search(r"\[1\] (\S+) lines (\d+)-(\d+)", prompt)
             return Answer(answer="Payments are in shop/payments.py", citations=[
                 Citation(path=first.group(1), start_line=int(first.group(2)), end_line=int(first.group(3))),
+                Citation(path=first.group(1), start_line=1, end_line=99999),
                 Citation(path="invented.py", start_line=1, end_line=2)])
         if schema is ImpactExplanation:
             return ImpactExplanation(explanation="Callers may break.", suggested_checks=["run checkout tests"])
@@ -200,3 +201,32 @@ async def test_llm_failure_on_ask_and_impact_is_a_clear_502(client, git_repo):
     assert r.status_code == 502
     plain = await client.get(f"/repos/{rid}/impact", params={"symbol": "shop/db.py::save_order"})
     assert plain.status_code == 200                                       # impact without explanation never needs the LLM
+
+
+async def test_file_content_is_fetched_from_the_indexed_github_commit_and_sensitive_files_are_blocked(client, git_repo):
+    from app.api import deps
+    from app.core.security import encrypt_token
+    from app.db.session import SessionLocal
+    rid = await index(client, git_repo)
+    async with SessionLocal() as session:
+        repo = await session.get(Repository, rid)
+        repo.url = "https://github.com/owner/shop"
+        user = await session.get(type(client.user), client.user.id)
+        user.encrypted_access_token = encrypt_token("gho_testtoken")
+        await session.commit()
+
+    gh = FakeGitHub()
+    gh.branches["owner/shop"] = ["main"]
+    app.dependency_overrides[deps.get_github_client] = gh.client
+    response = await client.get(f"/repos/{rid}/files/shop/payments.py/content")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["content"].startswith("# Sample source")
+    assert "[REDACTED_SECRET]" in body["content"]
+    assert body["secrets_redacted"] == 1
+    assert body["is_partial"] is False
+    assert body["commit_sha"]
+    assert any("/contents/shop/payments.py" in str(req.url) for req in gh.requests)
+
+    blocked = await client.get(f"/repos/{rid}/files/.env/content")
+    assert blocked.status_code == 403
