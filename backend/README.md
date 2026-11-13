@@ -89,6 +89,7 @@ Set these in `backend/.env` (environment variables of the same name also work). 
 | `REDIS_URL` | `redis://localhost:6379` | job queue; overridden by compose inside Docker |
 | `CORS_ORIGINS` | `["http://localhost:5173"]` | JSON list; only matters when the browser calls the API directly. Compose also sets it, which takes precedence over `.env` |
 | `EMBED_BACKEND`, `EMBED_MODEL`, `EMBED_DIM` | `fastembed`, `BAAI/bge-small-en-v1.5`, `384` | embeddings; `hash` backend is for tests only |
+| `EMBED_BATCH_SIZE`, `EMBED_PARALLELISM` | `128`, `4` | FastEmbed batch size and CPU worker processes for repository indexing; tune based on available memory and CPU |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | empty | GitHub OAuth app credentials (for login and private repos) |
 | `GITHUB_REDIRECT_URI` | `http://localhost:5173/api/auth/github/callback` | must match the OAuth app's callback URL exactly |
 | `FRONTEND_URL` | `http://localhost:5173` | where the browser is sent after login |

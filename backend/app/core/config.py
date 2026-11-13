@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     embed_backend: str = "fastembed"         # fastembed | hash (hash = tests only)
     embed_model: str = "BAAI/bge-small-en-v1.5"
     embed_dim: int = 384                     # must match the migrated vector column
+    embed_batch_size: int = Field(128, ge=16, le=512)
+    embed_parallelism: int = Field(4, ge=1, le=8)
 
     # --- GitHub login (OAuth app) and sessions: used for private repos ---
     # Create the OAuth app at https://github.com/settings/developers; see backend/README.md.

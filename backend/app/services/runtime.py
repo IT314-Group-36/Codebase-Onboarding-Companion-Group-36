@@ -19,4 +19,4 @@ def get_llm():
 def get_embedder():
     """A LangChain Embeddings object."""
     s = get_settings()
-    return _get_embedder(s.embed_backend, s.embed_model, s.embed_dim)
+    return _get_embedder(s.embed_backend, s.embed_model, s.embed_dim, s.embed_batch_size, s.embed_parallelism)

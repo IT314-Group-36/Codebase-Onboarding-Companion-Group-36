@@ -16,13 +16,21 @@ from langchain_core.embeddings import Embeddings
 
 
 class FastEmbedEmbeddings(Embeddings):
-    def __init__(self, model_name: str, dim: int):
+    def __init__(self, model_name: str, dim: int, batch_size: int = 128, parallelism: int = 2):
         from fastembed import TextEmbedding
         self._model = TextEmbedding(model_name=model_name)   # downloads once, then cached on disk
         self.dim = dim
+        self.batch_size = batch_size
+        self.parallelism = parallelism
+
+    def iter_embed_documents(self, texts: list[str]):
+        """Yield vectors from one persistent FastEmbed data-parallel job."""
+        parallel = self.parallelism if self.parallelism > 1 else None
+        for vector in self._model.passage_embed(texts, batch_size=self.batch_size, parallel=parallel):
+            yield vector.tolist()
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return [v.tolist() for v in self._model.passage_embed(texts, batch_size=32)]
+        return list(self.iter_embed_documents(texts))
 
     def embed_query(self, text: str) -> list[float]:
         return next(iter(self._model.query_embed([text]))).tolist()   # bge models embed queries differently
@@ -53,8 +61,8 @@ class HashEmbeddings(Embeddings):
 
 
 @lru_cache(maxsize=4)
-def get_embedder(backend: str, model: str, dim: int) -> Embeddings:
+def get_embedder(backend: str, model: str, dim: int, batch_size: int = 128, parallelism: int = 2) -> Embeddings:
     """Cached: the model is loaded once per process, not once per request."""
     if backend == "hash":
         return HashEmbeddings(dim)
-    return FastEmbedEmbeddings(model, dim)
+    return FastEmbedEmbeddings(model, dim, batch_size, parallelism)
