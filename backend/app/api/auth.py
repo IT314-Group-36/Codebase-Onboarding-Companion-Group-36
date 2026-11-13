@@ -126,3 +126,12 @@ async def logout():
     resp = JSONResponse({"ok": True})
     resp.delete_cookie(get_settings().session_cookie_name, path="/")
     return resp
+
+
+@router.post("/github/disconnect")
+async def disconnect_github(user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
+    """Forget the stored GitHub credential while keeping the local app session active."""
+    user.encrypted_access_token = None
+    user.token_scopes = None
+    await session.commit()
+    return {"ok": True, "github_connected": False}

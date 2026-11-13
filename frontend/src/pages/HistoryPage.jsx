@@ -111,6 +111,11 @@ export default function HistoryPage() {
                 <div className="cv-commit-content">
                   <a href={commit.url} target="_blank" rel="noreferrer" className="cv-commit-message">{commit.message}<ExternalLink size={13} /></a>
                   <p><span>{commit.author.name}</span> · {formatDate(commit.date)} · <code>{commit.short_sha}</code></p>
+                  {commit.changed_files?.length > 0 && <div className="cv-commit-files" aria-label="Files changed in this commit">
+                    <span>{commit.changed_files.length} changed files:</span>
+                    {commit.changed_files.slice(0, 5).map((file) => <code key={file.path} title={`${file.status}: +${file.additions} / -${file.deletions}`}>{file.path}</code>)}
+                    {commit.changed_files.length > 5 && <small>and {commit.changed_files.length - 5} more</small>}
+                  </div>}
                 </div>
               </li>)}
             </ol> : <p className="cv-history-empty">No commits were found for this selection.</p>}

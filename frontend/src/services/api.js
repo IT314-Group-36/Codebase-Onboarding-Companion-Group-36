@@ -247,16 +247,15 @@ export async function reindexRepository(repoId, accessToken = null) {
   };
 }
 
-/**
- * Removes repository from frontend tracking
- * Note: Backend does not expose a DELETE endpoint.
- */
+/** Permanently removes this user's indexed repository and derived data. */
 export async function disconnectRepository(repoId) {
-  return {
-    success: true,
-    id: repoId,
-    note: 'Removed from local frontend session. Backend repository records remain preserved.',
-  };
+  await request(`/repos/${encodeURIComponent(repoId)}`, { method: 'DELETE' });
+  return { success: true, id: repoId };
+}
+
+/** Forget the saved GitHub credential while keeping the CODEVERSE session active. */
+export async function disconnectGitHub() {
+  return request('/auth/github/disconnect', { method: 'POST' });
 }
 
 // ============================================
@@ -337,36 +336,24 @@ export async function getFileDetails(repoId, filePath) {
  * Backend does not retain complete source files after AST parsing (safe_rmtree).
  */
 export async function getFileContent(repoId, filePath) {
-  // Check if we can get indexed chunks for this file
   try {
-    const hits = await searchCode(repoId, filePath, 5);
-    const fileHits = (hits.hits || []).filter((h) => h.file_path === filePath);
-
-    if (fileHits.length > 0) {
-      const code = fileHits
-        .sort((a, b) => a.start_line - b.start_line)
-        .map(
-          (h) =>
-            `// --- Lines ${h.start_line}-${h.end_line} (from indexed AST chunk) ---\n${h.content}`
-        )
-        .join('\n\n');
-      return { success: true, content: code, isPartial: true };
-    }
+    const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
+    const raw = await request(`/repos/${encodeURIComponent(repoId)}/source/${encodedPath}`);
+    return { success: true, content: raw.content || '', isPartial: false, commitSha: raw.commit_sha };
   } catch {
-    // ignore search failure
+    try {
+      const hits = await searchCode(repoId, filePath, 5);
+      const fileHits = (hits.hits || []).filter((h) => h.file_path === filePath);
+      if (fileHits.length) {
+        const code = fileHits.sort((a, b) => a.start_line - b.start_line)
+          .map((h) => `// --- Lines ${h.start_line}-${h.end_line} (indexed excerpt) ---\n${h.content}`).join('\n\n');
+        return { success: true, content: code, isPartial: true };
+      }
+    } catch {
+      // The viewer displays a source limitation when neither GitHub nor the index can supply code.
+    }
+    return { success: true, content: `// Source for ${filePath} could not be fetched from GitHub.\n// Indexed symbols and relationships remain available in the details panel.`, isPartial: true };
   }
-
-  const notice = `// =========================================================================
-// Source File: ${filePath}
-//
-// NOTE: Complete raw file blobs are not stored in the backend database.
-// To conserve disk and avoid retaining external codebases, the backend AST
-// worker extracts symbols, dependency edges, and semantic vector chunks,
-// then purges the temporary git clone directory.
-//
-// See the right panel for extracted symbols, signatures, and imports.
-// =========================================================================`;
-  return { success: true, content: notice, isPartial: true };
 }
 
 /**
@@ -541,6 +528,39 @@ export async function askCodebaseQuestion(repoId, question, hints = {}) {
     caveat: res.caveat || '',
     raw: res,
   };
+}
+
+/** Streams a grounded answer and sends the recent conversation turns to the backend. */
+export async function askCodebaseQuestionStream(repoId, question, hints = {}, history = [], onEvent) {
+  const response = await fetch(`${BASE_URL}/repos/${encodeURIComponent(repoId)}/ask/stream`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify({ question, ...hints, history: history.slice(-12) }),
+  });
+  if (!response.ok) {
+    const error = await parseError(response);
+    if (response.status === 401) window.dispatchEvent(new Event('auth:expired'));
+    throw error;
+  }
+  if (!response.body) throw new Error('This browser does not support streamed responses.');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+    const events = buffer.split('\n\n');
+    buffer = events.pop() || '';
+    for (const event of events) {
+      const line = event.split('\n').find((part) => part.startsWith('data: '));
+      if (!line) continue;
+      const payload = JSON.parse(line.slice(6));
+      if (payload.type === 'error') throw new Error(payload.message);
+      onEvent(payload);
+    }
+    if (done) break;
+  }
 }
 
 // ============================================

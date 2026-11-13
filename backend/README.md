@@ -43,6 +43,7 @@ Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv 
 | GET | `/auth/github/callback` | GitHub returns here; creates/updates the user, saves the token encrypted, sets the session cookie, redirects to the frontend |
 | GET | `/auth/me` | the signed-in user (401 if not signed in); `github_connected` says a token is saved |
 | POST | `/auth/logout` | clears the session cookie |
+| POST | `/auth/github/disconnect` | deletes the saved encrypted GitHub credential and leaves the CODEVERSE session active; revoke the OAuth grant separately in GitHub settings if needed |
 | GET | `/github/repos?page=&per_page=&q=` | repos the signed-in user can access on GitHub (public and private); `q` filters the page |
 | GET | `/github/branches?repo=owner/name` | default branch and branch names (first 100) |
 | POST | `/repos` | `{url, branch?, access_token?}` register + enqueue indexing (202). Idempotent per user+url+branch |
@@ -50,11 +51,14 @@ Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv 
 | GET | `/repos`, `/repos/{id}` | status (`queued/indexing/ready/failed`), `stage`, `error`, summary, tech stack, report, warnings |
 | GET | `/repos/{id}/map` | modules (each with `depends_on`, `used_by`, `relationship_summary`), entry points, module-to-module dependency graph (for React Flow) |
 | GET | `/repos/{id}/history?path=&limit=50` | latest GitHub commits and contribution counts from that sample; optional file/folder path filter; fetched on demand and not stored |
+| DELETE | `/repos/{id}` | delete the owned repository and all derived index data (blocked while indexing) |
 | GET | `/repos/{id}/files`, `/files/{path}` | file tree; per file: symbols, imports, imported_by |
+| GET | `/repos/{id}/source/{path}` | on-demand source at the indexed commit; indexed non-sensitive files only, capped at 500 KB |
 | GET | `/repos/{id}/explain?file=\|symbol=&refresh=` | beginner-friendly explanation of one file or function + how it relates to the rest (see below) |
 | GET | `/repos/{id}/symbols?q=` | find functions/classes |
 | POST | `/repos/{id}/search` | hybrid retrieval, no LLM: `{query, k}` |
 | POST | `/repos/{id}/ask` | `{question, symbol?, file?, depth?}`: "what would break if I change X?" is answered from the import/call graphs; any other question is RAG with validated citations (see below) |
+| POST | `/repos/{id}/ask/stream` | `{question, history[], symbol?, file?, depth?}`: stream grounded answer tokens using up to 12 recent turns |
 | GET | `/repos/{id}/impact?symbol=\|file=&depth=&explain=` | "what breaks if I change this" (reverse traversal); same report the Ask box shows, with a call chain and a reason per item |
 
 Every `/repos` and `/github` route needs the session cookie (401 otherwise), and a user only ever sees their own
@@ -229,14 +233,13 @@ function-level chunks with exact line numbers), and the NetworkX graphs.
 - Call/impact analysis is static and name-based: dynamic dispatch, reflection and string imports are invisible, and a
   call to an unknown receiver (`x.save()`) only resolves inside the same file or imported files. The API says so in `caveat`.
 - Only Python, JS/JSX and TS/TSX are parsed; other languages are indexed as line-window text chunks (still searchable).
-- Whole files are not stored after indexing (the clone is deleted, DR-03); only the parsed symbols, graph edges and embedded code chunks are kept in the database. The UI cannot show full source yet.
+- Whole files are not stored after indexing (the clone is deleted, DR-03); source is fetched on demand from GitHub at the pinned index commit, and only indexed non-sensitive files up to 500 KB are shown.
 - Secret redaction is regex-based. For production add gitleaks in the worker.
 - `tree-sitter` is pinned `<0.26`: 0.26.0 segfaulted in the Python binding on larger files.
 - Changing `EMBED_DIM` needs a new Alembic migration and a reindex of every repo.
 - `google_genai:gemini-3.6-flash` is the default `LLM_MODEL`: confirm in AI Studio that it is available on your free tier.
 - Old `.env` files: `GOOGLE_API_KEY` still works, but `GEMINI_MODEL` is ignored now. Use `LLM_MODEL=google_genai:<model>`.
-- Not built yet: frontend UI for the GitHub-issues first-week task list (the API exists), streaming and follow-up
-  questions for `/ask`, a repo delete endpoint, webhook re-indexing. There is no "disconnect GitHub" endpoint yet (revoke the app on GitHub to cut access).
+- Not built yet: frontend UI for the GitHub-issues first-week task list (the API exists), webhook re-indexing.
 - Private-repo access uses GitHub's broad `repo` OAuth scope (read and write at GitHub's end; this app only reads). A
   GitHub App with per-repo installs would be the least-privilege upgrade.
 - Organizations that restrict third-party apps must approve this OAuth app before their private repos can be cloned.

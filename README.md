@@ -12,14 +12,15 @@ for search, and (with an LLM key) writes a module map and summary. A React app l
 |---|---|---|
 | Connect a GitHub repo, public or private | Done | Sign in with GitHub (OAuth); private repos your account can access are cloned with your saved, encrypted token. Connect page has a picker of your GitHub repos and a real branch dropdown (paste-a-URL and token fallback still work) |
 | Map of modules and responsibilities | Done | Module map + dependency graph |
+| Code Explorer editor themes | Done | Syntax-colored VS Code Dark+, Monokai, Dracula, and GitHub Light palettes; choice is saved in the browser |
 | Plain-English explanations | Done | Repo summary, module purposes, architecture paragraph, and per-file / per-function explanations (`/explain`) |
-| Ask "where is the payment logic handled?" | Done | Answers do not stream and each question is independent |
+| Ask "where is the payment logic handled?" | Done | Answers stream, retain recent conversation context, and link to exact source lines at the indexed commit |
 | "What would break if I change this function?" | Done | `/impact` plus plain-English impact questions in the Ask box |
-| Git history and contribution activity | Done (initial version) | On-demand GitHub history page; latest 50 commits and contributor shares, optionally filtered by top-level folder |
+| Git history and contribution activity | Done (initial version) | On-demand GitHub history page; commit timeline includes changed files and per-folder contributor shares, based on latest 50 commits |
 | First-week task list from beginner-friendly issues | Partial | Backend API done (`/issues/sync`, `/onboarding-tasks`); the frontend checklist is still generated locally |
 
-Also still local-only in the frontend: task completion (browser localStorage) and
-"remove repository" (hides it in the browser; the API has no delete endpoint).
+Still local-only in the frontend: task completion (browser localStorage). Repository deletion removes the
+user's indexed data from the backend; GitHub disconnect forgets the saved credential while retaining the CODEVERSE session.
 
 ## Repository layout
 

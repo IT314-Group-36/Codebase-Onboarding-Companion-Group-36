@@ -16,6 +16,7 @@ import {
   Share2,
   ShieldAlert,
   Zap,
+  Palette,
 } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import Button from '../components/Button';
@@ -32,6 +33,34 @@ import {
 import { showToast } from '../utils/toast';
 import './ExplorerPage.css';
 
+const CODE_TOKEN_PATTERN = /(\/\/.*|#.*|\/\*.*?\*\/|"[^"]*"|'[^']*'|`[^`]*`|<\/?[A-Za-z][\w.-]*|\b\d+(?:\.\d+)?\b|\b(?:const|let|var|function|return|if|else|for|while|class|extends|new|this|import|from|export|default|async|await|try|catch|throw|def|lambda|pass|yield|with|as|in|is|not|and|or|None|True|False|null|undefined|interface|type|enum|implements|public|private|static|void|int|string|boolean)\b|[A-Za-z_$][\w$]*)/g;
+
+function highlightLine(line) {
+  const parts = [];
+  let cursor = 0;
+  let previousWord = '';
+  for (const match of line.matchAll(CODE_TOKEN_PATTERN)) {
+    const token = match[0];
+    const index = match.index;
+    if (index > cursor) parts.push(line.slice(cursor, index));
+    let kind = '';
+    if (/^(\/\/|#|\/\*)/.test(token)) kind = 'comment';
+    else if (/^("|'|`)/.test(token)) kind = 'string';
+    else if (/^<\/?[A-Za-z]/.test(token)) kind = 'tag';
+    else if (/^\d/.test(token)) kind = 'number';
+    else if (/^(const|let|var|function|return|if|else|for|while|class|extends|new|this|import|from|export|default|async|await|try|catch|throw|def|lambda|pass|yield|with|as|in|is|not|and|or|None|True|False|null|undefined|interface|type|enum|implements|public|private|static|void|int|string|boolean)$/.test(token)) kind = 'keyword';
+    else if (/^[A-Za-z_$][\w$]*$/.test(token) && ['class', 'interface', 'type', 'enum'].includes(previousWord)) kind = 'class';
+    else if (/^[A-Za-z_$][\w$]*$/.test(token) && /\($/.test(line.slice(index + token.length).match(/^\s*\(/)?.[0] || '')) kind = 'function';
+    if (kind) parts.push(<span key={index} className={`cv-token cv-token--${kind}`}>{token}</span>);
+    else parts.push(token);
+    if (/^[A-Za-z_$][\w$]*$/.test(token)) previousWord = token;
+    else if (!/^\s*$/.test(token)) previousWord = '';
+    cursor = index + token.length;
+  }
+  if (cursor < line.length) parts.push(line.slice(cursor));
+  return parts;
+}
+
 /**
  * Page 5: Codebase Structure Explorer
  * Professional IDE-style layout with tree browser, source editor viewport,
@@ -41,6 +70,8 @@ export default function ExplorerPage() {
   const { repoId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const targetLine = Number(searchParams.get('line')) || null;
+  const targetEndLine = Number(searchParams.get('end')) || targetLine;
 
   const [loading, setLoading] = useState(true);
   const [repo, setRepo] = useState(null);
@@ -51,6 +82,7 @@ export default function ExplorerPage() {
   const [detailsPanelOpen, setDetailsPanelOpen] = useState(true);
   const [mobileTreeOpen, setMobileTreeOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [editorTheme, setEditorTheme] = useState(() => localStorage.getItem('codeverse_editor_theme') || 'dark-plus');
 
   const [currentFileContent, setCurrentFileContent] = useState('');
   const [currentFileDetails, setCurrentFileDetails] = useState(null);
@@ -58,6 +90,10 @@ export default function ExplorerPage() {
   const [analyzingImpact, setAnalyzingImpact] = useState(false);
   // Function picked for a plain-English explanation. Tied to the file it was picked in, so it resets on file change.
   const [explainPick, setExplainPick] = useState(null); // { file, uid }
+
+  useEffect(() => {
+    localStorage.setItem('codeverse_editor_theme', editorTheme);
+  }, [editorTheme]);
 
   // 1. Initial Load: Repository specifications & File tree
   useEffect(() => {
@@ -149,6 +185,11 @@ export default function ExplorerPage() {
       isMounted = false;
     };
   }, [repoId, selectedFileId]);
+
+  useEffect(() => {
+    if (!targetLine) return;
+    document.getElementById(`cv-source-line-${targetLine}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [targetLine, targetEndLine, selectedFileId, currentFileContent]);
 
   const handleRunImpact = useCallback(async () => {
     if (!selectedFileId || analyzingImpact) return;
@@ -381,7 +422,7 @@ export default function ExplorerPage() {
         </aside>
 
         {/* Pane 2: Code Viewer (Center) */}
-        <main className="cv-explorer-code-pane" aria-label="Source Code Viewer">
+        <main className="cv-explorer-code-pane" data-editor-theme={editorTheme} aria-label="Source Code Viewer">
           <div className="cv-code-head">
             <div className="cv-code-head__meta">
               {getFileIcon(selectedFileId)}
@@ -389,11 +430,23 @@ export default function ExplorerPage() {
               <span className="cv-code-head__lines">{codeLines.length} lines</span>
               <span className="cv-code-spatial-pill">
                 <span className="cv-code-spatial-dot" />
-                AST Live
+                Indexed source
               </span>
+              {targetLine && <span className="cv-code-spatial-pill" title="Citation location in the indexed source">
+                Citation: lines {targetLine}{targetEndLine && targetEndLine !== targetLine ? `-${targetEndLine}` : ''}
+              </span>}
             </div>
 
             <div className="cv-code-head__actions">
+              <label className="cv-editor-theme-control" title="Choose code editor theme">
+                <Palette size={14} aria-hidden="true" />
+                <select aria-label="Code editor theme" value={editorTheme} onChange={(e) => setEditorTheme(e.target.value)}>
+                  <option value="dark-plus">VS Code Dark+</option>
+                  <option value="monokai">Monokai</option>
+                  <option value="dracula">Dracula</option>
+                  <option value="github-light">GitHub Light</option>
+                </select>
+              </label>
               <button
                 type="button"
                 className="cv-code-copy-btn"
@@ -414,13 +467,18 @@ export default function ExplorerPage() {
             </div>
 
             <pre className="cv-code-syntax">
-              <code>{currentFileContent}</code>
+              <code>{codeLines.map((line, index) => {
+                const lineNumber = index + 1;
+                const isCitationLine = targetLine && lineNumber >= targetLine && lineNumber <= (targetEndLine || targetLine);
+                return <span id={`cv-source-line-${lineNumber}`} key={lineNumber}
+                  className={isCitationLine ? 'cv-source-line cv-source-line--citation' : 'cv-source-line'}>{highlightLine(line)}{'\n'}</span>;
+              })}</code>
             </pre>
           </div>
 
           <div className="cv-code-footer-banner">
             <span>
-              AST parsed &amp; embedded in PostgreSQL pgvector · Complete files pruned post-indexing for security
+              Source is fetched on demand from the indexed GitHub revision; the backend retains AST excerpts and metadata.
             </span>
           </div>
         </main>

@@ -62,6 +62,15 @@ class AskIn(BaseModel):
     depth: int | None = Field(default=None, ge=1, le=6, description="How many call/import steps to follow (default 3)")
 
 
+class ConversationTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class AskStreamIn(AskIn):
+    history: list[ConversationTurn] = Field(default_factory=list, max_length=12)
+
+
 class ReindexIn(BaseModel):
     access_token: str | None = Field(default=None, description="GitHub token for private repos (not stored).")
 

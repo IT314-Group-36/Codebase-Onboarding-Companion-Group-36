@@ -1,5 +1,6 @@
 """On-demand repository Git history, fetched from GitHub and never persisted."""
 from urllib.parse import urlparse
+import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -25,8 +26,12 @@ async def repository_history(
         raise HTTPException(422, "Git history is available for GitHub repositories only.")
     full_name = "/".join(parts)
     try:
+        token = user_github_token(user)
+    except GitHubError as e:
+        raise HTTPException(403, str(e)) from e
+    try:
         raw_commits = await github.list_commits(
-            user_github_token(user), full_name, branch=repo.branch or None, path=path, per_page=limit
+            token, full_name, branch=repo.branch or None, path=path, per_page=limit
         )
     except GitHubError as e:
         status = {"reauth": 403, "not_found": 404, "rate_limit": 429}.get(e.kind, 502)
@@ -34,6 +39,23 @@ async def repository_history(
 
     commits = []
     contributors: dict[str, dict] = {}
+    semaphore = asyncio.Semaphore(5)
+
+    async def change_summary(item):
+        sha = item.get("sha", "")
+        try:
+            async with semaphore:
+                detail = await github.get_commit(token, full_name, sha)
+            files = detail.get("files") or []
+            return [{"path": f.get("filename"), "status": f.get("status"),
+                     "additions": f.get("additions", 0), "deletions": f.get("deletions", 0)}
+                    for f in files[:30]]
+        except GitHubError:
+            return []
+
+    # Bound extra requests so the page stays responsive and within GitHub's shared API quota.
+    details = await asyncio.gather(*(change_summary(item) for item in raw_commits[:20]))
+    changed_by_sha = {item.get("sha"): files for item, files in zip(raw_commits[:20], details)}
     for item in raw_commits:
         gh_author = item.get("author") or {}
         commit = item.get("commit") or {}
@@ -48,6 +70,7 @@ async def repository_history(
             "date": author_info.get("date") or (commit.get("committer") or {}).get("date"),
             "author": {"login": login, "name": name, "avatar_url": gh_author.get("avatar_url")},
             "url": item.get("html_url", ""),
+            "changed_files": changed_by_sha.get(item.get("sha"), []),
         })
         contributor = contributors.setdefault(key, {
             "login": login, "name": name, "avatar_url": gh_author.get("avatar_url"), "commits": 0,

@@ -7,7 +7,8 @@ Every GitHub failure becomes a GitHubError whose `kind` the API turns into a cle
   error       anything else (network, 5xx)
 Tokens are only ever sent in the Authorization header and are never logged or put in messages.
 """
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
+import base64
 
 import httpx
 
@@ -125,3 +126,18 @@ class GitHubClient:
             params["path"] = path
         r = await self._get(f"/repos/{full_name}/commits", token, params)
         return r.json()
+
+    async def get_commit(self, token: str, full_name: str, sha: str) -> dict:
+        """Fetch one commit's changed-file summary for the evolution timeline."""
+        return (await self._get(f"/repos/{full_name}/commits/{sha}", token)).json()
+
+    async def get_file_content(self, token: str, full_name: str, path: str, ref: str) -> str:
+        """Read a source file at a pinned commit; caller restricts this to indexed non-sensitive files."""
+        encoded_path = "/".join(quote(part, safe="") for part in path.split("/"))
+        data = (await self._get(f"/repos/{full_name}/contents/{encoded_path}", token, {"ref": ref})).json()
+        if data.get("type") != "file" or data.get("encoding") != "base64":
+            raise GitHubError("GitHub did not return a text file.")
+        try:
+            return base64.b64decode(data.get("content", ""), validate=False).decode("utf-8")
+        except (ValueError, UnicodeDecodeError) as e:
+            raise GitHubError("This source file is not valid UTF-8 text.") from e
