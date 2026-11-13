@@ -1,14 +1,14 @@
 """ARQ worker. Run with:  arq app.worker.WorkerSettings"""
 import logging
-from sqlalchemy import select
 
 from arq.connections import RedisSettings
+from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.services import runtime
-from app.services.indexing import run_indexing
 from app.db.session import SessionLocal
 from app.models import Repository
+from app.services import runtime
+from app.services.indexing import run_indexing
 from app.services.issues import run_issue_sync
 
 logging.basicConfig(level=logging.INFO)

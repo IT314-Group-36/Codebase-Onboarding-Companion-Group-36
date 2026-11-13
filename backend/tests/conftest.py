@@ -115,6 +115,8 @@ class FakeGitHub:
         self.branches: dict[str, list[str]] = {}     # "owner/name" -> branch names; missing key -> 404
         self.default_branch = "main"
         self.force_status: int | None = None         # answer every API call with this status
+        self.commits: list[dict] = []
+        self.commits_empty = False
 
     def client(self):
         from app.services.github import GitHubClient
@@ -138,13 +140,28 @@ class FakeGitHub:
             headers = {"link": f'<https://api.github.com/user/repos?page={page + 1}>; rel="next"'} if page * per < len(self.repos) else {}
             return httpx.Response(200, json=[_gh_repo(x) for x in chunk], headers=headers)
         parts = path.strip("/").split("/")
-        if parts[0] == "repos" and len(parts) in (3, 4):
+        if parts[0] == "repos" and len(parts) >= 3:
             full = f"{parts[1]}/{parts[2]}"
+            if len(parts) == 4 and parts[3] == "commits":
+                if full not in self.branches:
+                    return httpx.Response(404, json={"message": "Not Found"})
+                if self.commits_empty:
+                    return httpx.Response(
+                        409,
+                        json={"message": "Git Repository is empty."},
+                    )
+                return httpx.Response(200, json=self.commits)
+            if len(parts) >= 5 and parts[3] == "contents":
+                import base64
+                payload = b"# Sample source\nAPI_KEY = 'sk_live_abcdefghijklmnopQR'\nprint('hello')\n"
+                return httpx.Response(200, json={"type": "file", "size": len(payload), "encoding": "base64",
+                                                 "content": base64.b64encode(payload).decode()})
             if full not in self.branches:
                 return httpx.Response(404, json={"message": "Not Found"})
             if len(parts) == 3:
                 return httpx.Response(200, json={"default_branch": self.default_branch})
-            return httpx.Response(200, json=[{"name": b} for b in self.branches[full]])
+            if len(parts) == 4:
+                return httpx.Response(200, json=[{"name": b} for b in self.branches[full]])
         return httpx.Response(404, json={"message": "Not Found"})
 
 

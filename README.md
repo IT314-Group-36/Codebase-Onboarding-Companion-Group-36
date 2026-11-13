@@ -17,6 +17,7 @@ for search, and (with an LLM key) writes a module map and summary. A React app l
 | Ask "where is the payment logic handled?" | Done | Answers stream, retain recent conversation context, and link to exact source lines at the indexed commit |
 | "What would break if I change this function?" | Done | `/impact` plus plain-English impact questions in the Ask box |
 | Git history and contribution activity | Done (initial version) | On-demand GitHub history page; commit timeline includes changed files and per-folder contributor shares, based on latest 50 commits |
+| Git history and contribution activity | Done (initial version) | On-demand GitHub history page; latest 50 commits and contributor shares, optionally filtered by any folder or file |
 | First-week task list from beginner-friendly issues | Partial | Backend API done (`/issues/sync`, `/onboarding-tasks`); the frontend checklist is still generated locally |
 
 Still local-only in the frontend: task completion (browser localStorage). Repository deletion removes the

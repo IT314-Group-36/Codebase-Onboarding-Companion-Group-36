@@ -332,8 +332,8 @@ export async function getFileDetails(repoId, filePath) {
 }
 
 /**
- * File source code content retrieval notice
- * Backend does not retain complete source files after AST parsing (safe_rmtree).
+ * Fetches the complete source file from GitHub at the exact commit that was indexed.
+ * GET /repos/{repo_id}/files/{path}/content
  */
 export async function getFileContent(repoId, filePath) {
   try {
@@ -354,6 +354,16 @@ export async function getFileContent(repoId, filePath) {
     }
     return { success: true, content: `// Source for ${filePath} could not be fetched from GitHub.\n// Indexed symbols and relationships remain available in the details panel.`, isPartial: true };
   }
+  const numericId = parseInt(repoId, 10);
+  const targetId = Number.isNaN(numericId) ? repoId : numericId;
+  const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
+  const raw = await request(`/repos/${encodeURIComponent(targetId)}/files/${encodedPath}/content`);
+  return {
+    success: true,
+    content: raw.content || '',
+    isPartial: Boolean(raw.is_partial),
+    commitSha: raw.commit_sha || null,
+  };
 }
 
 /**
@@ -625,6 +635,7 @@ export async function updateOnboardingTask(repoId, taskId, status) {
   saveTaskStatus(repoId, taskId, status);
   return { success: true, taskId, status };
 }
+
 
 /** Recent GitHub commits and contributor activity, optionally scoped to a file or folder. */
 export async function getRepositoryHistory(repoId, { path = '', limit = 50 } = {}) {

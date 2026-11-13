@@ -11,58 +11,64 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleString();
 }
 
+const MAX_FILE_OPTIONS = 500;
+
 export default function HistoryPage() {
   const { repoId } = useParams();
   const navigate = useNavigate();
-  const [repo, setRepo] = useState(null);
-  const [files, setFiles] = useState([]);
-  const [history, setHistory] = useState(null);
+  const [meta, setMeta] = useState({ key: '', repo: null, files: [], error: '' });
   const [selectedPath, setSelectedPath] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [reloadTick, setReloadTick] = useState(0);
+  const [result, setResult] = useState({ key: '', data: null, error: '' });
 
+  // Repository name + file list (for the path picker). A failure here never hides the history itself.
   useEffect(() => {
     let alive = true;
     Promise.all([getRepositoryById(repoId), getFileTree(repoId)])
       .then(([repoResult, fileResult]) => {
-        if (!alive) return;
-        setRepo(repoResult.repository || null);
-        setFiles(fileResult.files || []);
+        if (alive) setMeta({ key: repoId, repo: repoResult.repository || null, files: fileResult.files || [], error: '' });
       })
-      .catch((e) => { if (alive) setError(e.message || 'Could not load repository details.'); })
-      .finally(() => { if (alive) setLoading(false); });
+      .catch((e) => {
+        if (alive) setMeta({ key: repoId, repo: null, files: [], error: e.message || 'Could not load repository details.' });
+      });
     return () => { alive = false; };
   }, [repoId]);
 
+  // Commits for the selected path. `loading` is derived (the result belongs to an older request),
+  // so no state is set synchronously inside the effect and a stale answer can never overwrite a newer one.
+  const requestKey = `${repoId}|${selectedPath}|${reloadTick}`;
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    setHistory(null);
-    setError('');
     getRepositoryHistory(repoId, { path: selectedPath })
-      .then((data) => { if (alive) setHistory(data); })
-      .catch((e) => { if (alive) setError(e.message || 'Could not load Git history.'); })
-      .finally(() => { if (alive) setLoading(false); });
+      .then((data) => { if (alive) setResult({ key: requestKey, data, error: '' }); })
+      .catch((e) => { if (alive) setResult({ key: requestKey, data: null, error: e.message || 'Could not load Git history.' }); });
     return () => { alive = false; };
-  }, [repoId, selectedPath]);
+  }, [repoId, selectedPath, requestKey]);
 
-  const paths = useMemo(() => {
-    const folders = new Set();
+  const loading = result.key !== requestKey;
+  const history = result.data;
+  const error = loading ? '' : result.error;
+  const repo = meta.key === repoId ? meta.repo : null;
+
+  // Every folder (at any depth) and every file can be selected; the API accepts any path.
+  const { folders, fileOptions, truncated } = useMemo(() => {
+    const files = meta.key === repoId ? meta.files : [];
+    const dirs = new Set();
+    const list = [];
     for (const file of files) {
       const parts = file.path.split('/');
-      if (parts.length > 1) folders.add(parts[0]);
+      for (let i = 1; i < parts.length; i += 1) dirs.add(parts.slice(0, i).join('/'));
+      list.push(file.path);
     }
-    return [...folders].sort((a, b) => a.localeCompare(b));
-  }, [files]);
+    list.sort((a, b) => a.localeCompare(b));
+    return {
+      folders: [...dirs].sort((a, b) => a.localeCompare(b)),
+      fileOptions: list.slice(0, MAX_FILE_OPTIONS),
+      truncated: list.length > MAX_FILE_OPTIONS,
+    };
+  }, [meta, repoId]);
 
-  const retry = () => {
-    setLoading(true);
-    setError('');
-    getRepositoryHistory(repoId, { path: selectedPath })
-      .then(setHistory)
-      .catch((e) => setError(e.message || 'Could not load Git history.'))
-      .finally(() => setLoading(false));
-  };
+  const retry = () => setReloadTick((t) => t + 1);
 
   if (loading && !history && !error) return <LoadingState message="Loading repository history…" />;
 
@@ -78,22 +84,28 @@ export default function HistoryPage() {
 
       <section className="cv-history-toolbar">
         <label htmlFor="history-path">Explore history for</label>
-        <select id="history-path" value={selectedPath} onChange={(e) => { setLoading(true); setSelectedPath(e.target.value); }}>
+        <select id="history-path" value={selectedPath} onChange={(e) => setSelectedPath(e.target.value)}>
           <option value="">Entire repository</option>
-          {paths.map((path) => <option key={path} value={path}>{path}/</option>)}
+          {folders.length > 0 && <optgroup label="Folders">
+            {folders.map((path) => <option key={`d:${path}`} value={path}>{path}/</option>)}
+          </optgroup>}
+          {fileOptions.length > 0 && <optgroup label={truncated ? `Files (first ${MAX_FILE_OPTIONS})` : 'Files'}>
+            {fileOptions.map((path) => <option key={`f:${path}`} value={path}>{path}</option>)}
+          </optgroup>}
         </select>
         <span><GitBranch size={15} /> {history?.branch || repo?.branch || 'Default branch'}</span>
       </section>
 
-      {error && <div className="cv-history-error" role="alert"><span>{error}</span><button onClick={retry}>Try again</button></div>}
+      {meta.key === repoId && meta.error && <div className="cv-history-error" role="alert"><span>{meta.error}</span></div>}
+      {error && <div className="cv-history-error" role="alert"><span>{error}</span><button type="button" onClick={retry}>Try again</button></div>}
 
-      {history && <>
+      {history && <div style={loading ? { opacity: 0.6 } : undefined}>
         <div className="cv-history-grid">
           <section className="cv-history-card cv-history-contributors">
             <div className="cv-history-card-heading"><div><Users size={17} /><h2>Knowledge concentration</h2></div><span>{history.sample_size} commits sampled</span></div>
             <p className="cv-history-note">Contribution activity in the latest sampled commits. This is a historical activity signal, not a measure of current expertise.</p>
             {history.contributors.length ? <ol className="cv-contributor-list">
-              {history.contributors.map((person) => <li key={person.login || person.name}>
+              {history.contributors.map((person) => <li key={`${person.login || ''}|${person.name}`}>
                 <div className="cv-contributor-person">
                   {person.avatar_url ? <img src={person.avatar_url} alt="" /> : <span className="cv-contributor-avatar">{person.name?.slice(0, 1) || '?'}</span>}
                   <span><strong>{person.name}</strong><small>{person.login ? `@${person.login}` : 'Git author'}</small></span>
@@ -121,8 +133,8 @@ export default function HistoryPage() {
             </ol> : <p className="cv-history-empty">No commits were found for this selection.</p>}
           </section>
         </div>
-        <p className="cv-history-footnote">History is loaded from GitHub when requested and is not retained in the app. Contributor percentages are based on this page of recent commits (up to 50).</p>
-      </>}
+        <p className="cv-history-footnote">History is loaded from GitHub when requested and is not retained in the app. Contributor percentages are based on the latest {history.sample_size} commits for this selection.</p>
+      </div>}
     </main>
   );
 }

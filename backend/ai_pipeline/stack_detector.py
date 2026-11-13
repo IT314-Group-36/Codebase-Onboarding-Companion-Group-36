@@ -1,8 +1,11 @@
 """S1-6: detect languages, frameworks and package managers from manifest files (no LLM)."""
-import json, re, posixpath
-from pathlib import Path
+import json
+import posixpath
+import re
 import xml.etree.ElementTree as ET
 from collections import Counter
+from pathlib import Path
+
 try:
     import tomllib
 except ModuleNotFoundError:
@@ -60,7 +63,8 @@ def parse_package_json(text, rel, files):
     data = json.loads(text)
     deps = list(data.get("dependencies", {})) + list(data.get("devDependencies", {}))
     folder = posixpath.dirname(rel)
-    has = lambda n: posixpath.join(folder, n) in files or n in files
+    def has(n):
+        return posixpath.join(folder, n) in files or n in files
     if has("pnpm-lock.yaml"): pm = "pnpm"
     elif has("yarn.lock"): pm = "Yarn"
     elif has("bun.lockb") or has("bun.lock"): pm = "Bun"
@@ -141,7 +145,7 @@ def parser_for(name):
     if name.endswith(".csproj"): return parse_csproj
     return None
 
-def detect_tech_stack(root, all_files, max_manifests=100):
+def detect_tech_stack(root, all_files, max_manifests=100, max_manifest_bytes=1_000_000):
     files, manifests = set(all_files), []
     for rel in all_files:
         parser = parser_for(posixpath.basename(rel))
@@ -150,7 +154,11 @@ def detect_tech_stack(root, all_files, max_manifests=100):
         if len(manifests) >= max_manifests:
             break
         try:
-            info = parser((Path(root) / rel).read_text(encoding="utf-8", errors="ignore"), rel, files)
+            manifest_path = Path(root) / rel
+            if manifest_path.stat().st_size > max_manifest_bytes:
+                manifests.append({"path": rel, "error": "manifest too large; skipped"})
+                continue
+            info = parser(manifest_path.read_text(encoding="utf-8", errors="ignore"), rel, files)
             manifests.append({"path": rel, "language": info["language"],
                               "package_manager": info["package_manager"],
                               "frameworks": match_frameworks(info["deps"])})
@@ -159,7 +167,11 @@ def detect_tech_stack(root, all_files, max_manifests=100):
 
     ext_counts = Counter(EXT_LANG[Path(f).suffix.lower()] for f in all_files if Path(f).suffix.lower() in EXT_LANG)
     total = sum(ext_counts.values())
-    languages = [l for l, c in ext_counts.most_common() if c / total >= 0.05] if total else []
+    languages = [
+    language
+    for language, count in ext_counts.most_common()
+    if count / total >= 0.05
+] if total else []
     for m in manifests:
         if m.get("language") and m["language"] not in languages:
             languages.append(m["language"])

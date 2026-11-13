@@ -9,6 +9,9 @@ Tokens are only ever sent in the Authorization header and are never logged or pu
 """
 from urllib.parse import urlencode, quote
 import base64
+import base64
+import binascii
+from urllib.parse import quote, urlencode
 
 import httpx
 
@@ -48,6 +51,8 @@ def _raise_for_status(r: httpx.Response) -> None:
         raise GitHubError("GitHub rate limit reached. Try again in a few minutes.", "rate_limit")
     if r.status_code == 404:
         raise GitHubError("Not found, or your GitHub account cannot access it.", "not_found")
+    if r.status_code == 409 and "empty" in r.text.lower():
+        raise GitHubError("This repository has no commits yet.", "empty")
     raise GitHubError(f"GitHub returned an error ({r.status_code}). Try again later.")
 
 
@@ -85,14 +90,41 @@ class GitHubClient:
         return data["access_token"], data.get("scope", "")
 
     # ---- API ----
-    async def _get(self, path: str, token: str, params: dict | None = None) -> httpx.Response:
+    async def _get(self, path: str, token: str | None, params: dict | None = None) -> httpx.Response:
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
         try:
             async with self._http() as c:
-                r = await c.get(f"{API}{path}", params=params, headers={"Authorization": f"Bearer {token}"})
+                r = await c.get(f"{API}{path}", params=params, headers=headers)
         except httpx.HTTPError as e:
             raise GitHubError("Could not reach GitHub. Try again in a moment.") from e
         _raise_for_status(r)
         return r
+
+    async def get_file_content(self, full_name: str, path: str, ref: str, token: str | None) -> str:
+        """Fetch one file at an immutable commit SHA via the GitHub Contents API.
+
+        The caller must first verify that `path` belongs to the indexed repository and is not sensitive.
+        GitHub's Contents API supports files up to 1 MB; larger files are rejected explicitly.
+        """
+        if not ref or not full_name or not path:
+            raise GitHubError("Repository, file path and indexed commit are required.")
+        safe_path = quote(path, safe="/")
+        r = await self._get(f"/repos/{full_name}/contents/{safe_path}", token, {"ref": ref})
+        try:
+            data = r.json()
+        except ValueError as e:
+            raise GitHubError("GitHub returned an unreadable file response.") from e
+        if data.get("type") != "file":
+            raise GitHubError("The requested GitHub path is not a regular file.", "not_found")
+        if int(data.get("size") or 0) > 1_000_000:
+            raise GitHubError("This file exceeds GitHub's 1 MB Contents API limit.")
+        if data.get("encoding") != "base64" or "content" not in data:
+            raise GitHubError("GitHub did not return file contents (the file may be too large).")
+        try:
+            raw = base64.b64decode(data["content"], validate=False)
+            return raw.decode("utf-8", errors="replace")
+        except (binascii.Error, ValueError, UnicodeDecodeError) as e:
+            raise GitHubError("GitHub returned invalid file content.") from e
 
     async def get_user(self, token: str) -> dict:
         return (await self._get("/user", token)).json()
@@ -116,7 +148,8 @@ class GitHubClient:
         r = await self._get(f"/repos/{full_name}/branches", token, {"per_page": 100})
         return info.get("default_branch"), [b["name"] for b in r.json()], "next" in r.links
 
-    async def list_commits(self, token: str, full_name: str, *, branch: str | None = None,
+
+    async def list_commits(self, token: str | None, full_name: str, *, branch: str | None = None,
                           path: str | None = None, per_page: int = 50) -> list[dict]:
         """Read a bounded recent commit sample, optionally scoped to a branch and file/folder path."""
         params: dict[str, str | int] = {"per_page": min(max(per_page, 1), 100)}
@@ -124,7 +157,12 @@ class GitHubClient:
             params["sha"] = branch
         if path:
             params["path"] = path
-        r = await self._get(f"/repos/{full_name}/commits", token, params)
+        try:
+            r = await self._get(f"/repos/{full_name}/commits", token, params)
+        except GitHubError as e:
+            if e.kind == "empty":
+                return []
+            raise
         return r.json()
 
     async def get_commit(self, token: str, full_name: str, sha: str) -> dict:

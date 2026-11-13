@@ -52,6 +52,7 @@ Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv 
 | GET | `/repos/{id}/map` | modules (each with `depends_on`, `used_by`, `relationship_summary`), entry points, module-to-module dependency graph (for React Flow) |
 | GET | `/repos/{id}/history?path=&limit=50` | latest GitHub commits and contribution counts from that sample; optional file/folder path filter; fetched on demand and not stored |
 | DELETE | `/repos/{id}` | delete the owned repository and all derived index data (blocked while indexing) |
+| GET | `/repos/{id}/history?path=&limit=50` | latest GitHub commits and contribution counts from that sample; optional file/folder path filter; fetched on demand and not stored. Empty repo -> empty history; expired GitHub sign-in -> 403 `github_reauth_required` |
 | GET | `/repos/{id}/files`, `/files/{path}` | file tree; per file: symbols, imports, imported_by |
 | GET | `/repos/{id}/source/{path}` | on-demand source at the indexed commit; indexed non-sensitive files only, capped at 500 KB |
 | GET | `/repos/{id}/explain?file=\|symbol=&refresh=` | beginner-friendly explanation of one file or function + how it relates to the rest (see below) |
@@ -94,7 +95,7 @@ Set these in `backend/.env` (environment variables of the same name also work). 
 | `REDIS_URL` | `redis://localhost:6379` | job queue; overridden by compose inside Docker |
 | `CORS_ORIGINS` | `["http://localhost:5173"]` | JSON list; only matters when the browser calls the API directly. Compose also sets it, which takes precedence over `.env` |
 | `EMBED_BACKEND`, `EMBED_MODEL`, `EMBED_DIM` | `fastembed`, `BAAI/bge-small-en-v1.5`, `384` | embeddings; `hash` backend is for tests only |
-| `EMBED_BATCH_SIZE`, `EMBED_PARALLELISM` | `128`, `4` | FastEmbed batch size and CPU worker processes for repository indexing; tune based on available memory and CPU |
+| `EMBED_BATCH_SIZE`, `EMBED_PARALLELISM`, `EMBED_PARALLEL_MIN_CHUNKS` | `128`, `2`, `2000` | FastEmbed batch size; model processes per indexing job (the worker runs 2 jobs at once, so peak is 2 × this many model copies in RAM); repos with fewer chunks are embedded in-process without a worker pool |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | empty | GitHub OAuth app credentials (for login and private repos) |
 | `GITHUB_REDIRECT_URI` | `http://localhost:5173/api/auth/github/callback` | must match the OAuth app's callback URL exactly |
 | `FRONTEND_URL` | `http://localhost:5173` | where the browser is sent after login |

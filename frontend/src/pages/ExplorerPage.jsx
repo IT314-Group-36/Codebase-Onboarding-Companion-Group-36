@@ -85,6 +85,8 @@ export default function ExplorerPage() {
   const [editorTheme, setEditorTheme] = useState(() => localStorage.getItem('codeverse_editor_theme') || 'dark-plus');
 
   const [currentFileContent, setCurrentFileContent] = useState('');
+  const [fileContentLoading, setFileContentLoading] = useState(false);
+  const [fileContentError, setFileContentError] = useState('');
   const [currentFileDetails, setCurrentFileDetails] = useState(null);
   const [impactData, setImpactData] = useState(null);
   const [analyzingImpact, setAnalyzingImpact] = useState(false);
@@ -157,25 +159,36 @@ export default function ExplorerPage() {
     let isMounted = true;
 
     async function loadFileDetails() {
+      setCurrentFileContent('');
+      setFileContentError('');
+      setFileContentLoading(true);
       try {
-        const [detailsRes, contentRes] = await Promise.all([
+        const [detailsResult, contentResult] = await Promise.allSettled([
           getFileDetails(repoId, selectedFileId),
           getFileContent(repoId, selectedFileId),
         ]);
 
         if (!isMounted) return;
-
         setImpactData(null);
-        if (detailsRes.success && detailsRes.details) {
-          setCurrentFileDetails(detailsRes.details);
+
+        if (detailsResult.status === 'fulfilled' && detailsResult.value.success) {
+          setCurrentFileDetails(detailsResult.value.details);
+        } else if (detailsResult.status === 'rejected') {
+          console.warn('Failed to load file details:', detailsResult.reason?.message);
         }
 
-        if (contentRes.success) {
-          setCurrentFileContent(contentRes.content);
+        if (contentResult.status === 'fulfilled' && contentResult.value.success) {
+          setCurrentFileContent(contentResult.value.content);
+        } else {
+          const error = contentResult.status === 'rejected' ? contentResult.reason : null;
+          setFileContentError(error?.message || 'The source file could not be retrieved.');
         }
       } catch (err) {
         if (!isMounted) return;
+        setFileContentError(err.message || 'Unable to retrieve this source file.');
         console.warn('Failed to load file details:', err.message);
+      } finally {
+        if (isMounted) setFileContentLoading(false);
       }
     }
 
@@ -473,12 +486,14 @@ export default function ExplorerPage() {
                 return <span id={`cv-source-line-${lineNumber}`} key={lineNumber}
                   className={isCitationLine ? 'cv-source-line cv-source-line--citation' : 'cv-source-line'}>{highlightLine(line)}{'\n'}</span>;
               })}</code>
+              <code>{fileContentLoading ? 'Loading source code…' : fileContentError ? `Unable to load source: ${fileContentError}` : currentFileContent || 'No source content is available for this file.'}</code>
             </pre>
           </div>
 
           <div className="cv-code-footer-banner">
             <span>
               Source is fetched on demand from the indexed GitHub revision; the backend retains AST excerpts and metadata.
+              {fileContentLoading ? 'Retrieving source at indexed commit…' : fileContentError ? 'Source retrieval failed' : 'Source retrieved from the exact indexed GitHub commit'}
             </span>
           </div>
         </main>

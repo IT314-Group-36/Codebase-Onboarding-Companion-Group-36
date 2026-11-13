@@ -16,8 +16,13 @@ from ai_pipeline.graph import module_of
 from ai_pipeline.llm import structured_chain
 from app.models import Chunk, Explanation, File, Repository
 from app.services.graph_service import load_graphs, resolve_symbol
-from app.services.qa import (FILE_EXPLAIN_PROMPT, SYMBOL_EXPLAIN_PROMPT, FileExplanation, LLMCallError,
-                             SymbolExplanation)
+from app.services.qa import (
+    FILE_EXPLAIN_PROMPT,
+    SYMBOL_EXPLAIN_PROMPT,
+    FileExplanation,
+    LLMCallError,
+    SymbolExplanation,
+)
 
 RELATION_CAVEAT = ("Relationships come from static analysis of imports and calls inside this repository: dynamic calls, "
                    "reflection, string-based imports and third-party libraries are not visible.")

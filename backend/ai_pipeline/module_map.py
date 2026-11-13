@@ -73,11 +73,18 @@ def validate_paths(mm: ModuleMap, all_files: list[str]) -> tuple[ModuleMap, list
         if m.path.strip().rstrip("/") not in files | folders:
             warnings.append(f"dropped module '{m.name}': path not found: {m.path}")
             continue
-        for k in m.key_files:
-            if k not in files:
-                warnings.append(f"removed unknown key file in '{m.name}': {k}")
-        modules.append(m.model_copy(update={"key_files": [k for k in m.key_files if k in files],
-                                            "path": m.path.strip().rstrip("/")}))
+        module_path = m.path.strip().rstrip("/")
+        valid_key_files = []
+        for key_path in m.key_files:
+            if key_path not in files:
+                warnings.append(f"removed unknown key file in '{m.name}': {key_path}")
+            elif module_path in files and key_path != module_path:
+                warnings.append(f"removed key file outside file module '{m.name}': {key_path}")
+            elif module_path not in files and not key_path.startswith(module_path + "/"):
+                warnings.append(f"removed key file outside module '{m.name}': {key_path}")
+            else:
+                valid_key_files.append(key_path)
+        modules.append(m.model_copy(update={"key_files": valid_key_files, "path": module_path}))
     for e in mm.entry_points:
         if e.path in files:
             entries.append(e)

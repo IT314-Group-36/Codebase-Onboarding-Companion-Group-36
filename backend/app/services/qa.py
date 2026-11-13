@@ -64,9 +64,14 @@ async def answer_question(llm, embedder, repo_id: int, question: str, k: int = 8
         ans = await structured_chain(QA_PROMPT, llm, Answer).ainvoke({"question": question, "excerpts": excerpts})
     except Exception as e:  # noqa: BLE001
         raise LLMCallError(str(e)) from e
+    # A citation must be wholly contained in one retrieved excerpt. Mere overlap allowed
+    # the model to cite arbitrary line ranges extending beyond the evidence it actually saw.
     valid = [c.model_dump() for c in ans.citations
-             if any(d.metadata["file_path"] == c.path and c.start_line <= d.metadata["end_line"]
-                    and c.end_line >= d.metadata["start_line"] for d in docs)]
+             if c.start_line <= c.end_line and any(
+                 d.metadata["file_path"] == c.path
+                 and c.start_line >= d.metadata["start_line"]
+                 and c.end_line <= d.metadata["end_line"]
+                 for d in docs)]
     sources = [{k_: d.metadata[k_] for k_ in ("file_path", "symbol_uid", "start_line", "end_line", "score")} for d in docs]
     return {"answer": ans.answer, "citations": valid, "sources": sources}
 

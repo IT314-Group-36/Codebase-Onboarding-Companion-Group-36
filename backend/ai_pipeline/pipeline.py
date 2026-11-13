@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import networkx as nx
-
 from langchain_core.documents import Document
 
 from .chunker import chunk_file
@@ -71,7 +70,7 @@ def analyze_checkout(root, *, max_chunks: int = 5000, max_file_bytes: int = 200_
             continue
         text, n = redact_secrets(text)
         redactions += n
-        total += len(text)
+        total += len(text.encode("utf-8"))
         texts[rel] = text
 
     parsed = {}
@@ -95,6 +94,8 @@ def analyze_checkout(root, *, max_chunks: int = 5000, max_file_bytes: int = 200_
     report = {
         "files": len(all_files), "sensitive_files": len(all_files) - len(safe_files),
         "files_read": len(texts), "files_skipped": dict(skipped), "parsed_files": len(parsed),
+        "files_without_ast": len(texts) - len(parsed),
+        "files_without_ast_examples": [p for p in texts if p not in parsed][:10],
         "parse_errors": sum(1 for p in parsed.values() if p.parse_error),
         "symbols": sg.number_of_nodes(), "import_edges": fg.number_of_edges(), "call_edges": sg.number_of_edges(),
         "chunks": len(chunks), "files_dropped_by_budget": len(dropped), "dropped_examples": dropped[:10],

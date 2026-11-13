@@ -16,16 +16,20 @@ from langchain_core.embeddings import Embeddings
 
 
 class FastEmbedEmbeddings(Embeddings):
-    def __init__(self, model_name: str, dim: int, batch_size: int = 128, parallelism: int = 2):
+    def __init__(self, model_name: str, dim: int, batch_size: int = 128, parallelism: int = 2,
+                 parallel_min_chunks: int = 2000):
         from fastembed import TextEmbedding
         self._model = TextEmbedding(model_name=model_name)   # downloads once, then cached on disk
         self.dim = dim
         self.batch_size = batch_size
         self.parallelism = parallelism
+        self.parallel_min_chunks = parallel_min_chunks
 
     def iter_embed_documents(self, texts: list[str]):
         """Yield vectors from one persistent FastEmbed data-parallel job."""
-        parallel = self.parallelism if self.parallelism > 1 else None
+        # A worker pool costs seconds to start and one model copy per process: only worth it for big corpora.
+        use_pool = self.parallelism > 1 and len(texts) >= self.parallel_min_chunks
+        parallel = self.parallelism if use_pool else None
         for vector in self._model.passage_embed(texts, batch_size=self.batch_size, parallel=parallel):
             yield vector.tolist()
 
@@ -61,8 +65,9 @@ class HashEmbeddings(Embeddings):
 
 
 @lru_cache(maxsize=4)
-def get_embedder(backend: str, model: str, dim: int, batch_size: int = 128, parallelism: int = 2) -> Embeddings:
+def get_embedder(backend: str, model: str, dim: int, batch_size: int = 128, parallelism: int = 2,
+                 parallel_min_chunks: int = 2000) -> Embeddings:
     """Cached: the model is loaded once per process, not once per request."""
     if backend == "hash":
         return HashEmbeddings(dim)
-    return FastEmbedEmbeddings(model, dim, batch_size, parallelism)
+    return FastEmbedEmbeddings(model, dim, batch_size, parallelism, parallel_min_chunks)
