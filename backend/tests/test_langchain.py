@@ -13,8 +13,17 @@ from ai_pipeline.llm import build_chat_model, structured_chain
 from ai_pipeline.module_map import ModuleMap
 from ai_pipeline.summary import RepoSummary
 from app.core.config import Settings
-from app.services.qa import (FILE_EXPLAIN_PROMPT, IMPACT_PROMPT, NL_IMPACT_PROMPT, QA_PROMPT, SYMBOL_EXPLAIN_PROMPT, Answer,
-                             FileExplanation, ImpactExplanation, SymbolExplanation)
+from app.services.qa import (
+    FILE_EXPLAIN_PROMPT,
+    IMPACT_PROMPT,
+    NL_IMPACT_PROMPT,
+    QA_PROMPT,
+    SYMBOL_EXPLAIN_PROMPT,
+    Answer,
+    FileExplanation,
+    ImpactExplanation,
+    SymbolExplanation,
+)
 
 warnings.filterwarnings("ignore")
 

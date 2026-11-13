@@ -1,8 +1,11 @@
 """S1-6: detect languages, frameworks and package managers from manifest files (no LLM)."""
-import json, re, posixpath
-from pathlib import Path
+import json
+import posixpath
+import re
 import xml.etree.ElementTree as ET
 from collections import Counter
+from pathlib import Path
+
 try:
     import tomllib
 except ModuleNotFoundError:
@@ -60,7 +63,8 @@ def parse_package_json(text, rel, files):
     data = json.loads(text)
     deps = list(data.get("dependencies", {})) + list(data.get("devDependencies", {}))
     folder = posixpath.dirname(rel)
-    has = lambda n: posixpath.join(folder, n) in files or n in files
+    def has(n):
+        return posixpath.join(folder, n) in files or n in files
     if has("pnpm-lock.yaml"): pm = "pnpm"
     elif has("yarn.lock"): pm = "Yarn"
     elif has("bun.lockb") or has("bun.lock"): pm = "Bun"
@@ -159,7 +163,7 @@ def detect_tech_stack(root, all_files, max_manifests=100):
 
     ext_counts = Counter(EXT_LANG[Path(f).suffix.lower()] for f in all_files if Path(f).suffix.lower() in EXT_LANG)
     total = sum(ext_counts.values())
-    languages = [l for l, c in ext_counts.most_common() if c / total >= 0.05] if total else []
+    languages = [lang for lang, c in ext_counts.most_common() if c / total >= 0.05] if total else []
     for m in manifests:
         if m.get("language") and m["language"] not in languages:
             languages.append(m["language"])

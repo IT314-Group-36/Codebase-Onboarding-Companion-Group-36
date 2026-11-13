@@ -1,18 +1,20 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import AppLayout from './layouts/AppLayout';
 import RequireAuth from './components/RequireAuth';
 import LoginPage from './pages/LoginPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
-import DashboardPage from './pages/DashboardPage';
-import ConnectRepoPage from './pages/ConnectRepoPage';
-import RepoOverviewPage from './pages/RepoOverviewPage';
-import ExplorerPage from './pages/ExplorerPage';
-import DependencyMapPage from './pages/DependencyMapPage';
-import OnboardingPage from './pages/OnboardingPage';
-import QAPage from './pages/QAPage';
-import HistoryPage from './pages/HistoryPage';
-import SettingsPage from './pages/SettingsPage';
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ConnectRepoPage = lazy(() => import('./pages/ConnectRepoPage'));
+const RepoOverviewPage = lazy(() => import('./pages/RepoOverviewPage'));
+const ExplorerPage = lazy(() => import('./pages/ExplorerPage'));
+const DependencyMapPage = lazy(() => import('./pages/DependencyMapPage'));
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
+const QAPage = lazy(() => import('./pages/QAPage'));
+const HistoryPage = lazy(() => import('./pages/HistoryPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+import LoadingState from './components/LoadingState';
 import NotFoundPage from './pages/NotFoundPage';
 
 /**
@@ -23,6 +25,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <Suspense fallback={<LoadingState message="Loading…" />}>
         <Routes>
           {/* Public / auth */}
           <Route path="/" element={<LoginPage />} />
@@ -44,6 +47,7 @@ export default function App() {
             </Route>
           </Route>
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </AuthProvider>
   );

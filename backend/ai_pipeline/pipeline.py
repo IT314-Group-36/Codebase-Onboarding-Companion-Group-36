@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import networkx as nx
-
 from langchain_core.documents import Document
 
 from .chunker import chunk_file

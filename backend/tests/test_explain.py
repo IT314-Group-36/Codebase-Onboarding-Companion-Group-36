@@ -10,8 +10,14 @@ from app.api import deps
 from app.db.session import SessionLocal
 from app.main import app
 from app.models import Explanation, Repository
-from app.services.explain import (assemble_source, enrich_modules, file_relationships, file_sentence,
-                                  symbol_relationships, symbol_sentence)
+from app.services.explain import (
+    assemble_source,
+    enrich_modules,
+    file_relationships,
+    file_sentence,
+    symbol_relationships,
+    symbol_sentence,
+)
 from app.services.indexing import run_indexing
 from app.services.qa import FileExplanation, SymbolExplanation, SymbolNote
 from app.services.runtime import get_embedder

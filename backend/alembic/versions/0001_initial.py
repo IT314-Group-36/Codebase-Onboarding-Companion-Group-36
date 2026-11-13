@@ -4,10 +4,10 @@ Revision ID: 0001
 Revises:
 """
 import sqlalchemy as sa
-from alembic import op
 from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects import postgresql as pg
 
+from alembic import op
 from app.core.config import get_settings
 
 revision = "0001"

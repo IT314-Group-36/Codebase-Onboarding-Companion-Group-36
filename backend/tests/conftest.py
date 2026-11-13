@@ -115,6 +115,8 @@ class FakeGitHub:
         self.branches: dict[str, list[str]] = {}     # "owner/name" -> branch names; missing key -> 404
         self.default_branch = "main"
         self.force_status: int | None = None         # answer every API call with this status
+        self.commits: list[dict] = []                # /repos/<o>/<r>/commits answer
+        self.commits_empty = False                   # True -> 409 "Git Repository is empty."
 
     def client(self):
         from app.services.github import GitHubClient
@@ -140,6 +142,10 @@ class FakeGitHub:
         parts = path.strip("/").split("/")
         if parts[0] == "repos" and len(parts) in (3, 4):
             full = f"{parts[1]}/{parts[2]}"
+            if len(parts) == 4 and parts[3] == "commits":
+                if self.commits_empty:
+                    return httpx.Response(409, json={"message": "Git Repository is empty."})
+                return httpx.Response(200, json=self.commits)
             if full not in self.branches:
                 return httpx.Response(404, json={"message": "Not Found"})
             if len(parts) == 3:

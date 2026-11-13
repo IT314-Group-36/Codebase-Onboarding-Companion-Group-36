@@ -17,8 +17,8 @@ from ai_pipeline.repo import clone_repo, safe_rmtree, validate_branch, validate_
 from ai_pipeline.stack_detector import EXT_LANG
 from ai_pipeline.summary import RETRIEVAL_QUERIES, format_context, generate_summary
 from app.core.config import get_settings
-from app.db.session import SessionLocal
 from app.core.security import SecurityConfigError, TokenDecryptError, decrypt_token
+from app.db.session import SessionLocal
 from app.models import Chunk, Edge, Explanation, File, Repository, Symbol, User
 from app.services.retrieval import PgHybridRetriever
 
@@ -159,15 +159,20 @@ async def run_indexing(repo_id: int, access_token: str | None, *, llm, embedder)
             # FastEmbed owns a persistent worker pool for this full corpus; consume it in
             # bounded slices so the UI gets progress without restarting workers per batch.
             iterator = iter(embedder.iter_embed_documents(texts))
-            while True:
-                batch_vectors = await asyncio.to_thread(_take, iterator, batch_size)
-                if not batch_vectors:
-                    break
-                vectors.extend(batch_vectors)
-                await _update(repo_id, index_report={
-                    **a.report,
-                    "embedding_progress": {"completed": len(vectors), "total": total},
-                })
+            try:
+                while True:
+                    batch_vectors = await asyncio.to_thread(_take, iterator, batch_size)
+                    if not batch_vectors:
+                        break
+                    vectors.extend(batch_vectors)
+                    await _update(repo_id, index_report={
+                        **a.report,
+                        "embedding_progress": {"completed": len(vectors), "total": total},
+                    })
+            finally:
+                close = getattr(iterator, "close", None)      # stops FastEmbed's worker pool if we bail out early
+                if close:
+                    await asyncio.to_thread(close)
         else:
             for start in range(0, total, batch_size):
                 end = min(start + batch_size, total)

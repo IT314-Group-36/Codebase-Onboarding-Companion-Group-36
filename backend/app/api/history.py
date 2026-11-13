@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.deps import get_current_user, get_github_client, get_ready_user_repo
+from app.api.github import to_http
 from app.models import Repository, User
 from app.services.github import GitHubClient, GitHubError, user_github_token
 
@@ -29,8 +30,7 @@ async def repository_history(
             user_github_token(user), full_name, branch=repo.branch or None, path=path, per_page=limit
         )
     except GitHubError as e:
-        status = {"reauth": 403, "not_found": 404, "rate_limit": 429}.get(e.kind, 502)
-        raise HTTPException(status, str(e)) from e
+        raise to_http(e) from e         # same shapes as /github/*, incl. code "github_reauth_required"
 
     commits = []
     contributors: dict[str, dict] = {}

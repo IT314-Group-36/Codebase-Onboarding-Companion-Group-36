@@ -4,9 +4,8 @@ import re
 
 import httpx
 import pytest
-from sqlalchemy import func, select
-
 from langchain_core.runnables import RunnableLambda
+from sqlalchemy import func, select
 
 from ai_pipeline.module_map import EntryPoint, ModuleInfo, ModuleMap
 from ai_pipeline.summary import RepoSummary

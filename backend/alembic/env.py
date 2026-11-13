@@ -1,9 +1,9 @@
-from alembic import context
 from sqlalchemy import create_engine, pool
 
+import app.models  # noqa: F401  (registers tables on Base.metadata for autogenerate)
+from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
-import app.models  # noqa: F401  (registers tables on Base.metadata for autogenerate)
 
 config = context.config
 target_metadata = Base.metadata
