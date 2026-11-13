@@ -4,8 +4,9 @@ Revision ID: 0004_explanations
 Revises: 0003_issues
 """
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql as pg
+
+from alembic import op
 
 revision = "0004_explanations"
 down_revision = "0003_issues"

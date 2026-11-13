@@ -4,7 +4,6 @@ from pathlib import Path
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 BACKEND_DIR = Path(__file__).resolve().parents[2]      # backend/ (holds .env, alembic.ini, ...)
 
 
@@ -28,7 +27,8 @@ class Settings(BaseSettings):
     embed_model: str = "BAAI/bge-small-en-v1.5"
     embed_dim: int = 384                     # must match the migrated vector column
     embed_batch_size: int = Field(128, ge=16, le=512)
-    embed_parallelism: int = Field(4, ge=1, le=8)
+    embed_parallelism: int = Field(2, ge=1, le=8)        # model processes per indexing job (worker runs 2 jobs)
+    embed_parallel_min_chunks: int = Field(2000, ge=1)   # smaller repos embed in-process, no worker pool
 
     # --- GitHub login (OAuth app) and sessions: used for private repos ---
     # Create the OAuth app at https://github.com/settings/developers; see backend/README.md.

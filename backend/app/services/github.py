@@ -3,6 +3,7 @@
 Every GitHub failure becomes a GitHubError whose `kind` the API turns into a clear HTTP answer:
   reauth      the saved token was revoked/expired (or missing) -> ask the user to sign in again
   not_found   no such repo, or this account cannot see it
+  empty       the repository has no commits yet (GitHub answers 409)
   rate_limit  GitHub's API limit was hit
   error       anything else (network, 5xx)
 Tokens are only ever sent in the Authorization header and are never logged or put in messages.
@@ -47,6 +48,8 @@ def _raise_for_status(r: httpx.Response) -> None:
         raise GitHubError("GitHub rate limit reached. Try again in a few minutes.", "rate_limit")
     if r.status_code == 404:
         raise GitHubError("Not found, or your GitHub account cannot access it.", "not_found")
+    if r.status_code == 409 and "empty" in r.text.lower():
+        raise GitHubError("This repository has no commits yet.", "empty")
     raise GitHubError(f"GitHub returned an error ({r.status_code}). Try again later.")
 
 
@@ -123,5 +126,10 @@ class GitHubClient:
             params["sha"] = branch
         if path:
             params["path"] = path
-        r = await self._get(f"/repos/{full_name}/commits", token, params)
+        try:
+            r = await self._get(f"/repos/{full_name}/commits", token, params)
+        except GitHubError as e:
+            if e.kind == "empty":              # a repository with no commits has an empty history, not an error
+                return []
+            raise
         return r.json()

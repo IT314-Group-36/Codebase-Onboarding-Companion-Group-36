@@ -40,8 +40,8 @@ async def register_repo(body: RepoCreate, user: User = Depends(get_current_user)
     repo = Repository(owner_id=user.id, url=url, branch=branch, status="queued")
     session.add(repo)
     await session.commit()
-    # No pasted token: the worker loads the owner's saved GitHub token itself if the repo turns out to be private,
-    # so the token never travels through the job queue.
+    # Normally no token is passed: the worker loads the owner's saved GitHub token itself if the repo turns out
+    # to be private. A token pasted in the request (optional) is handed to this one job only and never stored in the DB.
     await queue.enqueue_job("index_repository", repo.id, body.access_token)
     return repo
 

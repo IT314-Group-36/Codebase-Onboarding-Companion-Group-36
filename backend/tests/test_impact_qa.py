@@ -7,8 +7,14 @@ from ai_pipeline.graph import impact
 from ai_pipeline.pipeline import analyze_checkout
 from app.api import deps
 from app.main import app
-from app.services.impact_qa import (build_report, detect_impact_intent, extract_mentions, file_target, module_target,
-                                    symbol_target)
+from app.services.impact_qa import (
+    build_report,
+    detect_impact_intent,
+    extract_mentions,
+    file_target,
+    module_target,
+    symbol_target,
+)
 from app.services.qa import ImpactExplanation
 from tests.conftest import REPO_FILES, make_git_repo
 from tests.test_api import FakeLLM, client, index  # noqa: F401  (client is a fixture)
