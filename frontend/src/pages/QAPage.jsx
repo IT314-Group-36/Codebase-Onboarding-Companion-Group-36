@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   Search,
 } from 'lucide-react';
-import { askCodebaseQuestion, searchCode, getRepositoryById } from '../services/api';
+import { askCodebaseQuestionStream, searchCode, getRepositoryById } from '../services/api';
 import LoadingState from '../components/LoadingState';
 import Button from '../components/Button';
 import ImpactReport, { ImpactAnswerExtras } from '../components/ImpactReport';
@@ -104,6 +104,7 @@ export default function QAPage() {
 
       messageSeqRef.current += 1;
       const currentSeq = messageSeqRef.current;
+      const assistantId = `ai-${currentSeq}`;
 
       const userMsg = {
         id: `usr-${currentSeq}`,
@@ -113,45 +114,48 @@ export default function QAPage() {
       };
 
       setMessages((prev) => [...prev, userMsg]);
+      setMessages((prev) => [...prev, {
+        id: assistantId, sender: 'assistant', text: '', citations: [], referencedFiles: [], timestamp: 'Just now',
+      }]);
       setInputQuery('');
       setIsAsking(true);
 
       try {
-        const res = await askCodebaseQuestion(repoId, q, hints || {});
-        messageSeqRef.current += 1;
-        const aiMsg = {
-          id: `ai-${messageSeqRef.current}`,
-          sender: 'assistant',
-          text: res.answer || 'I parsed the codebase AST but did not locate matching symbols for that query.',
-          citations: res.citations || [],
-          referencedFiles: res.referencedFiles || [],
-          intent: res.intent,
-          impact: res.impact,
-          candidates: res.needsClarification ? res.candidates : [],
-          warnings: res.warnings || [],
-          caveat: res.intent === 'impact' ? res.caveat : '',
-          question: q,
-          timestamp: 'Just now',
-        };
-        setMessages((prev) => [...prev, aiMsg]);
+        const history = messages.filter((m) => m.sender === 'user' || m.sender === 'assistant')
+          .filter((m) => m.text).map((m) => ({ role: m.sender, content: m.text }));
+        await askCodebaseQuestionStream(repoId, q, hints || {}, history, (event) => {
+          if (event.type === 'token') {
+            setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, text: m.text + event.text } : m));
+          } else if (event.type === 'sources') {
+            setMessages((prev) => prev.map((m) => m.id === assistantId ? {
+              ...m, citations: event.citations || [], referencedFiles: (event.citations || []).map((c) => c.path),
+            } : m));
+          } else if (event.type === 'result') {
+            const res = event.payload || {};
+            setMessages((prev) => prev.map((m) => m.id === assistantId ? {
+              ...m, text: res.answer || '', citations: res.citations || [], intent: res.intent,
+              impact: res.impact ? {
+                target: res.impact.target, targetInfo: res.impact.target_info || {}, depth: res.impact.depth,
+                totals: res.impact.totals || {}, affectedSymbols: res.impact.affected_symbols || [],
+                affectedFiles: res.impact.affected_files || [], affectedTests: res.impact.affected_tests || [],
+                dependencies: res.impact.dependencies || {}, summary: res.impact.summary || '',
+              } : null,
+              candidates: res.needs_clarification ? res.candidates : [], warnings: res.warnings || [],
+              caveat: res.caveat || '', question: q,
+            } : m));
+          }
+        });
       } catch (err) {
-        messageSeqRef.current += 1;
         const isLlmUnconfigured = err.message && err.message.includes('LLM is not configured');
-        const errorMsg = {
-          id: `err-${messageSeqRef.current}`,
-          sender: 'assistant',
-          text: isLlmUnconfigured
+        const errorText = isLlmUnconfigured
             ? 'The backend LLM is not configured (LLM_API_KEY is not set in backend/.env). You can switch to the "Code Search" tab above to perform hybrid vector and keyword search over all indexed chunks without an LLM!'
-            : `Failed to query codebase assistant: ${err.message}`,
-          isError: true,
-          timestamp: 'Just now',
-        };
-        setMessages((prev) => [...prev, errorMsg]);
+            : `Failed to query codebase assistant: ${err.message}`;
+        setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, text: errorText, isError: true } : m));
       } finally {
         setIsAsking(false);
       }
     },
-    [inputQuery, isAsking, repoId, mode]
+    [inputQuery, isAsking, repoId, mode, messages]
   );
 
   const handleKeyDown = (e) => {
@@ -463,7 +467,7 @@ export default function QAPage() {
                                   type="button"
                                   className="cv-qa-file-chip"
                                   onClick={() =>
-                                    navigate(`/explorer/${repoId}?file=${encodeURIComponent(c.path)}`)
+                                    navigate(`/explorer/${repoId}?file=${encodeURIComponent(c.path)}&line=${c.start_line}&end=${c.end_line}`)
                                   }
                                   title={`Inspect ${c.path} lines ${c.start_line}-${c.end_line}`}
                                 >

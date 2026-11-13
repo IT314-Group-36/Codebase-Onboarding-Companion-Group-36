@@ -13,7 +13,7 @@ import GithubIcon from '../components/GithubIcon';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
 import UserAvatar from '../components/UserAvatar';
-import { getRepositories, reindexRepository } from '../services/api';
+import { getRepositories, reindexRepository, disconnectRepository, disconnectGitHub } from '../services/api';
 import { showToast } from '../utils/toast';
 import { useAuth } from '../context/useAuth';
 import './SettingsPage.css';
@@ -25,10 +25,12 @@ import './SettingsPage.css';
  */
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, refresh } = useAuth();
   const [repos, setRepos] = useState([]);
   const [disconnectCandidate, setDisconnectCandidate] = useState(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [disconnectGitHubOpen, setDisconnectGitHubOpen] = useState(false);
+  const [disconnectingGitHub, setDisconnectingGitHub] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [reindexingId, setReindexingId] = useState(null);
@@ -44,15 +46,7 @@ export default function SettingsPage() {
       try {
         const res = await getRepositories();
         if (res.success) {
-          // Filter out any locally hidden repo IDs
-          let hidden = [];
-          try {
-            hidden = JSON.parse(localStorage.getItem('codeverse_hidden_repos') || '[]');
-          } catch {
-            hidden = [];
-          }
-          const visible = (res.repositories || []).filter((r) => !hidden.includes(r.id));
-          setRepos(visible);
+          setRepos(res.repositories || []);
         }
       } catch (err) {
         console.warn('Failed to load repositories in settings:', err.message);
@@ -66,24 +60,28 @@ export default function SettingsPage() {
     setDisconnecting(true);
 
     try {
-      // Store in locally hidden list since backend does not have DELETE /repos/{id}
-      let hidden = [];
-      try {
-        hidden = JSON.parse(localStorage.getItem('codeverse_hidden_repos') || '[]');
-      } catch {
-        hidden = [];
-      }
-      hidden.push(disconnectCandidate.id);
-      localStorage.setItem('codeverse_hidden_repos', JSON.stringify(hidden));
-
+      await disconnectRepository(disconnectCandidate.id);
       setRepos((prev) => prev.filter((r) => r.id !== disconnectCandidate.id));
-      showToast(
-        `Removed ${disconnectCandidate.fullName} from local frontend view. Backend records remain preserved.`,
-        'success'
-      );
+      showToast(`Deleted ${disconnectCandidate.fullName} and its indexed data.`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Could not delete repository.', 'error');
     } finally {
       setDisconnecting(false);
       setDisconnectCandidate(null);
+    }
+  };
+
+  const handleDisconnectGitHub = async () => {
+    setDisconnectingGitHub(true);
+    try {
+      await disconnectGitHub();
+      await refresh();
+      showToast('Saved GitHub access removed. Your CODEVERSE session remains active.', 'success');
+      setDisconnectGitHubOpen(false);
+    } catch (err) {
+      showToast(err.message || 'Could not disconnect GitHub.', 'error');
+    } finally {
+      setDisconnectingGitHub(false);
     }
   };
 
@@ -144,6 +142,10 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
+            {user?.githubConnected && <Button variant="secondary" size="sm" icon={<GithubIcon size={14} />}
+              onClick={() => setDisconnectGitHubOpen(true)} style={{ marginTop: '12px' }}>
+              Disconnect GitHub access
+            </Button>}
           </section>
 
           {/* Backend Connection */}
@@ -333,13 +335,24 @@ export default function SettingsPage() {
       {/* Disconnect Confirmation Dialog */}
       <ConfirmDialog
         open={!!disconnectCandidate}
-        title="Remove Repository from View?"
-        message={`Remove "${disconnectCandidate?.fullName}" from your local frontend view? Note: The backend API does not currently expose a DELETE endpoint, so its indexed database records remain preserved on the server.`}
-        confirmLabel="Remove"
+        title="Delete Repository and Indexed Data?"
+        message={`Permanently delete "${disconnectCandidate?.fullName}" and its indexed files, code chunks, and analysis from this account?`}
+        confirmLabel="Delete"
         variant="danger"
         loading={disconnecting}
         onConfirm={handleDisconnectRepo}
         onCancel={() => setDisconnectCandidate(null)}
+      />
+
+      <ConfirmDialog
+        open={disconnectGitHubOpen}
+        title="Disconnect GitHub Access?"
+        message="The saved GitHub credential will be deleted. You will stay signed in to CODEVERSE, but private-repository indexing and GitHub history will require connecting GitHub again."
+        confirmLabel="Disconnect"
+        variant="danger"
+        loading={disconnectingGitHub}
+        onConfirm={handleDisconnectGitHub}
+        onCancel={() => setDisconnectGitHubOpen(false)}
       />
 
       {/* Logout Confirmation Dialog */}
