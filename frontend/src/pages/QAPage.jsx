@@ -15,6 +15,8 @@ import {
 import { askCodebaseQuestionStream, searchCode, getRepositoryById } from '../services/api';
 import LoadingState from '../components/LoadingState';
 import Button from '../components/Button';
+import useReducedMotion from '../hooks/useReducedMotion';
+import { TypingIndicator, StreamingLabel, AnswerError, QAAnnouncer } from '../components/QAStates';
 import ImpactReport, { ImpactAnswerExtras } from '../components/ImpactReport';
 import './QAPage.css';
 
@@ -45,6 +47,7 @@ const SUGGESTED_QUESTIONS = [
 export default function QAPage() {
   const { repoId } = useParams();
   const navigate = useNavigate();
+  const { reduced } = useReducedMotion();
 
   const [loading, setLoading] = useState(true);
   const [repo, setRepo] = useState(null);
@@ -80,8 +83,8 @@ export default function QAPage() {
   }, [repoId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isAsking]);
+    messagesEndRef.current?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
+  }, [messages, isAsking, reduced]);
 
   const handleSend = useCallback(
     // hints: { symbol | file, label } when the user picked one of the candidates offered for an ambiguous question
@@ -122,7 +125,7 @@ export default function QAPage() {
 
       try {
         const history = messages.filter((m) => m.sender === 'user' || m.sender === 'assistant')
-          .filter((m) => m.text).map((m) => ({ role: m.sender, content: m.text }));
+          .filter((m) => m.text && !m.isError).map((m) => ({ role: m.sender, content: m.text }));
         await askCodebaseQuestionStream(repoId, q, hints || {}, history, (event) => {
           if (event.type === 'token') {
             setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, text: m.text + event.text } : m));
@@ -150,7 +153,9 @@ export default function QAPage() {
         const errorText = isLlmUnconfigured
             ? 'The backend LLM is not configured (LLM_API_KEY is not set in backend/.env). You can switch to the "Code Search" tab above to perform hybrid vector and keyword search over all indexed chunks without an LLM!'
             : `Failed to query codebase assistant: ${err.message}`;
-        setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, text: errorText, isError: true } : m));
+        setMessages((prev) => prev.map((m) => m.id === assistantId ? {
+          ...m, text: errorText, isError: true, errorKind: isLlmUnconfigured ? 'llm-unconfigured' : 'failed', retryQuery: q, retryHints: hints,
+        } : m));
       } finally {
         setIsAsking(false);
       }
@@ -164,6 +169,21 @@ export default function QAPage() {
       handleSend();
     }
   };
+
+  // Re-ask a failed question: drop the failed pair, then send it again
+  const handleRetry = (failed) => {
+    if (isAsking || !failed.retryQuery) return;
+    const userId = failed.id.replace('ai-', 'usr-');
+    setMessages((prev) => prev.filter((m) => m.id !== failed.id && m.id !== userId));
+    handleSend(failed.retryQuery, failed.retryHints);
+  };
+
+  const lastMsg = messages[messages.length - 1];
+  const waitingForFirstToken = isAsking && lastMsg?.sender === 'assistant' && !lastMsg.text;
+  let announcement = '';
+  if (isAsking) announcement = 'Answering your question.';
+  else if (lastMsg?.isError) announcement = 'The answer failed. Use the Try again button to ask again.';
+  else if (messages.length > 1 && lastMsg?.sender === 'assistant') announcement = 'Answer ready.';
 
   const handleClearChat = () => {
     setMessages([
@@ -387,7 +407,8 @@ export default function QAPage() {
         ) : (
           /* AI Q&A CHAT VIEW */
           <>
-            {/* Suggested Prompt Chips */}
+            {/* Suggested Prompt Chips: shown only until the first question is asked */}
+            {messages.length <= 1 && (
             <div className="cv-qa-suggestions">
               <span className="cv-qa-suggestions__title">
                 <Sparkles size={13} />
@@ -407,11 +428,16 @@ export default function QAPage() {
                 ))}
               </div>
             </div>
+            )}
 
-            {/* Message Feed */}
-            <div className="cv-qa-feed">
+            {/* Message Feed (status changes are announced by QAAnnouncer, so words are not read out one by one) */}
+            <QAAnnouncer text={announcement} />
+            <div className="cv-qa-feed" role="log" aria-label="Conversation" aria-live="off">
               {messages.map((msg) => {
                 const isUser = msg.sender === 'user';
+                // The empty placeholder bubble is hidden; the typing indicator below stands in for it
+                if (!isUser && !msg.text && !msg.isError && isAsking && msg.id === lastMsg?.id) return null;
+                const isStreamingThis = !isUser && isAsking && msg.id === lastMsg?.id && Boolean(msg.text);
 
                 return (
                   <div
@@ -424,11 +450,20 @@ export default function QAPage() {
 
                     <div className="cv-qa-msg__content">
                       <div className="cv-qa-msg__bubble" style={msg.isError ? { borderColor: 'rgba(235, 87, 87, 0.4)' } : undefined}>
+                        {msg.isError ? (
+                          <AnswerError
+                            kind={msg.errorKind}
+                            message={msg.text}
+                            onRetry={() => handleRetry(msg)}
+                            onUseSearch={() => setMode('search')}
+                          />
+                        ) : (
                         <p className="cv-qa-msg__text" style={msg.impact ? { whiteSpace: 'pre-line' } : undefined}>
                           {/* Without an LLM the answer is the structured summary; the report below lists the same
                               items, so only its headline sentence is shown here. */}
                           {msg.impact && msg.text === msg.impact.summary ? msg.text.split('\n')[0] : msg.text}
                         </p>
+                        )}
 
                         {/* Impact analysis: affected functions/files/tests with reasons, or "which one do you mean?" */}
                         {msg.impact && (
@@ -507,6 +542,7 @@ export default function QAPage() {
 
                       <div className="cv-qa-msg__meta">
                         <span className="cv-qa-msg__time">{msg.timestamp}</span>
+                        {isStreamingThis && <StreamingLabel />}
                         {!isUser && !msg.isError && msg.citations && msg.citations.length > 0 && (
                           <span className="cv-qa-msg__conf">
                             <CheckCircle2 size={11} style={{ color: 'var(--cv-success)' }} />
@@ -519,21 +555,8 @@ export default function QAPage() {
                 );
               })}
 
-              {/* Typing Indicator */}
-              {isAsking && (
-                <div className="cv-qa-msg cv-qa-msg--assistant">
-                  <div className="cv-qa-msg__avatar">
-                    <Sparkles size={15} />
-                  </div>
-                  <div className="cv-qa-msg__content">
-                    <div className="cv-qa-msg__bubble cv-qa-msg__bubble--typing">
-                      <span className="cv-qa-typing-dot" />
-                      <span className="cv-qa-typing-dot" />
-                      <span className="cv-qa-typing-dot" />
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Typing indicator: only until the first words of the answer arrive */}
+              {waitingForFirstToken && <TypingIndicator />}
 
               <div ref={messagesEndRef} />
             </div>
@@ -550,7 +573,8 @@ export default function QAPage() {
                 <input
                   type="text"
                   className="cv-qa-input-field"
-                  placeholder="Ask about architecture, functions, hooks, state flow..."
+                  aria-label="Ask a question about this codebase"
+                  placeholder={isAsking ? 'Waiting for the answer…' : 'Ask about architecture, functions, hooks, state flow...'}
                   value={inputQuery}
                   onChange={(e) => setInputQuery(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -568,7 +592,7 @@ export default function QAPage() {
               </form>
               <div className="cv-qa-input-footer">
                 <span>
-                  All responses grounded in pgvector code chunks. Citations validated against indexed files.
+                  Answers are written from retrieved code chunks and can be incomplete or wrong. Check the cited lines before relying on them.
                 </span>
               </div>
             </div>
