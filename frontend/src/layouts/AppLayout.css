@@ -8,6 +8,7 @@
 
 .cv-app-shell__body {
   flex: 1;
+  min-width: 0;
   margin-left: var(--sidebar-width);
   display: flex;
   flex-direction: column;
@@ -24,6 +25,7 @@
 
 .cv-app-shell__content {
   flex: 1;
+  min-width: 0;
   padding: 24px 32px 48px;
   overflow-y: auto;
   position: relative;
