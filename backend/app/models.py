@@ -133,6 +133,7 @@ class Chunk(Base):
     start_line: Mapped[int] = mapped_column(Integer)
     end_line: Mapped[int] = mapped_column(Integer)
     content: Mapped[str] = mapped_column(Text)
+    content_hash: Mapped[str | None] = mapped_column(String(64))
     embedding = mapped_column(Vector(EMBED_DIM), nullable=False)
     content_tsv = mapped_column(TSVECTOR, Computed("to_tsvector('simple', content)", persisted=True))
 
