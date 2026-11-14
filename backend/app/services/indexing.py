@@ -3,7 +3,9 @@
 Blocking work (git, tree-sitter, embeddings) runs in threads; DB and LLM calls are async."""
 import asyncio
 import logging
+import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from itertools import islice
 from pathlib import Path
 
@@ -34,6 +36,49 @@ async def _update(repo_id: int, **fields) -> None:
     async with SessionLocal() as s:
         await s.execute(update(Repository).where(Repository.id == repo_id).values(**fields))
         await s.commit()
+
+
+async def _embed_all(texts: list[str], embedder, batch_size: int, on_progress) -> list[list[float]]:
+    """Embed `texts` and return vectors in the ORIGINAL order.
+
+    Texts are embedded longest-first: a batch is padded to its longest text, so batching similar lengths together
+    wastes far less compute, and the slow batches run first so the progress bar does not stall at the end.
+    `on_progress(done, total)` is awaited after every batch.
+    """
+    total = len(texts)
+    order = sorted(range(total), key=lambda i: len(texts[i]), reverse=True)
+    ordered = [texts[i] for i in order]
+    vectors: list[list[float]] = []
+    if hasattr(embedder, "iter_embed_documents"):
+        # FastEmbed owns a persistent worker pool for this full corpus; consume it in
+        # bounded slices so the UI gets progress without restarting workers per batch.
+        iterator = iter(embedder.iter_embed_documents(ordered))
+        # A generator must never be advanced and closed from two threads at once ("generator already executing").
+        # If the job is cancelled mid-batch, the batch keeps running in its thread, so next() and close() share ONE
+        # thread: close() then simply queues behind the batch in flight.
+        loop = asyncio.get_running_loop()
+        gen_thread = ThreadPoolExecutor(max_workers=1, thread_name_prefix="embed-iter")
+        try:
+            while True:
+                batch_vectors = await loop.run_in_executor(gen_thread, _take, iterator, batch_size)
+                if not batch_vectors:
+                    break
+                vectors.extend(batch_vectors)
+                await on_progress(len(vectors), total)
+        finally:
+            close = getattr(iterator, "close", None)      # stops FastEmbed's worker pool if we bail out early
+            if close:
+                gen_thread.submit(close)                  # runs after any in-flight batch; never blocks the event loop
+            gen_thread.shutdown(wait=False)
+    else:
+        for start in range(0, total, batch_size):
+            end = min(start + batch_size, total)
+            vectors.extend(await embedder.aembed_documents(ordered[start:end]))
+            await on_progress(end, total)
+    restored: list = [None] * total
+    for pos, original_index in enumerate(order):
+        restored[original_index] = vectors[pos]
+    return restored
 
 
 async def _bulk(session, model, rows: list[dict], size: int = 500) -> None:
@@ -142,49 +187,43 @@ async def run_indexing(repo_id: int, access_token: str | None, *, llm, embedder)
             return
         url, branch = repo.url, repo.branch
     work = Path(cfg.work_dir) / f"job_{repo_id}_{uuid.uuid4().hex[:8]}"     # one directory per job
+    timings: dict[str, float] = {}
+    _t = time.perf_counter()
+
+    def lap(name: str) -> None:
+        """Record how long the stage that just finished took."""
+        nonlocal _t
+        now = time.perf_counter()
+        timings[name] = round(now - _t, 2)
+        _t = now
+
     try:
         await _update(repo_id, status="indexing", stage="cloning", error=None)
         url = validate_repo_url(url, cfg.allow_local_repos)                   # defence in depth (also checked by the API)
         branch = validate_branch(branch)
         sha = await _clone(repo_id, url, branch, work / "clone", access_token)
+        lap("clone")
         await _update(repo_id, stage="analyzing")
         a = await asyncio.to_thread(analyze_checkout, work / "clone", max_chunks=cfg.max_chunks,
                                     max_file_bytes=cfg.max_file_bytes)
+        lap("analyze")
         await _update(repo_id, stage="embedding")
         texts = [embed_text(c) for c in a.chunks]
-        total = len(texts)
-        vectors = []
-        batch_size = max(1, cfg.embed_batch_size)
-        if hasattr(embedder, "iter_embed_documents"):
-            # FastEmbed owns a persistent worker pool for this full corpus; consume it in
-            # bounded slices so the UI gets progress without restarting workers per batch.
-            iterator = iter(embedder.iter_embed_documents(texts))
-            try:
-                while True:
-                    batch_vectors = await asyncio.to_thread(_take, iterator, batch_size)
-                    if not batch_vectors:
-                        break
-                    vectors.extend(batch_vectors)
-                    await _update(repo_id, index_report={
-                        **a.report,
-                        "embedding_progress": {"completed": len(vectors), "total": total},
-                    })
-            finally:
-                close = getattr(iterator, "close", None)      # stops FastEmbed's worker pool if we bail out early
-                if close:
-                    await asyncio.to_thread(close)
-        else:
-            for start in range(0, total, batch_size):
-                end = min(start + batch_size, total)
-                vectors.extend(await embedder.aembed_documents(texts[start:end]))
-                await _update(repo_id, index_report={
-                    **a.report,
-                    "embedding_progress": {"completed": end, "total": total},
-                })
+
+        async def report_progress(done: int, total: int) -> None:
+            await _update(repo_id, index_report={**a.report, "embedding_progress": {"completed": done, "total": total}})
+
+        vectors = await _embed_all(texts, embedder, max(1, cfg.embed_batch_size), report_progress)
+        lap("embed")
         await _update(repo_id, stage="saving")
         await _save(repo_id, sha, a, vectors)
+        lap("save")
         module_map, summary, warnings = await _describe(repo_id, work / "clone", a, llm, embedder)
-        await _update(repo_id, status="ready", stage=None, module_map=module_map, summary=summary, warnings=warnings)
+        lap("describe")
+        timings["total"] = round(sum(timings.values()), 2)
+        log.info("indexing repo %s timings (s): %s", repo_id, timings)
+        await _update(repo_id, status="ready", stage=None, module_map=module_map, summary=summary,
+                      warnings=warnings, index_report={**a.report, "timings": timings})
     except Exception as e:  # noqa: BLE001
         log.exception("indexing repo %s failed", repo_id)
         await _update(repo_id, status="failed", stage=None, error=str(e)[:1000])
