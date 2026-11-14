@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 import UserAvatar from './UserAvatar';
+import MotionToggle from './MotionToggle';
 import './Topbar.css';
 
 /**
@@ -86,6 +87,7 @@ export default function Topbar({ onToggleMobileMenu, onLogoutRequest }) {
       </div>
 
       <div className="cv-topbar__right">
+        <MotionToggle />
         {/* User profile menu */}
         <div className="cv-topbar__action-wrapper">
           <button

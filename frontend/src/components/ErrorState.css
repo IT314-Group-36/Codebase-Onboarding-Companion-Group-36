@@ -1,0 +1,47 @@
+.cv-error-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 24px;
+  background: var(--status-error-subtle);
+  border: 1px solid var(--status-error-border);
+  border-radius: var(--radius-md);
+}
+
+.cv-error-state--compact {
+  padding: 10px 12px;
+  gap: 8px;
+  border-radius: var(--radius-sm);
+}
+
+.cv-error-state__icon {
+  flex: none;
+  color: var(--status-error);
+}
+
+.cv-error-state__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cv-error-state__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cv-error-state--compact .cv-error-state__title {
+  font-size: 0.82rem;
+}
+
+.cv-error-state__msg {
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}

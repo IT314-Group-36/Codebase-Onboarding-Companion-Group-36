@@ -1,0 +1,41 @@
+/* Accessibility layer: reduced motion, screen-reader helpers, skip link. */
+
+/* Follows the OS setting automatically... */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) *,
+  html:not([data-motion='full']) *::before,
+  html:not([data-motion='full']) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ...and the in-app toggle can force it on (or off) regardless of the OS. */
+html[data-motion='reduce'] *,
+html[data-motion='reduce'] *::before,
+html[data-motion='reduce'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* A stopped spinner would look frozen, so show a clear static ring instead. */
+html[data-motion='reduce'] .cv-loading__spinner {
+  border-color: rgba(76, 154, 255, 0.5);
+  border-top-color: var(--cv-warm-amber);
+}
+
+.cv-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

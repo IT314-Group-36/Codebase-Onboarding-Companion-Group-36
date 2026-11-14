@@ -1,0 +1,18 @@
+.cv-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cv-skeleton__line {
+  display: block;
+  border-radius: var(--radius-xs);
+  background: linear-gradient(90deg, rgba(76, 154, 255, 0.08) 25%, rgba(76, 154, 255, 0.18) 50%, rgba(76, 154, 255, 0.08) 75%);
+  background-size: 200% 100%;
+  animation: cv-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes cv-skeleton-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}

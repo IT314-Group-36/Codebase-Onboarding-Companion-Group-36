@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AlertTriangle, FileCode, FlaskConical, ArrowRight, ChevronDown, ChevronRight, Box } from 'lucide-react';
+import StaticAnalysisBadge from './StaticAnalysisBadge';
 import './ImpactReport.css';
 
 const LIST_LIMIT = 8;
@@ -41,12 +42,12 @@ function SymbolRow({ s, onOpenFile }) {
   );
 }
 
-function Group({ title, count, children, defaultOpen = true }) {
+function Group({ title, count, children, defaultOpen = true, tone }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="cv-impact__group">
+    <div className={`cv-impact__group ${tone ? `cv-impact__group--${tone}` : ''}`}>
       <button type="button" className="cv-impact__group-head" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        {open ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
         <span>{title}</span>
         <span className="cv-impact__count">{count}</span>
       </button>
@@ -104,16 +105,18 @@ export default function ImpactReport({ report, onOpenFile }) {
         </span>
       </div>
 
+      <StaticAnalysisBadge kind="impact" />
+
       {nothing && <p className="cv-impact__empty">Nothing else in this repository depends on it, as far as the analysis can tell.</p>}
 
       {direct.length > 0 && (
-        <Group title="Directly affected" count={direct.length}>
+        <Group title="Directly affected" count={direct.length} tone="direct">
           <ShowMoreList items={direct} render={(s) => <SymbolRow key={s.uid} s={s} onOpenFile={onOpenFile} />} />
         </Group>
       )}
 
       {indirect.length > 0 && (
-        <Group title="Indirectly affected" count={indirect.length} defaultOpen={direct.length === 0}>
+        <Group title="Indirectly affected" count={indirect.length} defaultOpen={direct.length === 0} tone="indirect">
           <ShowMoreList items={indirect} render={(s) => <SymbolRow key={s.uid} s={s} onOpenFile={onOpenFile} />} />
         </Group>
       )}

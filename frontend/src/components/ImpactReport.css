@@ -217,3 +217,14 @@
   color: var(--text-muted);
   opacity: 0.8;
 }
+
+/* Direct vs indirect: colour plus a text label, so the distinction never relies on colour alone */
+.cv-impact__group--direct {
+  border-left: 3px solid var(--status-error);
+  padding-left: 8px;
+}
+
+.cv-impact__group--indirect {
+  border-left: 3px solid var(--status-warning);
+  padding-left: 8px;
+}
