@@ -55,6 +55,76 @@ browser ──> web (nginx :5173) ──/api/*──> api (FastAPI :8000) ──
 The API returns immediately when you register a repo; the worker does the indexing and the UI polls
 `GET /repos/{id}` for progress.
 
+## Typical user workflow
+
+1. **Sign in with GitHub.** The app uses OAuth so it can list repositories and read repositories the signed-in user can access.
+2. **Choose a repository and branch.** Public repositories can be cloned anonymously; private repositories use the encrypted GitHub credential saved for the signed-in user.
+3. **Wait for indexing.** A background job clones and analyzes the selected revision. The dashboard reports queued, indexing, ready, or failed status and the current processing stage.
+4. **Explore the codebase.** Open the module map to see dependencies, or use the Code Explorer to browse files, inspect extracted symbols, and choose an editor color theme.
+5. **Ask grounded questions.** Ask Codebase Q&A for explanations and source references, or ask what may be affected by changing a function or file.
+6. **Review project context.** Browse recent Git history and contribution activity, and use the onboarding task list as a starting point for a first contribution.
+
+The indexing process is asynchronous so a long clone or embedding run does not hold the browser request open. The web client polls the repository status while the worker continues in the background.
+
+## Indexing and search pipeline
+
+```text
+GitHub repository + selected branch
+              │
+              ▼
+      temporary shallow clone
+              │
+              ▼
+       scan and redact files
+              │
+              ▼
+    parse and build code graphs
+       ├── import relationships
+       └── function call relationships
+              │
+              ▼
+  symbol-aware chunks and embeddings
+              │
+              ▼
+ PostgreSQL + pgvector + full-text index
+              │
+              ├── dependency map and explanations
+              ├── hybrid code search and cited Q&A
+              └── change-impact analysis
+```
+
+The parser uses tree-sitter for Python, JavaScript, JSX, TypeScript, and TSX. It creates chunks around functions, methods, and classes so search results can retain file paths and line ranges. FastEmbed generates embeddings locally with ONNX; PostgreSQL combines vector similarity with full-text search for retrieval.
+
+The worker writes indexing results as a repository-scoped operation. A reindex keeps the previous readable index available until the replacement is ready, then swaps the data atomically. Redis and ARQ queue background jobs, while Postgres stores repository metadata, graph data, chunks, and vectors.
+
+## Design choices
+
+| Design choice | Why it is used |
+|---|---|
+| Background indexing with Redis and ARQ | Repository cloning, parsing, and embedding can take longer than a normal web request. A queued worker lets the UI show progress and recover from job failures. |
+| Local ONNX embeddings | Code search does not require sending every source chunk to an external embedding API, and the model can be cached between runs. |
+| Postgres, pgvector, and full-text search | One database stores application records and supports both semantic and lexical retrieval, filtered by repository. |
+| Graph-backed dependency and impact views | Import and call relationships provide explicit paths that can be inspected alongside generated explanations. |
+| Symbol-aware chunks with line metadata | Search answers and explanations can link back to the relevant file and source lines. |
+| LLM fallback behavior | Graph summaries and structured impact data can still be returned when an LLM key is missing or a model call fails. |
+| Repository-scoped indexing | Reindexing one repository does not clear another repository's vectors or search data. |
+
+## Security and data handling
+
+- OAuth secrets, LLM keys, and generated session secrets belong in `backend/.env`. Keep this file local and out of commits; the tracked `.env.example` contains placeholders.
+- GitHub credentials saved for sign-in are encrypted before storage. The browser uses an HttpOnly session cookie and does not receive the GitHub token.
+- The worker uses a temporary clone for analysis and removes it after indexing. The app stores derived metadata, graph relationships, chunks, and embeddings rather than a permanent copy of the whole repository.
+- Source code shown in the Explorer is fetched on demand from the indexed GitHub commit. Sensitive files are excluded, and source responses are size-limited.
+- Repository text is treated as untrusted input to LLM prompts. Returned paths and citations are checked against indexed repository data before they are shown.
+
+## Current limitations
+
+- Impact results come from static import and call relationships. Dynamic dispatch, reflection, runtime-loaded dependencies, and some framework conventions may not be detected.
+- Tree-sitter builds detailed code structure for Python, JavaScript, JSX, TypeScript, and TSX. Other file types can be searched as text but do not receive the same symbol and dependency analysis.
+- Git history is fetched on demand and summarizes a sample of the latest 50 commits, rather than a complete long-term contribution record.
+- The onboarding task list is currently generated in the frontend. Task completion is stored in browser `localStorage`, and the GitHub issue synchronization API is not yet connected to that checklist.
+- Source display is limited to indexed, non-sensitive files and a maximum response size of 500 KB.
+
 ## Quick start (Docker, whole stack)
 
 Requires Docker with Compose v2. The app signs users in with GitHub, so a one-time GitHub OAuth app is needed.
@@ -85,6 +155,17 @@ The first start is slow: the worker downloads the embedding model (about 130 MB)
 Without `LLM_API_KEY` everything works except `/ask` and `/impact?explain=true`.
 
 Stop with `Ctrl+C`. To also delete the database and the model cache: `docker compose down -v`.
+
+### Windows Command Prompt
+
+From the project folder, create the backend environment file from the example, edit it with your GitHub OAuth values and generated secrets, then start Docker Compose:
+
+```cmd
+copy backend\.env.example backend\.env
+docker compose up --build
+```
+
+Open the web app in a browser with `start http://localhost:5173`. To check service status from another Command Prompt window, run `docker compose ps`; to follow service logs, run `docker compose logs -f api worker web`. Stop the foreground stack with `Ctrl+C`.
 
 ## Development with hot reload
 

@@ -5,7 +5,12 @@
 .cv-explorer {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--topbar-height) - 48px);
+  width: 100%;
+  min-width: 0;
+  /* The app top bar and content padding already use viewport space. */
+  height: calc(100vh - var(--topbar-height) - 72px);
+  height: calc(100dvh - var(--topbar-height) - 72px);
+  min-height: 0;
   max-width: 1560px;
   margin: 0 auto;
 }
@@ -15,6 +20,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
   gap: 14px;
   padding: 10px 16px;
   background: rgba(7, 18, 38, 0.78);
@@ -28,6 +36,8 @@
 
 .cv-explorer-topbar__left {
   display: flex;
+  flex: 1 1 320px;
+  min-width: 0;
   align-items: center;
   gap: 8px;
   overflow: hidden;
@@ -45,6 +55,9 @@
 }
 
 .cv-explorer-topbar__filepath {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 0.82rem;
   color: #F5A524;
   background: rgba(245, 165, 36, 0.12);
@@ -57,6 +70,9 @@
 
 .cv-explorer-topbar__right {
   display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
   align-items: center;
   gap: 8px;
 }
@@ -69,6 +85,8 @@
 .cv-explorer-workspace {
   flex: 1;
   display: flex;
+  width: 100%;
+  min-width: 0;
   gap: 12px;
   min-height: 0;
   overflow: hidden;
@@ -535,7 +553,8 @@
   gap: 5px;
 }
 
-@media (max-width: 1080px) {
+/* The persistent app sidebar and content padding reduce the usable width. */
+@media (max-width: 1280px) {
   .cv-explorer-details-pane {
     display: none;
   }
