@@ -1,0 +1,24 @@
+.cv-qa-typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.cv-qa-typing-label {
+  margin-left: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.cv-qa-streaming {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--status-warning);
+}
+
+/* Reduced motion: the dots would end up invisible, so show them still. The text label carries the meaning. */
+html[data-motion='reduce'] .cv-qa-typing-dot {
+  animation: none;
+  transform: none;
+  opacity: 0.85;
+}
