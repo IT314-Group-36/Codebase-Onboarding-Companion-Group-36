@@ -1,0 +1,32 @@
+.cv-static-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.cv-static-badge__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--status-warning);
+  background: var(--status-warning-subtle);
+  border: 1px solid var(--status-warning-border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.cv-static-badge__btn:hover {
+  background: rgba(245, 165, 36, 0.22);
+}
+
+.cv-static-badge__panel {
+  margin: 0;
+  max-width: 520px;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
