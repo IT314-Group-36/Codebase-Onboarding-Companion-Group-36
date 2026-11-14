@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, FileCode, FlaskConical, ArrowRight, ChevronDown, ChevronRight, Box } from 'lucide-react';
+import { AlertTriangle, FileCode, FlaskConical, ArrowRight, ChevronDown, ChevronRight, Network } from 'lucide-react';
 import './ImpactReport.css';
 
 const LIST_LIMIT = 8;
@@ -78,6 +78,7 @@ function ShowMoreList({ items, render }) {
  * @param {(path: string) => void} [onOpenFile]
  */
 export default function ImpactReport({ report, onOpenFile }) {
+  const [filter, setFilter] = useState('all');
   if (!report) return null;
   const info = report.targetInfo || {};
   const symbols = report.affectedSymbols || [];
@@ -90,41 +91,75 @@ export default function ImpactReport({ report, onOpenFile }) {
   const deps = report.dependencies || { calls: [], imports: [] };
   const targetLabel = info.kind === 'symbol' ? info.qualname : info.path;
   const nothing = symbols.length === 0 && (report.affectedFiles || []).length === 0;
+  const visibleDirect = filter === 'all' || filter === 'direct' ? direct : [];
+  const visibleIndirect = filter === 'all' || filter === 'indirect' ? indirect : [];
+  const visibleTests = filter === 'all' || filter === 'tests';
+  const visualTotal = direct.length + indirect.length + tests.length;
+  const ratio = (count) => visualTotal && count ? `${Math.max(5, (count / visualTotal) * 100)}%` : '0%';
 
   return (
     <div className="cv-impact" aria-label={`Impact of changing ${targetLabel}`}>
       <div className="cv-impact__head">
-        <Box size={13} aria-hidden="true" />
-        <span className="cv-impact__target">
-          <code>{targetLabel}</code>
-        </span>
-        <span className="cv-impact__stats">
-          {pluralize(report.totals.symbols, 'function')} · {pluralize(report.totals.files, 'file')} ·{' '}
-          {pluralize(report.totals.tests, 'test file')} · depth {report.depth}
-        </span>
+        <Network size={15} aria-hidden="true" />
+        <span className="cv-impact__heading">Change impact</span>
+        <span className="cv-impact__depth">Depth {report.depth}</span>
+      </div>
+      <div className="cv-impact__target-line">
+        <span>Analyzed target</span>
+        <code title={targetLabel}>{targetLabel}</code>
+      </div>
+
+      <div className="cv-impact__overview" aria-label="Impact summary">
+        <div className="cv-impact__metric cv-impact__metric--direct">
+          <span className="cv-impact__metric-value">{direct.length}</span><span>Direct</span>
+        </div>
+        <div className="cv-impact__metric cv-impact__metric--indirect">
+          <span className="cv-impact__metric-value">{indirect.length}</span><span>Indirect</span>
+        </div>
+        <div className="cv-impact__metric cv-impact__metric--tests">
+          <span className="cv-impact__metric-value">{tests.length + testSymbols}</span><span>Tests</span>
+        </div>
+        <div className="cv-impact__metric cv-impact__metric--files">
+          <span className="cv-impact__metric-value">{report.totals.files ?? 0}</span><span>Files</span>
+        </div>
+      </div>
+      <div className="cv-impact__bar" aria-label={`${direct.length} direct, ${indirect.length} indirect, ${tests.length} test files`}>
+        <span className="cv-impact__bar-segment cv-impact__bar-segment--direct" style={{ width: ratio(direct.length) }} />
+        <span className="cv-impact__bar-segment cv-impact__bar-segment--indirect" style={{ width: ratio(indirect.length) }} />
+        <span className="cv-impact__bar-segment cv-impact__bar-segment--tests" style={{ width: ratio(tests.length) }} />
+      </div>
+      <div className="cv-impact__legend" aria-hidden="true">
+        <span><i className="cv-impact__legend-dot cv-impact__legend-dot--direct" />Direct</span>
+        <span><i className="cv-impact__legend-dot cv-impact__legend-dot--indirect" />Indirect</span>
+        <span><i className="cv-impact__legend-dot cv-impact__legend-dot--tests" />Tests</span>
+      </div>
+      <div className="cv-impact__filters" role="group" aria-label="Filter impact results">
+        {[['all', 'All'], ['direct', 'Direct'], ['indirect', 'Indirect'], ['tests', 'Tests']].map(([value, label]) => (
+          <button key={value} type="button" className={`cv-impact__filter${filter === value ? ' is-active' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>
+        ))}
       </div>
 
       {nothing && <p className="cv-impact__empty">Nothing else in this repository depends on it, as far as the analysis can tell.</p>}
 
-      {direct.length > 0 && (
+      {visibleDirect.length > 0 && (
         <Group title="Directly affected" count={direct.length}>
-          <ShowMoreList items={direct} render={(s) => <SymbolRow key={s.uid} s={s} onOpenFile={onOpenFile} />} />
+          <ShowMoreList items={visibleDirect} render={(s) => <SymbolRow key={s.uid} s={s} onOpenFile={onOpenFile} />} />
         </Group>
       )}
 
-      {indirect.length > 0 && (
+      {visibleIndirect.length > 0 && (
         <Group title="Indirectly affected" count={indirect.length} defaultOpen={direct.length === 0}>
-          <ShowMoreList items={indirect} render={(s) => <SymbolRow key={s.uid} s={s} onOpenFile={onOpenFile} />} />
+          <ShowMoreList items={visibleIndirect} render={(s) => <SymbolRow key={s.uid} s={s} onOpenFile={onOpenFile} />} />
         </Group>
       )}
 
-      {testSymbols > 0 && (
+      {(filter === 'all' || filter === 'tests') && testSymbols > 0 && (
         <p className="cv-impact__note">
           Plus {pluralize(testSymbols, 'test function')} (counted, not listed).
         </p>
       )}
 
-      {otherFiles.length > 0 && (
+      {filter === 'all' && otherFiles.length > 0 && (
         <Group title="Other files that import it" count={otherFiles.length}>
           <ShowMoreList
             items={otherFiles}
@@ -141,7 +176,7 @@ export default function ImpactReport({ report, onOpenFile }) {
         </Group>
       )}
 
-      <Group title="Tests that reach it" count={tests.length} defaultOpen={tests.length > 0}>
+      {visibleTests && <Group title="Tests that reach it" count={tests.length} defaultOpen={tests.length > 0}>
         {tests.length > 0 ? (
           <ShowMoreList
             items={tests}
@@ -159,9 +194,11 @@ export default function ImpactReport({ report, onOpenFile }) {
             <AlertTriangle size={12} aria-hidden="true" /> No test file reaches it, so check or add tests by hand.
           </p>
         )}
-      </Group>
+      </Group>}
 
-      {(deps.calls.length > 0 || deps.imports.length > 0) && (
+      <p className="cv-impact__caveat"><AlertTriangle size={12} aria-hidden="true" /> Static analysis is approximate. Dynamic dispatch, reflection, and runtime-loaded dependencies may not appear here.</p>
+
+      {filter === 'all' && (deps.calls.length > 0 || deps.imports.length > 0) && (
         <Group title="What it depends on" count={deps.calls.length || deps.imports.length} defaultOpen={false}>
           <ul className="cv-impact__list">
             {deps.calls.length > 0
