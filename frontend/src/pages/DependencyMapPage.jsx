@@ -23,6 +23,7 @@ import {
 import { getDependencyGraph, getRepositoryById } from '../services/api';
 import LoadingState from '../components/LoadingState';
 import EmptyState from '../components/EmptyState';
+import StaticAnalysisBadge from '../components/StaticAnalysisBadge';
 import Button from '../components/Button';
 import CodebaseGraph from '../components/graph/CodebaseGraph';
 import { normalizeGraphData } from '../components/graph/graphAdapter';
@@ -272,6 +273,7 @@ export default function DependencyMapPage() {
             <p className="cv-depmap-subtitle">
               Interactive Animated Codebase Dependency Graph & AST Call Pathways
             </p>
+            <StaticAnalysisBadge kind="graph" />
           </div>
         </div>
 
