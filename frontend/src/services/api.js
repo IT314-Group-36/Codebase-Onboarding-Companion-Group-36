@@ -10,8 +10,8 @@ import {
   adaptRepository,
   buildFileTree,
   adaptFileDetails,
-  generateOnboardingTasks,
-  saveTaskStatus,
+  adaptTaskPlan,
+  adaptIssueSync,
   adaptUser,
 } from './adapters';
 import { parseGitHubUrl, isValidBranch } from '../utils/github';
@@ -613,27 +613,41 @@ export async function getImpactAnalysis(repoId, { symbol, file, depth = 3, expla
 // ============================================
 
 /**
- * Generates dynamic onboarding roadmap tasks from repository summary & module map
+ * The first-week plan: beginner-friendly GitHub issues (easiest first) with the files to open, plus orientation
+ * tasks when a repository has too few suitable issues. Each task carries the signed-in user's saved status.
+ * GET /repos/{repo_id}/onboarding-tasks
  */
-export async function getOnboardingTasks(repoId) {
-  const repoRes = await getRepositoryById(repoId);
-  if (!repoRes.success || !repoRes.repository) {
-    throw new Error('Repository not found for onboarding quests.');
-  }
-
-  const tasks = generateOnboardingTasks(repoRes.repository);
-  return {
-    success: true,
-    tasks,
-  };
+export async function getOnboardingTasks(repoId, { limit = 5, explain = false } = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (explain) params.set('explain', 'true');
+  const raw = await request(`/repos/${encodeURIComponent(repoId)}/onboarding-tasks?${params.toString()}`);
+  return { success: true, ...adaptTaskPlan(raw) };
 }
 
 /**
- * Updates task status in localStorage
+ * Saves the user's progress on one task on the server.
+ * PUT /repos/{repo_id}/onboarding-tasks/{task_key}/progress   status: 'pending' | 'in-progress' | 'completed'
  */
-export async function updateOnboardingTask(repoId, taskId, status) {
-  saveTaskStatus(repoId, taskId, status);
-  return { success: true, taskId, status };
+export async function updateOnboardingTask(repoId, taskKey, status) {
+  const res = await request(
+    `/repos/${encodeURIComponent(repoId)}/onboarding-tasks/${encodeURIComponent(taskKey)}/progress`,
+    { method: 'PUT', body: JSON.stringify({ status }) }
+  );
+  return { success: true, key: res.key, status: res.status };
+}
+
+/** Starts fetching the repository's beginner-friendly GitHub issues in the background. POST /repos/{id}/issues/sync */
+export async function syncRepositoryIssues(repoId) {
+  const raw = await request(`/repos/${encodeURIComponent(repoId)}/issues/sync`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  return adaptIssueSync(raw);
+}
+
+/** Where the issue sync stands. GET /repos/{id}/issues/sync */
+export async function getIssueSyncStatus(repoId) {
+  return adaptIssueSync(await request(`/repos/${encodeURIComponent(repoId)}/issues/sync`));
 }
 
 

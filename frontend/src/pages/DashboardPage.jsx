@@ -18,8 +18,7 @@ import SearchInput from '../components/SearchInput';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 import Button from '../components/Button';
-import { getRepositories } from '../services/api';
-import { generateOnboardingTasks, saveTaskStatus } from '../services/adapters';
+import { getRepositories, getOnboardingTasks, updateOnboardingTask } from '../services/api';
 import { useAuth } from '../context/useAuth';
 import { showToast } from '../utils/toast';
 import './DashboardPage.css';
@@ -38,6 +37,7 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [tasks, setTasks] = useState([]);
   const [taskRepo, setTaskRepo] = useState(null);   // the repository the milestones belong to
+  const [tasksNote, setTasksNote] = useState('');    // why there are no tasks to show, when that is the case
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -55,7 +55,26 @@ export default function DashboardPage() {
           const list = res.repositories || [];
           const source = list.find((r) => r.rawStatus === 'ready') || list[0] || null;
           setTaskRepo(source);
-          setTasks(source ? generateOnboardingTasks(source) : []);
+
+          // The first-week plan (real GitHub issues or orientation tasks) with the user's saved progress
+          if (!source) {
+            setTasks([]);
+            setTasksNote('Connect a repository to get a first-week onboarding plan for it.');
+          } else if (source.rawStatus !== 'ready') {
+            setTasks([]);
+            setTasksNote(`${source.name} is still being indexed. Its first-week plan appears when indexing finishes.`);
+          } else {
+            try {
+              const plan = await getOnboardingTasks(source.id);
+              if (!isMounted) return;
+              setTasks(plan.tasks);
+              setTasksNote(plan.tasks.length ? '' : 'No tasks yet. Open the full plan to sync this repository\'s issues.');
+            } catch (err) {
+              if (!isMounted) return;
+              setTasks([]);
+              setTasksNote(err.message || 'Could not load the first-week plan.');
+            }
+          }
         }
       } catch (err) {
         if (!isMounted) return;
@@ -82,26 +101,20 @@ export default function DashboardPage() {
     setRefreshTrigger((v) => v + 1);
   };
 
-  const handleToggleTask = (taskId) => {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          const nextStatus =
-            t.status === 'completed'
-              ? 'in-progress'
-              : t.status === 'in-progress'
-              ? 'pending'
-              : 'completed';
+  // pending -> in progress -> completed -> pending, saved on the server and reverted if the save fails
+  const handleToggleTask = async (taskId) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task || !taskRepo) return;
+    const previous = task.status;
+    const next = previous === 'completed' ? 'pending' : previous === 'in-progress' ? 'completed' : 'in-progress';
 
-          if (taskRepo) {
-            saveTaskStatus(taskRepo.id, taskId, nextStatus);
-          }
-          return { ...t, status: nextStatus };
-        }
-        return t;
-      })
-    );
-    showToast('Task status updated.', 'info');
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: next } : t)));
+    try {
+      await updateOnboardingTask(taskRepo.id, taskId, next);
+    } catch {
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: previous } : t)));
+      showToast('Could not save your progress. Please try again.', 'error');
+    }
   };
 
   const activeRepos = repos;
@@ -284,13 +297,13 @@ export default function DashboardPage() {
                 />
               </div>
               <span className="cv-onboarding-milestone-text">
-                {completedCount} of {tasks.length} milestones complete
+                {completedCount} of {tasks.length} tasks complete
               </span>
             </div>
 
             {tasks.length === 0 && (
               <p className="cv-section-desc" style={{ padding: '0.75rem 0' }}>
-                Connect a repository to get a first-week onboarding checklist for it.
+                {tasksNote || 'Connect a repository to get a first-week onboarding plan for it.'}
               </p>
             )}
 
@@ -320,7 +333,9 @@ export default function DashboardPage() {
                     <div className="cv-task-row__body">
                       <span className="cv-task-row__title">{task.title}</span>
                       <div className="cv-task-row__meta">
-                        <span className="cv-task-row__category">{task.category}</span>
+                        <span className="cv-task-row__category">
+                          {task.source === 'issue' ? `Issue #${task.number}` : task.category}
+                        </span>
                         <span className={`cv-diff-chip cv-diff-chip--${task.difficulty}`}>
                           {task.difficulty}
                         </span>
@@ -333,7 +348,15 @@ export default function DashboardPage() {
 
             {tasks.length > 0 && (
               <div className="cv-onboarding-tip">
-                <span>Tip: Click any task to toggle status between completed, in-progress, and pending.</span>
+                <span>Tip: Click any task to cycle it through in progress and completed. Progress is saved to your account.</span>
+              </div>
+            )}
+
+            {taskRepo && taskRepo.rawStatus === 'ready' && (
+              <div className="cv-onboarding-tip">
+                <Button variant="secondary" size="sm" onClick={() => navigate(`/onboarding/${taskRepo.id}`)}>
+                  Open full plan
+                </Button>
               </div>
             )}
           </div>
