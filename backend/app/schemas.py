@@ -68,9 +68,32 @@ class ConversationTurn(BaseModel):
 
 
 class AskStreamIn(AskIn):
+    conversation_id: int | None = Field(default=None, gt=0)
     history: list[ConversationTurn] = Field(default_factory=list, max_length=12)
 
+class ConversationCreate(BaseModel):
+    title: str = Field(default="New conversation", min_length=1, max_length=200)
 
+
+class ConversationMessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    role: Literal["user", "assistant"]
+    content: str
+    status: Literal["pending", "completed", "failed"]
+    citations: list = Field(default_factory=list)
+    created_at: datetime
+
+
+class ConversationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    repo_id: int
+    title: str
+    created_at: datetime
+    updated_at: datetime
 class ReindexIn(BaseModel):
     access_token: str | None = Field(default=None, description="GitHub token for private repos (not stored).")
 

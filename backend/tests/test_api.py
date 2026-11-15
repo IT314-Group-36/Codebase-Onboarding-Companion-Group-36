@@ -1,6 +1,8 @@
 """End-to-end: real Postgres + pgvector via the Alembic migration, real git clone of a local repo,
 real tree-sitter/NetworkX, hash embedder, fake LLM, FastAPI app through httpx."""
+import json
 import re
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -12,7 +14,7 @@ from ai_pipeline.summary import RepoSummary
 from app.api import deps
 from app.db.session import SessionLocal
 from app.main import app
-from app.models import Chunk, Edge, Repository, Symbol
+from app.models import Chunk, ConversationMessage, Edge, Repository, Symbol
 from app.services.indexing import run_indexing
 from app.services.qa import Answer, Citation, ImpactExplanation
 from app.services.retrieval import PgHybridRetriever
@@ -52,6 +54,10 @@ class FakeLLM:
         if schema is ImpactExplanation:
             return ImpactExplanation(explanation="Callers may break.", suggested_checks=["run checkout tests"])
         raise AssertionError(schema)
+class FakeStreamingLLM:
+    async def astream(self, messages):
+        yield SimpleNamespace(content="Payments are handled ")
+        yield SimpleNamespace(content="in shop/payments.py.")
 
 
 @pytest.fixture
@@ -230,3 +236,106 @@ async def test_file_content_is_fetched_from_the_indexed_github_commit_and_sensit
 
     blocked = await client.get(f"/repos/{rid}/files/.env/content")
     assert blocked.status_code == 403
+async def test_conversation_persistence_and_user_isolation(client, git_repo, make_user):
+    rid = await index(client, git_repo)
+
+    # Create a conversation.
+    created = await client.post(
+        f"/repos/{rid}/conversations",
+        json={"title": "Checkout questions"},
+    )
+    assert created.status_code == 201, created.text
+    conversation = created.json()
+    conversation_id = conversation["id"]
+
+    # Verify it appears in the conversation list.
+    listed = await client.get(f"/repos/{rid}/conversations")
+    assert listed.status_code == 200
+    assert any(item["id"] == conversation_id for item in listed.json())
+
+    # Insert a message to simulate a persisted assistant response.
+    async with SessionLocal() as session:
+        session.add(
+            ConversationMessage(
+                conversation_id=conversation_id,
+                role="assistant",
+                content="Payments are handled in shop/payments.py.",
+                status="completed",
+                citations=[{"path": "shop/payments.py"}],
+            )
+        )
+        await session.commit()
+
+    # Verify the message can be retrieved.
+    messages = await client.get(
+        f"/repos/{rid}/conversations/{conversation_id}/messages"
+    )
+    assert messages.status_code == 200
+    assert len(messages.json()) == 1
+    assert messages.json()[0]["content"] == (
+        "Payments are handled in shop/payments.py."
+    )
+    assert messages.json()[0]["citations"] == [
+        {"path": "shop/payments.py"}
+    ]
+
+    # A different user must not access this repository's conversation.
+    _, other_headers = await make_user(github_id=2, login="other")
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://t",
+        headers=other_headers,
+    ) as other_client:
+        denied = await other_client.get(
+            f"/repos/{rid}/conversations/{conversation_id}/messages"
+        )
+        assert denied.status_code == 404
+
+async def test_streamed_answer_is_persisted(client, git_repo):
+    rid = await index(client, git_repo)
+
+    streaming_llm = FakeStreamingLLM()
+    app.dependency_overrides[deps.get_llm_dep] = lambda: streaming_llm
+
+    response = await client.post(
+        f"/repos/{rid}/ask/stream",
+        json={"question": "Where are payments handled?"},
+    )
+
+    assert response.status_code == 200
+
+    # Parse the Server-Sent Events.
+    events = [
+        json.loads(line.removeprefix("data: "))
+        for line in response.text.splitlines()
+        if line.startswith("data: ")
+    ]
+
+    conversation_event = next(
+        event for event in events if event["type"] == "conversation"
+    )
+
+    assert any(event["type"] == "token" for event in events)
+    assert any(event["type"] == "done" for event in events)
+
+    conversation_id = conversation_event["conversation_id"]
+
+    # Retrieve persisted messages from the database.
+    messages_response = await client.get(
+        f"/repos/{rid}/conversations/{conversation_id}/messages"
+    )
+
+    assert messages_response.status_code == 200
+
+    messages = messages_response.json()
+
+    assert len(messages) == 2
+    assert messages[0]["role"] == "user"
+    assert messages[0]["content"] == "Where are payments handled?"
+
+    assert messages[1]["role"] == "assistant"
+    assert messages[1]["content"] == (
+        "Payments are handled in shop/payments.py."
+    )
+    assert messages[1]["status"] == "completed"

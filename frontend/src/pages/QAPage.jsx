@@ -12,7 +12,14 @@ import {
   CheckCircle2,
   Search,
 } from 'lucide-react';
-import { askCodebaseQuestionStream, searchCode, getRepositoryById } from '../services/api';
+import {
+  askCodebaseQuestionStream,
+  searchCode,
+  getRepositoryById,
+  getConversations,
+  createConversation,
+  getConversationMessages,
+} from '../services/api';
 import LoadingState from '../components/LoadingState';
 import Button from '../components/Button';
 import useReducedMotion from '../hooks/useReducedMotion';
@@ -54,6 +61,8 @@ export default function QAPage() {
   const [inputQuery, setInputQuery] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
+  const [conversationId, setConversationId] = useState(null);
+  const [loadingConversation, setLoadingConversation] = useState(true);
   const [mode, setMode] = useState('ask'); // 'ask' | 'search'
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -81,6 +90,70 @@ export default function QAPage() {
       isMounted = false;
     };
   }, [repoId]);
+  useEffect(() => {
+  let cancelled = false;
+
+  async function loadConversation() {
+    setLoadingConversation(true);
+    setConversationId(null);
+    setMessages(INITIAL_MESSAGES);
+
+    try {
+      const conversations = await getConversations(repoId);
+
+      // Restore the most recently updated conversation,
+      // or create one if this repository has no history.
+      let activeConversation = conversations?.[0];
+
+      if (!activeConversation) {
+        activeConversation = await createConversation(
+          repoId,
+          'New conversation'
+        );
+      }
+
+      if (cancelled) return;
+
+      setConversationId(activeConversation.id);
+
+      const savedMessages = await getConversationMessages(
+        repoId,
+        activeConversation.id
+      );
+
+      if (cancelled) return;
+
+      if (savedMessages.length > 0) {
+        setMessages(
+          savedMessages.map((message) => ({
+            id: String(message.id),
+            sender: message.role,
+            text: message.content || '',
+            citations: message.citations || [],
+            referencedFiles: (message.citations || []).map((c) => c.path),
+            timestamp: message.created_at
+              ? new Date(message.created_at).toLocaleString()
+              : '',
+            isError: message.status === 'failed',
+            errorKind: message.status === 'failed' ? 'failed' : undefined,
+          }))
+        );
+      }
+    } catch (error) {
+      console.error('Failed to restore conversation:', error);
+    } finally {
+      if (!cancelled) {
+        setLoadingConversation(false);
+      }
+    }
+  }
+
+  loadConversation();
+
+  return () => {
+    cancelled = true;
+  };
+}, [repoId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
@@ -90,7 +163,7 @@ export default function QAPage() {
     // hints: { symbol | file, label } when the user picked one of the candidates offered for an ambiguous question
     async (queryText, hints = null) => {
       const q = (queryText || inputQuery).trim();
-      if (!q || isAsking) return;
+      if (!q || isAsking || loadingConversation || !conversationId) return;
 
       if (mode === 'search') {
         setSearching(true);
@@ -126,7 +199,15 @@ export default function QAPage() {
       try {
         const history = messages.filter((m) => m.sender === 'user' || m.sender === 'assistant')
           .filter((m) => m.text && !m.isError).map((m) => ({ role: m.sender, content: m.text }));
-        await askCodebaseQuestionStream(repoId, q, hints || {}, history, (event) => {
+        await askCodebaseQuestionStream(
+            repoId,
+            q,
+            hints || {},
+            history,
+            (event) => {
+          if (event.type === 'conversation') {
+  setConversationId(event.conversation_id);
+}
           if (event.type === 'token') {
             setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, text: m.text + event.text } : m));
           } else if (event.type === 'sources') {
@@ -147,7 +228,9 @@ export default function QAPage() {
               caveat: res.caveat || '', question: q,
             } : m));
           }
-        });
+        }
+      ,conversationId
+    );
       } catch (err) {
         const isLlmUnconfigured = err.message && err.message.includes('LLM is not configured');
         const errorText = isLlmUnconfigured
@@ -160,7 +243,15 @@ export default function QAPage() {
         setIsAsking(false);
       }
     },
-    [inputQuery, isAsking, repoId, mode, messages]
+    [
+  inputQuery,
+  isAsking,
+  repoId,
+  mode,
+  messages,
+  conversationId,
+  loadingConversation,
+]
   );
 
   const handleKeyDown = (e) => {
@@ -185,10 +276,22 @@ export default function QAPage() {
   else if (lastMsg?.isError) announcement = 'The answer failed. Use the Try again button to ask again.';
   else if (messages.length > 1 && lastMsg?.sender === 'assistant') announcement = 'Answer ready.';
 
-  const handleClearChat = () => {
+  const handleClearChat = async () => {
+  if (isAsking || loadingConversation) return;
+
+  try {
+    setLoadingConversation(true);
+
+    const newConversation = await createConversation(
+      repoId,
+      'New conversation'
+    );
+
+    setConversationId(newConversation.id);
+
     setMessages([
       {
-        id: 'msg-init-reset',
+        id: `msg-init-${newConversation.id}`,
         sender: 'assistant',
         text: 'Conversation history cleared. How else can I assist your codebase exploration?',
         citations: [],
@@ -196,7 +299,12 @@ export default function QAPage() {
         timestamp: 'Just now',
       },
     ]);
-  };
+  } catch (error) {
+    console.error('Failed to create a new conversation:', error);
+  } finally {
+    setLoadingConversation(false);
+  }
+};
 
   if (loading) {
     return <LoadingState message="Connecting to codebase intelligence assistant..." fullPage />;
@@ -291,6 +399,7 @@ export default function QAPage() {
             size="sm"
             icon={<Trash2 size={14} />}
             onClick={handleClearChat}
+            disabled={isAsking || loadingConversation}
           >
             Clear
           </Button>
@@ -585,7 +694,7 @@ export default function QAPage() {
                   variant="primary"
                   size="md"
                   icon={<Send size={15} />}
-                  disabled={!inputQuery.trim() || isAsking}
+                  disabled={!inputQuery.trim() || isAsking || loadingConversation || !conversationId}
                 >
                   Ask
                 </Button>

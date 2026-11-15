@@ -22,6 +22,7 @@ async def _ready_repo(user, url="https://github.com/o/r", branch="main", status=
 
 async def test_history_returns_commits_and_contributor_shares(db, make_user, fake_github):
     user, headers = await make_user(token="gho_testtoken")
+    fake_github.branches["o/r"] = ["main"]
     fake_github.commits = [_commit("a", "Fix bug\n\nlong body", "octo", "Octo"),
                            _commit("b", "Add feature", "octo", "Octo"),
                            _commit("c", "", None, "Anon"),
@@ -38,12 +39,18 @@ async def test_history_returns_commits_and_contributor_shares(db, make_user, fak
     top = body["contributors"][0]
     assert top["login"] == "octo" and top["commits"] == 2 and top["share"] == 50.0
     assert {p["name"] for p in body["contributors"]} == {"Octo", "Anon", "Zed"}
-    sent = fake_github.requests[-1].url.params
+
+    sent = next(
+            req.url.params
+            for req in reversed(fake_github.requests)
+            if req.url.path.endswith("/commits")
+        )
     assert sent["sha"] == "main" and sent["path"] == "src/app.py" and sent["per_page"] == "20"
 
 
 async def test_empty_repository_gives_empty_history_not_an_error(db, make_user, fake_github):
     user, headers = await make_user(token="gho_testtoken")
+    fake_github.branches["o/r"] = ["main"]
     fake_github.commits_empty = True
     rid = await _ready_repo(user)
     async with api_client(headers) as c:
