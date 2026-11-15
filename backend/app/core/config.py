@@ -23,12 +23,16 @@ class Settings(BaseSettings):
     llm_max_retries: int = 4
     llm_min_interval_seconds: float = 4.0    # spacing between calls (LangChain rate limiter) for free-tier limits
 
-    embed_backend: str = "fastembed"         # fastembed | hash (hash = tests only)
-    embed_model: str = "BAAI/bge-small-en-v1.5"
+    embed_backend: str = "cloudflare"        # cloudflare (Workers AI, free daily allowance) | hash (tests only)
+    embed_model: str = "@cf/baai/bge-small-en-v1.5"
     embed_dim: int = 384                     # must match the migrated vector column
     embed_batch_size: int = Field(128, ge=16, le=512)
-    embed_parallelism: int = Field(2, ge=1, le=8)        # model processes per indexing job (worker runs 2 jobs)
-    embed_parallel_min_chunks: int = Field(2000, ge=1)   # smaller repos embed in-process, no worker pool
+    # Cloudflare Workers AI credentials and tuning
+    cf_account_id: str = Field("", validation_alias=AliasChoices("CF_ACCOUNT_ID", "CLOUDFLARE_ACCOUNT_ID"))
+    cf_api_token: str = Field("", validation_alias=AliasChoices("CF_API_TOKEN", "CLOUDFLARE_API_TOKEN"))
+    embed_cf_batch_size: int = Field(50, ge=1, le=100)   # texts per request (Cloudflare max is 100)
+    embed_cf_concurrency: int = Field(4, ge=1, le=16)    # requests in flight at once
+    embed_cf_pooling: str = "cls"                        # keep "cls": the pooling bge-small was trained with
 
     # --- GitHub login (OAuth app) and sessions: used for private repos ---
     # Create the OAuth app at https://github.com/settings/developers; see backend/README.md.

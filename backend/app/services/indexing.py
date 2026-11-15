@@ -50,7 +50,7 @@ async def _embed_all(texts: list[str], embedder, batch_size: int, on_progress) -
     ordered = [texts[i] for i in order]
     vectors: list[list[float]] = []
     if hasattr(embedder, "iter_embed_documents"):
-        # FastEmbed owns a persistent worker pool for this full corpus; consume it in
+        # Optional hook: an embedder that streams vectors from one long-lived job (none of the built-in ones do); consume it in
         # bounded slices so the UI gets progress without restarting workers per batch.
         iterator = iter(embedder.iter_embed_documents(ordered))
         # A generator must never be advanced and closed from two threads at once ("generator already executing").
@@ -66,7 +66,7 @@ async def _embed_all(texts: list[str], embedder, batch_size: int, on_progress) -
                 vectors.extend(batch_vectors)
                 await on_progress(len(vectors), total)
         finally:
-            close = getattr(iterator, "close", None)      # stops FastEmbed's worker pool if we bail out early
+            close = getattr(iterator, "close", None)      # lets a streaming embedder release its resources if we bail out early
             if close:
                 gen_thread.submit(close)                  # runs after any in-flight batch; never blocks the event loop
             gen_thread.shutdown(wait=False)

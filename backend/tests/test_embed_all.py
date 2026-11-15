@@ -13,7 +13,7 @@ def _vec(text: str) -> list[float]:
     return [float(len(text)), float(sum(map(ord, text)) % 997)]      # encodes the text, so a mix-up is detectable
 
 
-class _IterEmbedder:                      # shaped like FastEmbedEmbeddings
+class _IterEmbedder:                      # an embedder that streams vectors
     def __init__(self):
         self.closed = threading.Event()
 

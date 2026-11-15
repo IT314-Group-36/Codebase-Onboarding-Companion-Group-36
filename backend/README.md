@@ -1,14 +1,14 @@
 # Codebase Onboarding Companion: backend + AI pipeline
 
 FastAPI + Alembic + Postgres/pgvector + ARQ (Redis) + tree-sitter + NetworkX. Everything here runs on free
-tools: local ONNX embeddings (fastembed), the Gemini free tier for the LLM steps (through LangChain), no paid service required.
+tools: Cloudflare Workers AI embeddings and the Gemini free tier for the LLM steps (through LangChain), no paid service required.
 
 ## Run it
 
 From the repository root:
 
 ```bash
-cp backend/.env.example backend/.env   # put your free LLM_API_KEY in it (optional, see below; the old name GOOGLE_API_KEY still works)
+cp backend/.env.example backend/.env   # set CF_ACCOUNT_ID and CF_API_TOKEN (required, see "Cloudflare Workers AI embeddings" below) and optionally your free LLM_API_KEY (the old name GOOGLE_API_KEY still works)
 docker compose up --build              # db, redis, migrations, api (:8000), worker, web (:5173)
 ```
 
@@ -24,7 +24,7 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload      # terminal 1
 uv run arq app.worker.WorkerSettings      # terminal 2
 ```
-Add a dependency with `uv add <pkg>`; commit `pyproject.toml` and `uv.lock` together. First indexing downloads the embedding model (~130 MB) once.
+Add a dependency with `uv add <pkg>`; commit `pyproject.toml` and `uv.lock` together.
 
 No `LLM_API_KEY`? Everything still works except general `/ask` questions and `/impact?explain=true` (503); "what would break if I change X?" questions in `/ask` are answered from the graphs without a key. `/explain` still returns the
 relationships ("uses X, used by Y"); only the prose is left out. The module map falls back
@@ -107,8 +107,10 @@ Set these in `backend/.env` (environment variables of the same name also work). 
 | `DATABASE_URL` | local Postgres | overridden by `docker-compose.yml` inside Docker |
 | `REDIS_URL` | `redis://localhost:6379` | job queue; overridden by compose inside Docker |
 | `CORS_ORIGINS` | `["http://localhost:5173"]` | JSON list; only matters when the browser calls the API directly. Compose also sets it, which takes precedence over `.env` |
-| `EMBED_BACKEND`, `EMBED_MODEL`, `EMBED_DIM` | `fastembed`, `BAAI/bge-small-en-v1.5`, `384` | embeddings; `hash` backend is for tests only |
-| `EMBED_BATCH_SIZE`, `EMBED_PARALLELISM`, `EMBED_PARALLEL_MIN_CHUNKS` | `128`, `2`, `2000` | FastEmbed batch size; model processes per indexing job (the worker runs 2 jobs at once, so peak is 2 × this many model copies in RAM); repos with fewer chunks are embedded in-process without a worker pool |
+| `EMBED_BACKEND`, `EMBED_MODEL`, `EMBED_DIM` | `cloudflare`, `@cf/baai/bge-small-en-v1.5`, `384` | embeddings: `cloudflare` (hosted Workers AI, see below) or `hash` (tests only) |
+| `CF_ACCOUNT_ID`, `CF_API_TOKEN` | empty | Cloudflare Workers AI credentials, required for indexing and search (`CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` also work) |
+| `EMBED_BATCH_SIZE` | `128` | chunks embedded per progress step |
+| `EMBED_CF_BATCH_SIZE`, `EMBED_CF_CONCURRENCY` | `50`, `4` | texts per Cloudflare request (max 100) and requests in flight |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | empty | GitHub OAuth app credentials (for login and private repos) |
 | `GITHUB_REDIRECT_URI` | `http://localhost:5173/api/auth/github/callback` | must match the OAuth app's callback URL exactly |
 | `FRONTEND_URL` | `http://localhost:5173` | where the browser is sent after login |
@@ -207,7 +209,7 @@ Unknown `symbol` or `file`: 404. `depth` out of range: 422. If the LLM call fail
 
 clone (shallow, token via env) -> scan (skip symlinks/sensitive files) -> redact secrets in content ->
 tree-sitter parse (Python, JS/JSX, TS/TSX) -> NetworkX import graph + call graph -> rank files ->
-symbol-aware chunks -> local embeddings -> one atomic DB swap -> LLM module map + summary (validated, with fallback).
+symbol-aware chunks -> Cloudflare embeddings -> one atomic DB swap -> LLM module map + summary (validated, with fallback).
 
 ## What changed vs. the first AI-team version
 
@@ -216,7 +218,7 @@ symbol-aware chunks -> local embeddings -> one atomic DB swap -> LLM module map 
 | `index_repo` wiped the shared `vector_store` folder on every run | pgvector rows keyed by `repo_id`; reindex replaces one repo atomically |
 | `.env` never loaded; embedding model reloaded on every call | settings via pydantic-settings; embedder and LLM are process singletons |
 | Chroma on local disk, unsafe across API + worker processes | Postgres + pgvector (exact cosine search, filtered by repo) + Postgres full-text, fused with RRF |
-| torch + MiniLM (256-token window, general text) | fastembed/ONNX, `bge-small` (512 tokens); code model `jina-embeddings-v2-base-code` is a config switch |
+| torch + MiniLM (256-token window, general text) | Cloudflare Workers AI `bge-small` (512 tokens); another model is a config switch plus a migration |
 | Random sampling at the chunk cap | files ranked (README, entry points, import-graph hubs first, tests last) |
 | Character-based chunks | tree-sitter chunks per function/method/class header, exact line ranges |
 | LLM guessed structure from names | import-graph facts (hubs, entry candidates, folder dependencies) go into the prompt; paths validated |
@@ -234,7 +236,7 @@ symbol-aware chunks -> local embeddings -> one atomic DB swap -> LLM module map 
 | Chat model (`init_chat_model`) | `ai_pipeline/llm.py` `build_chat_model` | provider + model come from `LLM_MODEL`; rate limiter, timeout and retries are LangChain's |
 | Prompts (`ChatPromptTemplate`) | `module_map.py`, `summary.py`, `app/services/qa.py` | all prompts mark repository text as untrusted data |
 | Structured output | `llm.py` `structured_chain` | `prompt \| model.with_structured_output(Schema)`, one retry on malformed output |
-| `Embeddings` interface | `ai_pipeline/embeddings.py` | fastembed locally; swap in any LangChain embeddings class |
+| `Embeddings` interface | `ai_pipeline/embeddings.py` | Cloudflare Workers AI; swap in any LangChain embeddings class |
 | `Document` | `chunker.py` | one Document per function/class, metadata carries file path and exact lines |
 | `BaseRetriever` | `app/services/retrieval.py` `PgHybridRetriever` | wraps OUR pgvector + full-text SQL; the vector store itself is not LangChain's |
 
@@ -264,3 +266,20 @@ function-level chunks with exact line numbers), and the NetworkX graphs.
 - Hosted embeddings (Voyage, Google, OpenAI): return any LangChain `Embeddings` class from `get_embedder()` in
   `ai_pipeline/embeddings.py`, set `EMBED_DIM`, add a migration if the size differs, reindex.
 - Large repos: add an HNSW index (pgvector >= 0.8 with iterative scans), or move vectors to Qdrant.
+
+
+## Cloudflare Workers AI embeddings
+
+Embeddings come from Cloudflare's hosted `@cf/baai/bge-small-en-v1.5` (384 dimensions). Nothing is downloaded and the
+server needs very little RAM.
+
+1. Cloudflare dashboard -> AI -> Workers AI -> "Use REST API": copy the **Account ID** and create an API token with the Workers AI permission.
+2. In `backend/.env`: `CF_ACCOUNT_ID=...` and `CF_API_TOKEN=...` (the other embedding settings already default to Cloudflare).
+3. `uv run python check_embeddings.py` verifies the credentials, the vector size and the speed.
+4. If you migrated from an older local-model install, **re-index every repo**: the old vectors came from a different model setup.
+
+The free allowance is 10,000 neurons per day (reset 00:00 UTC), shared by all Workers AI models. bge-small costs 1,841 neurons
+per million input tokens, so roughly 5 million tokens a day; a typical repo uses a few hundred neurons and one at the
+5,000-chunk cap about 2,200 to 2,700. When the allowance runs out, indexing fails with a clear message and works again after
+the reset. See Workers AI in the Cloudflare dashboard for today's usage, and check Cloudflare's pricing page for the current
+numbers. Chunk text is sent to Cloudflare, so think about that before indexing private repos.
