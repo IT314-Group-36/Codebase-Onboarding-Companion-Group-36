@@ -3,12 +3,14 @@
 Ranking and file matching are deterministic. The optional LLM step only writes a short guide per issue and can
 mention nothing but the files we already found; guides for issue numbers we did not send are dropped.
 """
+import re
 from datetime import datetime, timezone
 from typing import List
 
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ai_pipeline.llm import structured_chain
@@ -23,12 +25,14 @@ from ai_pipeline.onboarding_tasks import (
     plain_summary,
     rank_issues,
 )
-from app.models import Edge, File, Issue, IssueSync, Repository
+from app.models import Edge, File, Issue, IssueSync, Repository, TaskProgress
 from app.services.issues import sync_view
 from app.services.qa import LLMCallError
 from app.services.retrieval import hybrid_search
 
 RELATED_PER_TASK = 3
+TASK_KEY_RE = r"^(issue-[0-9]{1,9}|gen-[a-z0-9]+(-[a-z0-9]+)*)$"     # also checked by the progress endpoint
+TASK_KEY_MAX = 64
 GUIDE_FIELD_MAX = 500
 
 
@@ -70,6 +74,28 @@ async def _top_imported(session: AsyncSession, repo_id: int) -> tuple[str, int] 
         select(Edge.dst, func.count().label("n")).where(Edge.repo_id == repo_id, Edge.kind == "imports")
         .group_by(Edge.dst).order_by(func.count().desc(), Edge.dst).limit(1))).first()
     return (row.dst, row.n) if row else None
+
+
+def task_key(task: dict) -> str:
+    """A key that survives re-syncs and re-indexing: the issue number, or a slug of the orientation task's title."""
+    if task["source"] == "issue":
+        return f"issue-{task['number']}"
+    slug = re.sub(r"[^a-z0-9]+", "-", task["title"].lower()).strip("-")[: TASK_KEY_MAX - 4].strip("-")
+    return f"gen-{slug or 'task'}"
+
+
+async def load_progress(session: AsyncSession, user_id: int, repo_id: int) -> dict[str, str]:
+    rows = await session.execute(select(TaskProgress.task_key, TaskProgress.status)
+                                 .where(TaskProgress.user_id == user_id, TaskProgress.repo_id == repo_id))
+    return {k: s for k, s in rows.all()}
+
+
+async def save_progress(session: AsyncSession, user_id: int, repo_id: int, key: str, status: str) -> None:
+    """Insert or update one row. Concurrent clicks cannot create duplicates (unique key + ON CONFLICT)."""
+    stmt = pg_insert(TaskProgress).values(user_id=user_id, repo_id=repo_id, task_key=key, status=status)
+    await session.execute(stmt.on_conflict_do_update(
+        constraint="uq_task_progress_user_repo_key", set_={"status": status, "updated_at": func.now()}))
+    await session.commit()
 
 
 def _issue_task(sc: ScoredIssue, related: list[dict]) -> dict:
@@ -122,7 +148,7 @@ async def explain_issues(llm, picked: list[tuple[ScoredIssue, list[dict]]]) -> d
 
 
 async def build_plan(session: AsyncSession, repo: Repository, embedder, *, limit: int = 5, include_generated: bool = True,
-                     llm=None, explain: bool = False, now: datetime | None = None) -> dict:
+                     llm=None, explain: bool = False, now: datetime | None = None, user_id: int | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     sync = sync_view(await session.get(IssueSync, repo.id))
     rows = (await session.execute(select(Issue).where(Issue.repo_id == repo.id))).scalars().all()
@@ -146,8 +172,11 @@ async def build_plan(session: AsyncSession, repo: Repository, embedder, *, limit
                                 "related_files": [{"path": p, "source": "suggested"} for p in g["related"]]})
 
     tasks = orientation + [_issue_task(sc, rel) for sc, rel in with_files]
+    progress = await load_progress(session, user_id, repo.id) if user_id is not None else {}
     for task, day in zip(tasks, assign_days(len(tasks)), strict=True):
         task["suggested_day"] = day
+        task["key"] = task_key(task)
+        task["status"] = progress.get(task["key"], "pending")
     if explain:
         guides = await explain_issues(llm, with_files)
         for task in tasks:

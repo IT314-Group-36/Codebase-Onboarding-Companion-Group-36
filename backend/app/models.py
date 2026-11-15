@@ -168,3 +168,17 @@ class IssueSync(Base):
     synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))   # last SUCCESSFUL sync
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+
+
+class TaskProgress(Base):
+    """One user's progress on one first-week task of one repository. task_key is stable across re-syncs:
+    'issue-<number>' for a GitHub issue, 'gen-<slug>' for an orientation task. A missing row means 'pending'."""
+    __tablename__ = "task_progress"
+    __table_args__ = (UniqueConstraint("user_id", "repo_id", "task_key", name="uq_task_progress_user_repo_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    repo_id: Mapped[int] = mapped_column(ForeignKey("repositories.id", ondelete="CASCADE"), index=True)
+    task_key: Mapped[str] = mapped_column(String(80))
+    status: Mapped[str] = mapped_column(String(12), default="pending")       # pending | in-progress | completed
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

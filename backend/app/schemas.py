@@ -140,7 +140,12 @@ class TaskGuideOut(BaseModel):
     done_when: str
 
 
+TaskStatus = Literal["pending", "in-progress", "completed"]
+
+
 class TaskOut(BaseModel):
+    key: str = Field(description="Stable id of the task: 'issue-<number>' or 'gen-<slug>'. Use it to save progress.")
+    status: TaskStatus = Field(default="pending", description="The signed-in user's saved progress on this task.")
     source: Literal["issue", "generated"]
     suggested_day: int = Field(ge=1, le=5)
     title: str
@@ -164,3 +169,11 @@ class TaskPlanOut(BaseModel):
     notes: list[str]
     tasks: list[TaskOut]
 
+
+class TaskProgressIn(BaseModel):
+    status: TaskStatus
+
+
+class TaskProgressOut(BaseModel):
+    key: str
+    status: TaskStatus

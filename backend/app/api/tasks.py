@@ -1,14 +1,21 @@
 """First-week task list: sync GitHub issues, then ask for the plan."""
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_embedder_dep, get_llm_dep, get_queue, get_ready_user_repo, get_user_repo
+from app.api.deps import (
+    get_current_user,
+    get_embedder_dep,
+    get_llm_dep,
+    get_queue,
+    get_ready_user_repo,
+    get_user_repo,
+)
 from app.db.session import get_session
-from app.models import IssueSync, Repository
-from app.schemas import ReindexIn, SyncOut, TaskPlanOut
+from app.models import IssueSync, Repository, User
+from app.schemas import ReindexIn, SyncOut, TaskPlanOut, TaskProgressIn, TaskProgressOut
 from app.services.issues import mark_sync, sync_in_progress, sync_view
 from app.services.qa import LLMCallError
-from app.services.tasks import build_plan
+from app.services.tasks import TASK_KEY_MAX, TASK_KEY_RE, build_plan, save_progress
 
 router = APIRouter(prefix="/repos", tags=["onboarding-tasks"])
 
@@ -35,13 +42,25 @@ async def issue_sync_status(repo: Repository = Depends(get_user_repo), session: 
 async def onboarding_tasks(limit: int = Query(5, ge=1, le=10, description="Maximum number of issue tasks"),
                            include_generated: bool = Query(True, description="Add orientation tasks when few issues qualify"),
                            explain: bool = Query(False, description="Add a short LLM-written guide to each issue task"),
-                           repo: Repository = Depends(get_ready_user_repo), session: AsyncSession = Depends(get_session),
+                           repo: Repository = Depends(get_ready_user_repo), user: User = Depends(get_current_user),
+                           session: AsyncSession = Depends(get_session),
                            embedder=Depends(get_embedder_dep), llm=Depends(get_llm_dep)):
-    """A first-week plan: the best beginner-friendly issues, easiest first, each with the files to open."""
+    """A first-week plan: the best beginner-friendly issues, easiest first, each with the files to open.
+    Every task carries its stable `key` and the signed-in user's saved `status`."""
     if explain and llm is None:
         raise HTTPException(503, "LLM is not configured (set LLM_API_KEY). The plan itself works without it.")
     try:
         return await build_plan(session, repo, embedder, limit=limit, include_generated=include_generated,
-                                llm=llm, explain=explain)
+                                llm=llm, explain=explain, user_id=user.id)
     except LLMCallError as e:
         raise HTTPException(502, f"The LLM call failed: {str(e)[:300]}") from e
+
+
+@router.put("/{repo_id}/onboarding-tasks/{task_key}/progress", response_model=TaskProgressOut)
+async def set_task_progress(body: TaskProgressIn,
+                            task_key: str = Path(pattern=TASK_KEY_RE, max_length=TASK_KEY_MAX),
+                            repo: Repository = Depends(get_user_repo), user: User = Depends(get_current_user),
+                            session: AsyncSession = Depends(get_session)):
+    """Save the signed-in user's progress on one task (pending, in-progress or completed). Progress is per user."""
+    await save_progress(session, user.id, repo.id, task_key, body.status)
+    return {"key": task_key, "status": body.status}
