@@ -12,7 +12,6 @@ services:
   worker:
     command: arq app.worker.WorkerSettings --watch /app/app
     volumes:
-      - models:/models
       - ./backend/app:/app/app
       - ./backend/ai_pipeline:/app/ai_pipeline
 

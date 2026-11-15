@@ -11,5 +11,5 @@ COPY ai_pipeline ./ai_pipeline
 COPY app ./app
 COPY alembic.ini ./
 COPY alembic ./alembic
-ENV PATH="/app/.venv/bin:$PATH" PYTHONPATH=/app FASTEMBED_CACHE_PATH=/models PYTHONUNBUFFERED=1
+ENV PATH="/app/.venv/bin:$PATH" PYTHONPATH=/app PYTHONUNBUFFERED=1
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
