@@ -424,142 +424,52 @@ export function adaptFileDetails(raw, filePath, moduleMap = null) {
 }
 
 /**
- * Dynamically synthesizes real onboarding milestones from repository summary & module map
- * and merges completion state stored in localStorage
+ * Maps one task of GET /repos/{id}/onboarding-tasks to the shape the Onboarding page and the Dashboard use.
+ * Nothing here is invented: every field comes from the backend (the issue, its guide, the files it found).
  */
-export function generateOnboardingTasks(adaptedRepo) {
-  if (!adaptedRepo) return [];
-
-  const summary = adaptedRepo.summary || {};
-  const moduleMap = adaptedRepo.moduleMap || {};
-  const repoKey = `codeverse_tasks_${adaptedRepo.id}`;
-
-  let savedState = {};
-  try {
-    const raw = localStorage.getItem(repoKey);
-    if (raw) savedState = JSON.parse(raw);
-  } catch {
-    savedState = {};
-  }
-
-  const tasks = [];
-
-  // 1. Architecture Overview Task
-  tasks.push({
-    id: 't-arch',
-    title: `Understand Project Architecture: ${summary.title || adaptedRepo.name}`,
-    category: 'Architecture',
-    difficulty: 'easy',
-    description:
-      summary.description ||
-      summary.architecture ||
-      summary.one_line ||
-      'Review high-level architectural design and primary layers.',
-    targetFiles: summary.key_files || [adaptedRepo.defaultFile].filter(Boolean),
-    checklist: [
-      'Read repository architecture summary',
-      'Check primary language and detected framework stack',
-      'Review key entrypoints in the visual dependency map',
-    ],
-    estimatedMinutes: 10,
-    status: savedState['t-arch'] || 'completed',
-  });
-
-  // 2. Entrypoints Task
-  const entryPoints = moduleMap.entry_points || [];
-  tasks.push({
-    id: 't-entry',
-    title: 'Trace Primary Application Entrypoints',
-    category: 'Entrypoints',
-    difficulty: 'easy',
-    description:
-      entryPoints.length > 0
-        ? `Execution bootstraps at ${entryPoints.map((e) => e.path).join(', ')}: ${entryPoints[0].reason}`
-        : 'Inspect how the project initializes and registers application routes or services.',
-    targetFiles: entryPoints.map((e) => e.path),
-    checklist: [
-      'Trace main function or root component initialization',
-      'Inspect imported configuration and state context wrappers',
-      'Verify execution environment bootstrap commands',
-    ],
-    estimatedMinutes: 12,
-    status: savedState['t-entry'] || 'in-progress',
-  });
-
-  // 3. Module Quests
-  const modules = moduleMap.modules || [];
-  modules.forEach((mod, idx) => {
-    const taskId = `t-mod-${idx}`;
-    tasks.push({
-      id: taskId,
-      title: `Explore Module: ${mod.name}`,
-      category: 'Modules',
-      difficulty: idx > 2 ? 'medium' : 'easy',
-      description: mod.purpose || `Core module responsible for ${mod.name} logic.`,
-      targetFiles: mod.key_files?.length > 0 ? mod.key_files : [mod.path],
-      checklist: [
-        `Locate module folder at ${mod.path}`,
-        'Inspect declared symbols and exported interfaces',
-        'Verify dependent callers in Dependency Map',
-      ],
-      estimatedMinutes: 15,
-      status: savedState[taskId] || 'pending',
-    });
-  });
-
-  // 4. Run & Build Instructions Task
-  if (summary.how_to_run && summary.how_to_run !== 'n/a') {
-    tasks.push({
-      id: 't-run',
-      title: 'Review Build, Test, & Execution Instructions',
-      category: 'Setup',
-      difficulty: 'medium',
-      description: summary.how_to_run,
-      targetFiles: summary.key_files || ['README.md', 'package.json'],
-      checklist: [
-        'Review prerequisite runtime dependencies',
-        'Inspect build and test invocation scripts',
-        'Verify local execution steps',
-      ],
-      estimatedMinutes: 15,
-      status: savedState['t-run'] || 'pending',
-    });
-  }
-
-  // 5. Dependency Flow Task
-  tasks.push({
-    id: 't-deps',
-    title: 'Analyze Cross-Module Dependency Flow',
-    category: 'Exploration',
-    difficulty: 'medium',
-    description:
-      'Open the interactive Dependency Map to inspect module relationships and detect coupling.',
-    targetFiles: [adaptedRepo.defaultFile].filter(Boolean),
-    checklist: [
-      'Inspect module-to-module directional edges',
-      'Verify acyclic dependency flow',
-      'Locate highest in-degree hub modules',
-    ],
-    estimatedMinutes: 20,
-    status: savedState['t-deps'] || 'pending',
-  });
-
-  return tasks;
+export function adaptPlanTask(t) {
+  const isIssue = t.source === 'issue';
+  const related = t.related_files || [];
+  return {
+    id: t.key,                                   // stable key, also used to save progress
+    title: t.title,
+    description: t.summary || '',
+    category: isIssue ? 'GitHub issue' : 'Orientation',
+    source: t.source,
+    difficulty: t.difficulty,
+    status: t.status || 'pending',               // 'pending' | 'in-progress' | 'completed' (saved on the server)
+    suggestedDay: t.suggested_day,
+    number: t.number ?? null,
+    url: t.url || null,
+    labels: t.labels || [],
+    reasons: t.reasons || [],
+    targetFiles: related.map((f) => f.path),
+    guide: t.guide
+      ? { whatToDo: t.guide.what_to_do, whereToStart: t.guide.where_to_start, doneWhen: t.guide.done_when }
+      : null,
+  };
 }
 
-/**
- * Saves task status for a given repository to localStorage
- */
-export function saveTaskStatus(repoId, taskId, status) {
-  try {
-    const repoKey = `codeverse_tasks_${repoId}`;
-    const raw = localStorage.getItem(repoKey);
-    const state = raw ? JSON.parse(raw) : {};
-    state[taskId] = status;
-    localStorage.setItem(repoKey, JSON.stringify(state));
-  } catch (err) {
-    console.error('Failed to save task status to localStorage:', err);
-  }
+/** Maps the status of the GitHub issue sync (GET/POST /repos/{id}/issues/sync). */
+export function adaptIssueSync(raw) {
+  return {
+    status: raw?.status || 'never',              // never | queued | syncing | ok | failed
+    message: raw?.message || null,
+    fetched: raw?.fetched || 0,
+    syncedAt: raw?.synced_at || null,
+  };
+}
+
+/** Maps the whole first-week plan. */
+export function adaptTaskPlan(raw) {
+  return {
+    repoId: raw.repo_id,
+    sync: adaptIssueSync(raw.sync),
+    eligibleIssues: raw.eligible_issues || 0,
+    fallbackUsed: Boolean(raw.fallback_used),
+    notes: raw.notes || [],
+    tasks: (raw.tasks || []).map(adaptPlanTask),
+  };
 }
 
 /**

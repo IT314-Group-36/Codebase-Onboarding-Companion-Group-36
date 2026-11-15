@@ -70,6 +70,19 @@ Errors worth handling in a client: `403` with `detail.code == "github_reauth_req
 revoked or can no longer be read: sign in with GitHub again), `429` (GitHub rate limit), `404` (not found or not
 accessible with this GitHub account).
 
+### First-week tasks and saved progress
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /repos/{id}/issues/sync` | Fetch beginner-friendly open issues from GitHub (background job); poll `GET` on the same path |
+| `GET /repos/{id}/onboarding-tasks` | The plan: issues (easiest first) plus orientation tasks when fewer than 3 issues suit a newcomer |
+| `PUT /repos/{id}/onboarding-tasks/{key}/progress` | Save the signed-in user's status for one task: `pending`, `in-progress` or `completed` |
+
+Every task in the plan carries a stable `key` (`issue-<number>` or `gen-<slug>`) and the user's saved `status`
+(`pending` when nothing is saved). Progress lives in the `task_progress` table, one row per user, repository and
+task, so it survives other devices and browsers and is never visible to another user. Rows are deleted with the
+repository or the user.
+
 ### Private repositories
 
 Sign in with GitHub and register the repo URL: nothing else is needed. The worker first tries an anonymous clone
@@ -242,7 +255,7 @@ function-level chunks with exact line numbers), and the NetworkX graphs.
 - Changing `EMBED_DIM` needs a new Alembic migration and a reindex of every repo.
 - `google_genai:gemini-3.6-flash` is the default `LLM_MODEL`: confirm in AI Studio that it is available on your free tier.
 - Old `.env` files: `GOOGLE_API_KEY` still works, but `GEMINI_MODEL` is ignored now. Use `LLM_MODEL=google_genai:<model>`.
-- Not built yet: frontend UI for the GitHub-issues first-week task list (the API exists), webhook re-indexing.
+- Not built yet: webhook re-indexing.
 - Private-repo access uses GitHub's broad `repo` OAuth scope (read and write at GitHub's end; this app only reads). A
   GitHub App with per-repo installs would be the least-privilege upgrade.
 - Organizations that restrict third-party apps must approve this OAuth app before their private repos can be cloned.

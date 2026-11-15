@@ -673,3 +673,125 @@
   gap: 0.75rem;
   margin-top: 0.5rem;
 }
+
+/* ---- real plan: notices, setup help, labels, issue link ---- */
+
+.cv-onboarding-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  background: var(--accent-blue-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.cv-onboarding-notice svg {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.cv-onboarding-notice--warn {
+  background: var(--status-warning-subtle);
+  border-color: var(--status-warning-border);
+}
+
+.cv-onboarding-notice--error {
+  background: var(--status-error-subtle);
+  border-color: var(--status-error-border);
+}
+
+.cv-onboarding-help {
+  margin: 0 0 1rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.cv-onboarding-help__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.cv-onboarding-help__badge {
+  padding: 0 0.45rem;
+  border-radius: var(--radius-full);
+  background: var(--status-warning-subtle);
+  border: 1px solid var(--status-warning-border);
+  color: var(--status-warning);
+  font-size: 0.7rem;
+}
+
+.cv-onboarding-help__body {
+  padding: 0 1rem 0.9rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.cv-onboarding-help__body h4 {
+  margin: 0.6rem 0 0.3rem;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.cv-onboarding-help__body ol,
+.cv-onboarding-help__body ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.cv-onboarding-help__foot {
+  margin: 0.8rem 0 0;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.cv-onboarding-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+}
+
+.cv-onboarding-label-chip {
+  padding: 0.05rem 0.5rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.cv-onboarding-issue-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  color: var(--primary);
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.cv-onboarding-issue-link:hover {
+  text-decoration: underline;
+}
+

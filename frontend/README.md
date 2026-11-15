@@ -22,7 +22,7 @@ to connect repositories, explore files, view the dependency map, ask questions a
 | `/explorer/:repoId` | File explorer (symbols, imports) | `GET /repos/{id}/files`, `/files/{path}`, `/symbols` |
 | `/dependencies/:repoId` | Dependency map | `GET /repos/{id}/map`, `/impact` |
 | `/qa/:repoId` | Ask questions | `POST /repos/{id}/ask`, `/search` |
-| `/onboarding/:repoId` | First-week tasks | Generated in the browser for now (not from GitHub issues) |
+| `/onboarding/:repoId` | First-week tasks | `GET /repos/{id}/onboarding-tasks`, `PUT /repos/{id}/onboarding-tasks/{key}/progress`, `POST`/`GET /repos/{id}/issues/sync` |
 | `/settings` | Settings | `GET /auth/me`, `POST /auth/logout`; hidden repos stored in localStorage |
 
 ## Project structure
@@ -107,7 +107,7 @@ only for using different credentials.
 Known gaps between the UI and the API:
 
 - "Remove repository" only hides it in this browser; the API has no delete endpoint.
-- Onboarding task completion is saved in localStorage, not on the server.
+- Onboarding progress is saved on the server per user (`task_progress`). Custom tasks added by hand are not supported; the plan always comes from the repository's issues and analysis.
 - The repo picker lists the first pages GitHub returns (30 per page, "Load more" fetches the next) and filters them in the browser; a repo further down can be added with "Paste a URL".
 - Branches are listed from GitHub (first 100). Names the backend would reject (for example containing spaces) are left out of the dropdown.
 

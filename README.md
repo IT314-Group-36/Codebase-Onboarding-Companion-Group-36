@@ -18,9 +18,9 @@ for search, and (with an LLM key) writes a module map and summary. A React app l
 | "What would break if I change this function?" | Done | `/impact` plus plain-English impact questions in the Ask box |
 | Git history and contribution activity | Done (initial version) | On-demand GitHub history page; commit timeline includes changed files and per-folder contributor shares, based on latest 50 commits |
 | Git history and contribution activity | Done (initial version) | On-demand GitHub history page; latest 50 commits and contributor shares, optionally filtered by any folder or file |
-| First-week task list from beginner-friendly issues | Partial | Backend API done (`/issues/sync`, `/onboarding-tasks`); the frontend checklist is still generated locally |
+| First-week task list from beginner-friendly issues | Done | The Onboarding page and the Dashboard use the real plan (`/issues/sync`, `/onboarding-tasks`): GitHub issues plus orientation tasks, with a Sync button, setup and troubleshooting help, and progress saved per user on the server |
 
-Still local-only in the frontend: task completion (browser localStorage). Repository deletion removes the
+Repository deletion removes the
 user's indexed data from the backend; GitHub disconnect forgets the saved credential while retaining the CODEVERSE session.
 
 ## Repository layout
@@ -122,7 +122,7 @@ The worker writes indexing results as a repository-scoped operation. A reindex k
 - Impact results come from static import and call relationships. Dynamic dispatch, reflection, runtime-loaded dependencies, and some framework conventions may not be detected.
 - Tree-sitter builds detailed code structure for Python, JavaScript, JSX, TypeScript, and TSX. Other file types can be searched as text but do not receive the same symbol and dependency analysis.
 - Git history is fetched on demand and summarizes a sample of the latest 50 commits, rather than a complete long-term contribution record.
-- The onboarding task list is currently generated in the frontend. Task completion is stored in browser `localStorage`, and the GitHub issue synchronization API is not yet connected to that checklist.
+- First-week tasks come from open GitHub issues that carry a beginner label (good first issue, easy, help wanted, docs). A repository with fewer than three suitable issues gets orientation tasks built from its own analysis, so the plan is never empty. Ranking is a heuristic, not a promise that an issue is easy.
 - Source display is limited to indexed, non-sensitive files and a maximum response size of 500 KB.
 
 ## Quick start (Docker, whole stack)
