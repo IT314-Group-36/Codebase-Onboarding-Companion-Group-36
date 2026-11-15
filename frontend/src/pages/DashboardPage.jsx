@@ -16,6 +16,7 @@ import StatCard from '../components/StatCard';
 import RepositoryCard from '../components/RepositoryCard';
 import SearchInput from '../components/SearchInput';
 import EmptyState from '../components/EmptyState';
+import ErrorState from '../components/ErrorState';
 import LoadingState from '../components/LoadingState';
 import Button from '../components/Button';
 import { getRepositories, getOnboardingTasks, updateOnboardingTask } from '../services/api';
@@ -41,6 +42,7 @@ export default function DashboardPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -81,6 +83,7 @@ export default function DashboardPage() {
         console.warn('Could not load repositories:', err.message);
         if (err.status !== 401) {      // a 401 already sends the user back to sign in
           showToast(err.message || 'Could not load your repositories.', 'error');
+          setLoadError(err.message || 'Could not load your repositories.');
         }
       } finally {
         if (isMounted) {
@@ -255,7 +258,13 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {filteredRepos.length === 0 ? (
+          {loadError && activeRepos.length === 0 ? (
+            <ErrorState
+              title="Couldn't load your repositories"
+              message={loadError}
+              onAction={() => { setLoadError(null); setLoading(true); setRefreshTrigger((t) => t + 1); }}
+            />
+          ) : filteredRepos.length === 0 ? (
             <EmptyState
               title={activeRepos.length === 0 ? 'No Repositories Connected' : 'No matching repositories'}
               description={

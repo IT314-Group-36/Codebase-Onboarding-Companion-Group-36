@@ -21,6 +21,7 @@ import {
 import SearchInput from '../components/SearchInput';
 import Button from '../components/Button';
 import LoadingState from '../components/LoadingState';
+import ErrorState from '../components/ErrorState';
 import ExplanationCard from '../components/ExplanationCard';
 import ImpactReport from '../components/ImpactReport';
 import {
@@ -74,6 +75,8 @@ export default function ExplorerPage() {
   const targetEndLine = Number(searchParams.get('end')) || targetLine;
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [repo, setRepo] = useState(null);
   const [tree, setTree] = useState([]);
   const [selectedFileId, setSelectedFileId] = useState('');
@@ -142,6 +145,7 @@ export default function ExplorerPage() {
       } catch (err) {
         console.error('Explorer load failed:', err);
         showToast(err.message || 'Failed to load file tree from backend.', 'error');
+        if (isMounted) setLoadError(err.message || 'Failed to load file tree from backend.');
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -151,7 +155,7 @@ export default function ExplorerPage() {
     return () => {
       isMounted = false;
     };
-  }, [repoId, searchParams]);
+  }, [repoId, searchParams, reloadKey]);
 
   // 2. Load File Details & Content when selected file changes
   useEffect(() => {
@@ -284,6 +288,18 @@ export default function ExplorerPage() {
 
   if (loading) {
     return <LoadingState message="Loading Codebase Explorer..." fullPage />;
+  }
+
+  if (loadError && tree.length === 0) {
+    return (
+      <div style={{ padding: 24 }}>
+        <ErrorState
+          title="Couldn't load the file tree"
+          message={loadError}
+          onAction={() => { setLoadError(null); setLoading(true); setReloadKey((k) => k + 1); }}
+        />
+      </div>
+    );
   }
 
   const effectiveRepo = repo || {

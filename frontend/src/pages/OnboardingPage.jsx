@@ -323,6 +323,7 @@ function OnboardingJourney({ repoId }) {
               className="cv-onboarding-bar-fill"
               style={{ width: `${progressPercent}%` }}
               role="progressbar"
+              aria-label="First-week progress"
               aria-valuenow={progressPercent}
               aria-valuemin="0"
               aria-valuemax="100"
@@ -412,10 +413,11 @@ function OnboardingJourney({ repoId }) {
 
       {/* Filter and Tab Bar */}
       <section className="cv-onboarding-controls">
-        <div className="cv-onboarding-status-tabs" role="tablist">
+        <div className="cv-onboarding-status-tabs" role="group" aria-label="Filter tasks by status">
           <button
             type="button"
             className={`cv-onboarding-tab ${statusFilter === 'ALL' ? 'cv-onboarding-tab--active' : ''}`}
+            aria-pressed={statusFilter === 'ALL'}
             onClick={() => setStatusFilter('ALL')}
           >
             All Tasks ({totalTasks})
@@ -423,6 +425,7 @@ function OnboardingJourney({ repoId }) {
           <button
             type="button"
             className={`cv-onboarding-tab ${statusFilter === 'PENDING' ? 'cv-onboarding-tab--active' : ''}`}
+            aria-pressed={statusFilter === 'PENDING'}
             onClick={() => setStatusFilter('PENDING')}
           >
             To do ({totalTasks - completedCount})
@@ -430,18 +433,20 @@ function OnboardingJourney({ repoId }) {
           <button
             type="button"
             className={`cv-onboarding-tab ${statusFilter === 'COMPLETED' ? 'cv-onboarding-tab--active' : ''}`}
+            aria-pressed={statusFilter === 'COMPLETED'}
             onClick={() => setStatusFilter('COMPLETED')}
           >
             Completed ({completedCount})
           </button>
         </div>
 
-        <div className="cv-onboarding-category-pills">
+        <div className="cv-onboarding-category-pills" role="group" aria-label="Filter tasks by source">
           {SOURCE_FILTERS.map((f) => (
             <button
               key={f.id}
               type="button"
               className={`cv-onboarding-cat-chip ${sourceFilter === f.id ? 'cv-onboarding-cat-chip--active' : ''}`}
+              aria-pressed={sourceFilter === f.id}
               onClick={() => setSourceFilter(f.id)}
             >
               {f.label}
