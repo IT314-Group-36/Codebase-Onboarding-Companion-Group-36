@@ -17,7 +17,7 @@ KEY = "hash:test-model:384"
 def test_hash_depends_on_both_the_text_and_the_embedder():
     assert _content_hash("def f(): pass", KEY) == _content_hash("def f(): pass", KEY)
     assert _content_hash("def f(): pass", KEY) != _content_hash("def f(): pass ", KEY)
-    assert _content_hash("def f(): pass", KEY) != _content_hash("def f(): pass", "fastembed:other-model:384")
+    assert _content_hash("def f(): pass", KEY) != _content_hash("def f(): pass", "cloudflare:other-model:384")
 
 
 def test_plan_skips_cached_texts_and_embeds_duplicates_once():

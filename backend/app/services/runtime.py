@@ -19,5 +19,6 @@ def get_llm():
 def get_embedder():
     """A LangChain Embeddings object."""
     s = get_settings()
-    return _get_embedder(s.embed_backend, s.embed_model, s.embed_dim, s.embed_batch_size, s.embed_parallelism,
-                         s.embed_parallel_min_chunks)
+    return _get_embedder(s.embed_backend, s.embed_model, s.embed_dim, cf_account_id=s.cf_account_id,
+                         cf_api_token=s.cf_api_token, cf_batch_size=s.embed_cf_batch_size,
+                         cf_concurrency=s.embed_cf_concurrency, cf_pooling=s.embed_cf_pooling)

@@ -93,7 +93,7 @@ GitHub repository + selected branch
               └── change-impact analysis
 ```
 
-The parser uses tree-sitter for Python, JavaScript, JSX, TypeScript, and TSX. It creates chunks around functions, methods, and classes so search results can retain file paths and line ranges. FastEmbed generates embeddings locally with ONNX; PostgreSQL combines vector similarity with full-text search for retrieval.
+The parser uses tree-sitter for Python, JavaScript, JSX, TypeScript, and TSX. It creates chunks around functions, methods, and classes so search results can retain file paths and line ranges. Embeddings come from Cloudflare Workers AI (`bge-small-en-v1.5`, 384 dimensions); PostgreSQL combines vector similarity with full-text search for retrieval.
 
 The worker writes indexing results as a repository-scoped operation. A reindex keeps the previous readable index available until the replacement is ready, then swaps the data atomically. Redis and ARQ queue background jobs, while Postgres stores repository metadata, graph data, chunks, and vectors.
 
@@ -102,7 +102,7 @@ The worker writes indexing results as a repository-scoped operation. A reindex k
 | Design choice | Why it is used |
 |---|---|
 | Background indexing with Redis and ARQ | Repository cloning, parsing, and embedding can take longer than a normal web request. A queued worker lets the UI show progress and recover from job failures. |
-| Local ONNX embeddings | Code search does not require sending every source chunk to an external embedding API, and the model can be cached between runs. |
+| Cloudflare Workers AI embeddings | A hosted embedding model needs no model download and almost no RAM, so the app fits small free hosts, and the free daily allowance covers normal use. Chunk text is sent to Cloudflare, which matters for private repos. |
 | Postgres, pgvector, and full-text search | One database stores application records and supports both semantic and lexical retrieval, filtered by repository. |
 | Graph-backed dependency and impact views | Import and call relationships provide explicit paths that can be inspected alongside generated explanations. |
 | Symbol-aware chunks with line metadata | Search answers and explanations can link back to the relevant file and source lines. |
@@ -139,8 +139,10 @@ cp backend/.env.example backend/.env
 docker compose run --rm api python -m app.core.security     # prints TOKEN_ENCRYPTION_KEY and SESSION_SECRET
 ```
 
-3. Put `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY` and `SESSION_SECRET` (and optionally your
-   free `LLM_API_KEY`) in `backend/.env`, then start everything:
+3. Create a free Cloudflare account and copy your **Account ID** and an **API token** (dashboard -> AI -> Workers AI ->
+   "Use REST API"). They power the embeddings; see "Cloudflare Workers AI embeddings" in [backend/README.md](backend/README.md).
+4. Put `CF_ACCOUNT_ID`, `CF_API_TOKEN`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY` and
+   `SESSION_SECRET` (and optionally your free `LLM_API_KEY`) in `backend/.env`, then start everything:
 
 ```bash
 docker compose up --build
@@ -151,10 +153,10 @@ docker compose up --build
 | Web app | http://localhost:5173 (change the port with `WEB_PORT` in a root `.env`) |
 | API docs (Swagger) | http://localhost:8000/docs |
 
-The first start is slow: the worker downloads the embedding model (about 130 MB) once and caches it in a Docker volume.
+Without the two `CF_` values, indexing and search fail with a clear error. After editing `backend/.env` while the stack is running, apply it with `docker compose up -d --force-recreate`.
 Without `LLM_API_KEY` everything works except `/ask` and `/impact?explain=true`.
 
-Stop with `Ctrl+C`. To also delete the database and the model cache: `docker compose down -v`.
+Stop with `Ctrl+C`. To also delete the database: `docker compose down -v`.
 
 ### Windows Command Prompt
 
@@ -214,7 +216,7 @@ cd frontend && npm run lint && npm run build
 | A repo fails with "Sign in with GitHub again" | The saved token was revoked or the encryption key changed. Sign out and sign in again |
 | Repos you indexed before login existed are missing | They have no owner yet: see "Repos indexed before login existed" in [backend/README.md](backend/README.md) |
 | Indexing fails with "Could not clone the repo" | URL or branch is wrong, or the repo is private and your GitHub account cannot access it (see above) |
-| Worker shows `unhealthy` right after start | Normal for up to 3 minutes while the embedding model downloads |
+| Indexing fails with a Cloudflare error | Check `CF_ACCOUNT_ID` / `CF_API_TOKEN`; a message about the daily allowance means the free 10,000 neurons are used up until 00:00 UTC |
 | Frontend cannot reach the backend | Check `docker compose ps`; the web container waits for a healthy api |
 | Need a clean slate | `docker compose down -v` |
 
