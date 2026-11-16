@@ -144,3 +144,23 @@ def test_analysis_budget_keeps_important_files_not_random(git_repo):
     assert "README.md" in kept and small.report["files_dropped_by_budget"] > 0
     scores = rank_files(list(a.parsed) + ["README.md", "tests/test_x.py"], a.file_graph)
     assert scores["shop/db.py"] > scores["tests/test_x.py"]
+
+
+# ---------------------------------------------------------------- github_full_name (one parser for every endpoint)
+
+@pytest.mark.parametrize("url, expected", [
+    ("https://github.com/owner/repo", "owner/repo"),
+    ("https://github.com/owner/repo/", "owner/repo"),
+    ("https://github.com/owner/repo.git", "owner/repo"),
+    ("https://github.com/owner/my.repo-name_2", "owner/my.repo-name_2"),
+    ("https://gitlab.com/owner/repo", None),                  # other hosts are not supported
+    ("https://evilgithub.com/owner/repo", None),
+    ("https://github.com/owner", None),                       # no repository part
+    ("https://github.com/owner/repo/tree/main", None),        # not a bare repository URL
+    ("https://github.com//repo", None),
+    ("/tmp/some/local/clone", None),                          # a local path used in tests/demos
+    ("", None),
+])
+def test_github_full_name(url, expected):
+    from app.services.github import github_full_name
+    assert github_full_name(url) == expected

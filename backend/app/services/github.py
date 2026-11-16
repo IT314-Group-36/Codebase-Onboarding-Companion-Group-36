@@ -9,7 +9,7 @@ Tokens are only ever sent in the Authorization header and are never logged or pu
 """
 import base64
 import binascii
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlparse
 
 import httpx
 
@@ -28,6 +28,15 @@ class GitHubError(Exception):
     def __init__(self, message: str, kind: str = "error"):
         super().__init__(message)
         self.kind = kind
+
+
+def github_full_name(repo_url: str) -> str | None:
+    """"owner/name" for a github.com repository URL (a trailing ".git" or "/" is fine), or None for anything else."""
+    parsed = urlparse(repo_url)
+    parts = parsed.path.strip("/").removesuffix(".git").split("/")
+    if parsed.hostname != "github.com" or len(parts) != 2 or not all(parts):
+        return None
+    return "/".join(parts)
 
 
 def user_github_token(user: User) -> str:

@@ -209,7 +209,7 @@ async def test_llm_failure_on_ask_and_impact_is_a_clear_502(client, git_repo):
     assert plain.status_code == 200                                       # impact without explanation never needs the LLM
 
 
-async def test_file_content_is_fetched_from_the_indexed_github_commit_and_sensitive_files_are_blocked(client, git_repo):
+async def test_source_is_fetched_from_the_indexed_commit_with_secrets_redacted_and_sensitive_files_blocked(client, git_repo):
     from app.api import deps
     from app.core.security import encrypt_token
     from app.db.session import SessionLocal
@@ -217,6 +217,7 @@ async def test_file_content_is_fetched_from_the_indexed_github_commit_and_sensit
     async with SessionLocal() as session:
         repo = await session.get(Repository, rid)
         repo.url = "https://github.com/owner/shop"
+        sha = repo.commit_sha
         user = await session.get(type(client.user), client.user.id)
         user.encrypted_access_token = encrypt_token("gho_testtoken")
         await session.commit()
@@ -224,18 +225,20 @@ async def test_file_content_is_fetched_from_the_indexed_github_commit_and_sensit
     gh = FakeGitHub()
     gh.branches["owner/shop"] = ["main"]
     app.dependency_overrides[deps.get_github_client] = gh.client
-    response = await client.get(f"/repos/{rid}/files/shop/payments.py/content")
+    response = await client.get(f"/repos/{rid}/source/shop/payments.py")
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["content"].startswith("# Sample source")
-    assert "[REDACTED_SECRET]" in body["content"]
+    assert "[REDACTED_SECRET]" in body["content"] and "sk_live_" not in body["content"]
     assert body["secrets_redacted"] == 1
-    assert body["is_partial"] is False
-    assert body["commit_sha"]
-    assert any("/contents/shop/payments.py" in str(req.url) for req in gh.requests)
+    assert body["commit_sha"] == sha
+    assert any(req.url.params.get("ref") == sha for req in gh.requests if "/contents/" in str(req.url))   # pinned commit
 
-    blocked = await client.get(f"/repos/{rid}/files/.env/content")
-    assert blocked.status_code == 403
+    assert (await client.get(f"/repos/{rid}/source/.env")).status_code == 403              # sensitive: never fetched
+    assert (await client.get(f"/repos/{rid}/source/nope.py")).status_code == 404           # not in the index
+    assert (await client.get(f"/repos/{rid}/files/shop/payments.py/content")).status_code == 404   # old duplicate route is gone
+
+
 async def test_conversation_persistence_and_user_isolation(client, git_repo, make_user):
     rid = await index(client, git_repo)
 
@@ -292,6 +295,7 @@ async def test_conversation_persistence_and_user_isolation(client, git_repo, mak
         )
         assert denied.status_code == 404
 
+
 async def test_streamed_answer_is_persisted(client, git_repo):
     rid = await index(client, git_repo)
 
@@ -339,3 +343,234 @@ async def test_streamed_answer_is_persisted(client, git_repo):
         "Payments are handled in shop/payments.py."
     )
     assert messages[1]["status"] == "completed"
+
+
+# ---------------------------------------------------------------- source viewer: every error path
+
+async def _github_repo(client, git_repo, *, token="gho_testtoken"):
+    """An indexed repo that claims to live on GitHub, owned by a user with (or without) a saved token."""
+    from app.core.security import encrypt_token
+    rid = await index(client, git_repo)
+    async with SessionLocal() as session:
+        repo = await session.get(Repository, rid)
+        repo.url = "https://github.com/owner/shop"
+        user = await session.get(type(client.user), client.user.id)
+        user.encrypted_access_token = encrypt_token(token) if token else None
+        await session.commit()
+    gh = FakeGitHub()
+    gh.branches["owner/shop"] = ["main"]
+    app.dependency_overrides[deps.get_github_client] = gh.client
+    return rid, gh
+
+
+async def test_source_viewer_rejects_what_it_cannot_serve(client, git_repo):
+    rid = await index(client, git_repo)                        # a local path, not a GitHub URL
+    local = await client.get(f"/repos/{rid}/source/shop/payments.py")
+    assert local.status_code == 422 and "GitHub" in local.json()["detail"]
+
+    rid, _ = await _github_repo(client, git_repo)
+    async with SessionLocal() as session:
+        await session.execute(Repository.__table__.update().where(Repository.id == rid).values(commit_sha=None))
+        await session.commit()
+    assert (await client.get(f"/repos/{rid}/source/shop/payments.py")).status_code == 409      # nothing to pin to
+
+    async with SessionLocal() as session:
+        from app.models import File
+        await session.execute(File.__table__.update().where(File.repo_id == rid, File.path == "shop/payments.py")
+                              .values(size=900_000))
+        await session.commit()
+    big = await client.get(f"/repos/{rid}/source/shop/payments.py")
+    assert big.status_code == 413
+
+
+async def test_source_viewer_reports_github_problems_with_the_shared_error_codes(client, git_repo):
+    rid, gh = await _github_repo(client, git_repo)
+    gh.valid_token = "gho_someone_else"                         # GitHub now rejects the saved token (revoked)
+    revoked = await client.get(f"/repos/{rid}/source/shop/payments.py")
+    assert revoked.status_code == 403 and revoked.json()["detail"]["code"] == "github_reauth_required"
+
+    gh.valid_token = "gho_testtoken"
+    gh.force_status = 404
+    assert (await client.get(f"/repos/{rid}/source/shop/payments.py")).status_code == 404
+    gh.force_status = 429
+    assert (await client.get(f"/repos/{rid}/source/shop/payments.py")).status_code == 429
+
+
+async def test_source_viewer_needs_a_saved_github_token(client, git_repo):
+    rid, _ = await _github_repo(client, git_repo, token=None)
+    response = await client.get(f"/repos/{rid}/source/shop/payments.py")
+    assert response.status_code == 403 and response.json()["detail"]["code"] == "github_reauth_required"
+
+
+async def test_source_viewer_is_private_to_the_repository_owner(client, git_repo, make_user):
+    rid, _ = await _github_repo(client, git_repo)
+    _, other = await make_user(github_id=2, login="other", token="gho_testtoken")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t", headers=other) as c:
+        assert (await c.get(f"/repos/{rid}/source/shop/payments.py")).status_code == 404
+
+
+# ---------------------------------------------------------------- Q&A conversations
+
+class RecordingLLM:
+    """Streams a fixed answer and remembers the messages it was sent."""
+    def __init__(self, answer="Payments are handled in shop/payments.py."):
+        self.answer, self.sent = answer, []
+
+    async def astream(self, messages):
+        self.sent.append(list(messages))
+        yield SimpleNamespace(content=self.answer)
+
+
+class BrokenLLM:
+    """Writes part of an answer, then fails."""
+    async def astream(self, messages):
+        yield SimpleNamespace(content="Payments are ")
+        raise RuntimeError("model overloaded")
+
+
+class NeverEndingLLM:
+    async def astream(self, messages):
+        while True:
+            yield SimpleNamespace(content="more ")
+
+
+def _sse(response):
+    return [json.loads(line.removeprefix("data: ")) for line in response.text.splitlines() if line.startswith("data: ")]
+
+
+async def _ask(client, rid, question, conversation_id=None):
+    body = {"question": question}
+    if conversation_id is not None:
+        body["conversation_id"] = conversation_id
+    return await client.post(f"/repos/{rid}/ask/stream", json=body)
+
+
+async def _messages(client, rid, conversation_id):
+    return (await client.get(f"/repos/{rid}/conversations/{conversation_id}/messages")).json()
+
+
+async def test_empty_conversations_are_reused_instead_of_piling_up(client, git_repo):
+    rid = await index(client, git_repo)
+    first = (await client.post(f"/repos/{rid}/conversations", json={})).json()
+    again = (await client.post(f"/repos/{rid}/conversations", json={"title": "   "})).json()
+    assert again["id"] == first["id"] and first["title"] == "New conversation"       # still empty: same one
+
+    named = (await client.post(f"/repos/{rid}/conversations", json={"title": "Payments"})).json()
+    assert named["id"] == first["id"] and named["title"] == "Payments"                # an empty one can be renamed
+
+    app.dependency_overrides[deps.get_llm_dep] = lambda: RecordingLLM()
+    await _ask(client, rid, "Where are payments handled?", first["id"])
+    fresh = (await client.post(f"/repos/{rid}/conversations", json={})).json()
+    assert fresh["id"] != first["id"]                                                  # the first one has messages now
+    assert len((await client.get(f"/repos/{rid}/conversations")).json()) == 2
+
+
+async def test_conversation_title_must_be_valid(client, git_repo):
+    rid = await index(client, git_repo)
+    assert (await client.post(f"/repos/{rid}/conversations", json={"title": ""})).status_code == 422
+    assert (await client.post(f"/repos/{rid}/conversations", json={"title": "x" * 201})).status_code == 422
+
+
+async def test_first_question_titles_the_conversation_and_activity_orders_the_list(client, git_repo):
+    rid = await index(client, git_repo)
+    app.dependency_overrides[deps.get_llm_dep] = lambda: RecordingLLM()
+    first = (await client.post(f"/repos/{rid}/conversations", json={})).json()
+    await _ask(client, rid, "Where are payments handled?", first["id"])
+    second = (await client.post(f"/repos/{rid}/conversations", json={})).json()
+    await _ask(client, rid, "What does checkout do?", second["id"])
+
+    listed = (await client.get(f"/repos/{rid}/conversations")).json()
+    assert [c["id"] for c in listed] == [second["id"], first["id"]]                   # most recently active first
+    assert {c["title"] for c in listed} == {"Where are payments handled?", "What does checkout do?"}
+
+    await _ask(client, rid, "And refunds?", first["id"])                               # new activity in the older one
+    listed = (await client.get(f"/repos/{rid}/conversations")).json()
+    assert listed[0]["id"] == first["id"]
+    assert listed[0]["title"] == "Where are payments handled?"                         # the title is not overwritten
+
+
+async def test_follow_up_sends_earlier_turns_but_never_failed_or_empty_ones(client, git_repo):
+    rid = await index(client, git_repo)
+    llm = RecordingLLM()
+    app.dependency_overrides[deps.get_llm_dep] = lambda: llm
+    conversation = (await client.post(f"/repos/{rid}/conversations", json={})).json()["id"]
+    await _ask(client, rid, "Where are payments handled?", conversation)
+
+    async with SessionLocal() as session:                      # an interrupted turn and a failed one, saved earlier
+        session.add_all([
+            ConversationMessage(conversation_id=conversation, role="user", content="INTERRUPTED QUESTION", status="completed"),
+            ConversationMessage(conversation_id=conversation, role="assistant", content="", status="pending"),
+            ConversationMessage(conversation_id=conversation, role="user", content="FAILED QUESTION", status="completed"),
+            ConversationMessage(conversation_id=conversation, role="assistant", content="partial text", status="failed"),
+        ])
+        await session.commit()
+
+    await _ask(client, rid, "And refunds?", conversation)
+    sent = llm.sent[-1]
+    texts = [m.content for m in sent]
+    assert any("Where are payments handled?" in t for t in texts)                      # the good turn is remembered
+    assert any("Payments are handled in shop/payments.py." == t for t in texts)
+    assert not any("INTERRUPTED" in t or "FAILED QUESTION" in t or t == "partial text" for t in texts)
+    assert all(t.strip() for t in texts)                                                # no empty message reaches the model
+
+
+async def test_a_failing_model_leaves_a_failed_message_with_the_partial_answer(client, git_repo):
+    rid = await index(client, git_repo)
+    app.dependency_overrides[deps.get_llm_dep] = lambda: BrokenLLM()
+    events = _sse(await _ask(client, rid, "Where are payments handled?"))
+    assert events[-1]["type"] == "error" and "model overloaded" in events[-1]["message"]
+    conversation = next(e for e in events if e["type"] == "conversation")["conversation_id"]
+    saved = await _messages(client, rid, conversation)
+    assert [m["role"] for m in saved] == ["user", "assistant"]
+    assert saved[1]["status"] == "failed" and saved[1]["content"] == "Payments are "
+
+
+async def test_missing_llm_is_saved_as_a_failed_answer(client, git_repo):
+    rid = await index(client, git_repo)
+    app.dependency_overrides[deps.get_llm_dep] = lambda: None
+    events = _sse(await _ask(client, rid, "Where are payments handled?"))
+    assert events[-1]["type"] == "error" and "LLM is not configured" in events[-1]["message"]
+    conversation = next(e for e in events if e["type"] == "conversation")["conversation_id"]
+    assert (await _messages(client, rid, conversation))[1]["status"] == "failed"
+
+
+async def test_a_closed_connection_does_not_leave_the_answer_pending(client, git_repo):
+    from app.api.repos import ask_stream
+    from app.schemas import AskStreamIn
+    rid = await index(client, git_repo)
+    async with SessionLocal() as session:
+        repo = await session.get(Repository, rid)
+        response = await ask_stream(AskStreamIn(question="Where are payments handled?"), repo, session,
+                                    get_embedder(), NeverEndingLLM())
+        stream = response.body_iterator
+        started = json.loads((await stream.__anext__()).removeprefix("data: "))
+        await stream.__anext__()                                # sources
+        await stream.__anext__()                                # the first token
+        await stream.aclose()                                   # the browser tab was closed here
+    saved = await _messages(client, rid, started["conversation_id"])
+    assert saved[1]["status"] == "failed" and saved[1]["content"].startswith("more")
+
+
+async def test_conversations_cannot_be_used_across_repositories_or_users(client, git_repo, make_user):
+    rid = await index(client, git_repo)
+    app.dependency_overrides[deps.get_llm_dep] = lambda: RecordingLLM()
+    assert (await _ask(client, rid, "Where are payments handled?", 999_999)).status_code == 404
+
+    conversation = (await client.post(f"/repos/{rid}/conversations", json={})).json()["id"]
+    _, other = await make_user(github_id=2, login="other")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t", headers=other) as c:
+        assert (await c.get(f"/repos/{rid}/conversations")).status_code == 404            # not their repository
+        assert (await c.post(f"/repos/{rid}/ask/stream",
+                             json={"question": "hi", "conversation_id": conversation})).status_code == 404
+
+
+async def test_conversations_are_deleted_with_their_repository(client, git_repo):
+    rid = await index(client, git_repo)
+    app.dependency_overrides[deps.get_llm_dep] = lambda: RecordingLLM()
+    events = _sse(await _ask(client, rid, "Where are payments handled?"))
+    conversation = next(e for e in events if e["type"] == "conversation")["conversation_id"]
+    assert (await client.delete(f"/repos/{rid}")).status_code == 204
+    from app.models import Conversation
+    async with SessionLocal() as session:
+        assert await session.get(Conversation, conversation) is None
+        assert (await session.scalar(select(func.count()).select_from(ConversationMessage))) == 0

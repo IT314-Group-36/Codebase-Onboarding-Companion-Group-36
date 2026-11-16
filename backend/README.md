@@ -50,16 +50,18 @@ Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv 
 | POST | `/repos/{id}/reindex` | re-run indexing (atomic swap, old data stays readable until done) |
 | GET | `/repos`, `/repos/{id}` | status (`queued/indexing/ready/failed`), `stage`, `error`, summary, tech stack, report, warnings |
 | GET | `/repos/{id}/map` | modules (each with `depends_on`, `used_by`, `relationship_summary`), entry points, module-to-module dependency graph (for React Flow) |
-| GET | `/repos/{id}/history?path=&limit=50` | latest GitHub commits and contribution counts from that sample; optional file/folder path filter; fetched on demand and not stored |
 | DELETE | `/repos/{id}` | delete the owned repository and all derived index data (blocked while indexing) |
 | GET | `/repos/{id}/history?path=&limit=50` | latest GitHub commits and contribution counts from that sample; optional file/folder path filter; fetched on demand and not stored. Empty repo -> empty history; expired GitHub sign-in -> 403 `github_reauth_required` |
 | GET | `/repos/{id}/files`, `/files/{path}` | file tree; per file: symbols, imports, imported_by |
-| GET | `/repos/{id}/source/{path}` | on-demand source at the indexed commit; indexed non-sensitive files only, capped at 500 KB |
+| GET | `/repos/{id}/source/{path}` | on-demand source at the indexed commit with secrets redacted; indexed files only (403 for sensitive ones), capped at 500 KB |
 | GET | `/repos/{id}/explain?file=\|symbol=&refresh=` | beginner-friendly explanation of one file or function + how it relates to the rest (see below) |
 | GET | `/repos/{id}/symbols?q=` | find functions/classes |
 | POST | `/repos/{id}/search` | hybrid retrieval, no LLM: `{query, k}` |
 | POST | `/repos/{id}/ask` | `{question, symbol?, file?, depth?}`: "what would break if I change X?" is answered from the import/call graphs; any other question is RAG with validated citations (see below) |
-| POST | `/repos/{id}/ask/stream` | `{question, history[], symbol?, file?, depth?}`: stream grounded answer tokens using up to 12 recent turns |
+| POST | `/repos/{id}/ask/stream` | `{question, conversation_id?, symbol?, file?, depth?}`: streams a grounded answer (Server-Sent Events: `conversation`, `sources`, `token`, `result`, `error`, `done`) and saves both messages. Earlier completed turns of the conversation (last 12) come from the database; a failed or interrupted answer is saved as `failed` and is not sent to the model again. Without `conversation_id` a new conversation is created |
+| GET | `/repos/{id}/conversations` | your saved conversations for this repository, most recently active first (the first question becomes the title) |
+| POST | `/repos/{id}/conversations` | `{title?}`: start a conversation; while your newest one is still empty it is returned again instead of creating another |
+| GET | `/repos/{id}/conversations/{conversation_id}/messages` | the saved messages, in order, with `status` (`pending/completed/failed`) and citations |
 | GET | `/repos/{id}/impact?symbol=\|file=&depth=&explain=` | "what breaks if I change this" (reverse traversal); same report the Ask box shows, with a call chain and a reason per item |
 
 Every `/repos` and `/github` route needs the session cookie (401 otherwise), and a user only ever sees their own
