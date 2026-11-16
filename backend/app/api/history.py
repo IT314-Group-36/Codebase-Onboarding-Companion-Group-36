@@ -1,13 +1,12 @@
 """On-demand repository Git history, fetched from GitHub and never persisted."""
 import asyncio
-from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.deps import get_current_user, get_github_client, get_ready_user_repo
 from app.api.github import to_http
 from app.models import Repository, User
-from app.services.github import GitHubClient, GitHubError, user_github_token
+from app.services.github import GitHubClient, GitHubError, github_full_name, user_github_token
 
 router = APIRouter(prefix="/repos", tags=["history"])
 
@@ -21,11 +20,9 @@ async def repository_history(
     github: GitHubClient = Depends(get_github_client),
 ):
     """Return recent commits and a contribution count from that bounded sample."""
-    parsed = urlparse(repo.url)
-    parts = parsed.path.strip("/").removesuffix(".git").split("/")
-    if parsed.hostname != "github.com" or len(parts) != 2:
+    full_name = github_full_name(repo.url)
+    if full_name is None:
         raise HTTPException(422, "Git history is available for GitHub repositories only.")
-    full_name = "/".join(parts)
     try:
         token = user_github_token(user)
     except GitHubError as e:

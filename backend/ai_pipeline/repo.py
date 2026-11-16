@@ -54,11 +54,6 @@ def safe_rmtree(path) -> None:
         shutil.rmtree(path, onerror=_onerror)
 
 
-def cleanup(path) -> None:
-    """DR-03: delete the temporary clone after analysis."""
-    safe_rmtree(path)
-
-
 def clone_repo(url: str, branch: str, dest, token: str | None = None, timeout: int = 300) -> str:
     """Shallow clone (FR-01). Returns the commit SHA. Raises RuntimeError with a readable message."""
     dest = Path(dest)

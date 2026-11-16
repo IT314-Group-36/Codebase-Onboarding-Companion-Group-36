@@ -240,3 +240,17 @@ async def test_ready_dependency_blocks_unfinished_repos(auth_client):
         await s.commit()
     assert (await auth_client.get(f"/ready/{queued.id}", headers=cookie(a.id))).status_code == 409
     assert (await auth_client.get(f"/ready/{done.id}", headers=cookie(a.id))).status_code == 200
+
+
+def test_env_example_matches_the_real_settings():
+    """Every variable in backend/.env.example is a real setting (no typos), and every setting is documented."""
+    import re
+    from pathlib import Path
+
+    from app.core.config import Settings
+
+    text = (Path(__file__).resolve().parents[1] / ".env.example").read_text()
+    documented = set(re.findall(r"^#?\s*([A-Z][A-Z0-9_]+)=", text, flags=re.MULTILINE))
+    settings = {name.upper() for name in Settings.model_fields}
+    assert documented - settings == set(), "documented but not a setting"
+    assert settings - documented == set(), "setting missing from .env.example"

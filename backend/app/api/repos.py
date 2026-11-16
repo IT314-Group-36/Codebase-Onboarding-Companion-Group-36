@@ -1,11 +1,11 @@
+import asyncio
+import contextlib
 import json
-import re
-from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from sqlalchemy import select
+from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ai_pipeline.graph import module_graph
@@ -21,6 +21,7 @@ from app.api.deps import (
     get_ready_user_repo,
     get_user_repo,
 )
+from app.api.github import to_http
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.models import (
@@ -47,13 +48,29 @@ from app.schemas import (
     SymbolOut,
 )
 from app.services.explain import TargetError, enrich_modules, explain_target
-from app.services.github import GitHubClient, GitHubError, user_github_token
+from app.services.github import GitHubClient, GitHubError, github_full_name, user_github_token
 from app.services.graph_service import find_symbols, load_graphs
 from app.services.impact_qa import CAVEAT, answer_impact_question, build_report, resolve_target
 from app.services.qa import LLMCallError, answer_question, explain_impact
 from app.services.retrieval import PgHybridRetriever, doc_to_hit
 
 router = APIRouter(prefix="/repos", tags=["repos"])
+
+MAX_SOURCE_BYTES = 500_000       # largest file the browser source viewer will show
+DEFAULT_CONVERSATION_TITLE = "New conversation"
+
+
+def _completed_turns(rows: list[ConversationMessage]) -> list[ConversationMessage]:
+    """The saved question/answer pairs that are safe to show the model again.
+
+    A question whose answer failed, was interrupted (still "pending") or came back empty is left out, together
+    with that empty answer: replaying an empty assistant message makes some LLM providers reject the request.
+    """
+    turns: list[ConversationMessage] = []
+    for question, answer in zip(rows, rows[1:], strict=False):
+        if question.role == "user" and answer.role == "assistant" and answer.status == "completed" and answer.content:
+            turns += [question, answer]
+    return turns
 
 
 @router.delete("/{repo_id}", status_code=204)
@@ -117,7 +134,26 @@ async def create_conversation(
     session: AsyncSession = Depends(get_session),
 ):
     """Create a conversation for the signed-in repository owner."""
-    title = body.title.strip() if body and body.title.strip() else "New conversation"
+    title = body.title.strip() if body and body.title.strip() else DEFAULT_CONVERSATION_TITLE
+
+    # Reuse the newest conversation if it is still empty, so clicking "Clear" repeatedly (or the page loading
+    # twice) does not pile up empty conversations.
+    empty = await session.scalar(
+        select(Conversation)
+        .where(
+            Conversation.repo_id == repo.id,
+            Conversation.user_id == repo.owner_id,
+            ~exists().where(ConversationMessage.conversation_id == Conversation.id),
+        )
+        .order_by(Conversation.id.desc())
+        .limit(1)
+    )
+    if empty is not None:
+        if title != DEFAULT_CONVERSATION_TITLE:
+            empty.title = title
+            await session.commit()
+            await session.refresh(empty)       # updated_at is set by the database; async cannot lazy-load it
+        return empty
 
     conversation = Conversation(
         user_id=repo.owner_id,
@@ -168,7 +204,7 @@ async def ask_stream(
         conversation = Conversation(
             user_id=repo.owner_id,
             repo_id=repo.id,
-            title=body.question[:200],
+            title=body.question.strip()[:200] or DEFAULT_CONVERSATION_TITLE,
         )
         session.add(conversation)
         await session.flush()
@@ -179,7 +215,12 @@ async def ask_stream(
         .where(ConversationMessage.conversation_id == conversation.id)
         .order_by(ConversationMessage.created_at, ConversationMessage.id)
     )
-    previous_messages = previous.scalars().all()
+    previous_messages = _completed_turns(list(previous.scalars().all()))
+
+    # Newest activity first in the conversation list; the first question names a still-untitled conversation.
+    conversation.updated_at = func.now()
+    if conversation.title == DEFAULT_CONVERSATION_TITLE and not previous_messages:
+        conversation.title = body.question.strip()[:200] or DEFAULT_CONVERSATION_TITLE
 
     # Persist the user's question and a pending assistant response.
     user_message = ConversationMessage(
@@ -343,6 +384,15 @@ async def ask_stream(
                 "message": f"The streamed answer failed: {str(e)[:240]}",
             }) + "\n\n"
 
+        finally:
+            if assistant_message.status == "pending":
+                # The browser left (or the request was cancelled) mid-answer: keep what was written so far and
+                # mark it failed, instead of leaving a "pending" message that never finishes.
+                assistant_message.content = answer_text
+                assistant_message.status = "failed"
+                with contextlib.suppress(Exception):
+                    await asyncio.shield(session.commit())
+
     return StreamingResponse(
         events(),
         media_type="text/event-stream",
@@ -408,38 +458,6 @@ async def list_files(repo: Repository = Depends(get_ready_user_repo), session: A
     return (await session.execute(select(File).where(File.repo_id == repo.id).order_by(File.path))).scalars().all()
 
 
-@router.get("/{repo_id}/files/{path:path}/content")
-async def file_content(path: str, repo: Repository = Depends(get_ready_user_repo),
-                       user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session),
-                       github: GitHubClient = Depends(get_github_client)):
-    """Return the complete source for an indexed, non-sensitive file at the exact indexed commit.
-
-    Raw source is fetched on demand from GitHub rather than persisted in our database.
-    """
-    file_row = (await session.execute(select(File).where(File.repo_id == repo.id, File.path == path))).scalar_one_or_none()
-    if file_row is None:
-        raise HTTPException(404, "File not found in this indexed repository")
-    if file_row.sensitive:
-        raise HTTPException(403, "This file is marked sensitive; source content is not available")
-    if file_row.size > 1_000_000:
-        raise HTTPException(413, "This file exceeds the 1 MB source-viewer limit")
-    if not repo.commit_sha:
-        raise HTTPException(409, "This repository has no indexed commit SHA; reindex it first")
-    # Only GitHub-hosted repositories can be fetched after the temporary clone is removed.
-    match = re.fullmatch(r"https://github\.com/([\w.\-]+)/([\w.\-]+)", repo.url.rstrip("/"))
-    if not match:
-        raise HTTPException(501, "On-demand source viewing is currently supported for GitHub repositories only")
-    full_name = f"{match.group(1)}/{match.group(2).removesuffix('.git')}"
-    try:
-        content = await github.get_file_content(full_name, path, repo.commit_sha, user_github_token(user))
-        content, redactions = redact_secrets(content)
-    except GitHubError as e:
-        status = {"reauth": 403, "not_found": 404, "rate_limit": 429}.get(e.kind, 502)
-        raise HTTPException(status, str(e)) from e
-    return {"path": path, "content": content, "is_partial": False, "commit_sha": repo.commit_sha,
-            "secrets_redacted": redactions}
-
-
 @router.get("/{repo_id}/files/{path:path}")
 async def file_detail(path: str, repo: Repository = Depends(get_ready_user_repo), session: AsyncSession = Depends(get_session)):
     f = (await session.execute(select(File).where(File.repo_id == repo.id, File.path == path))).scalar_one_or_none()
@@ -457,25 +475,32 @@ async def file_detail(path: str, repo: Repository = Depends(get_ready_user_repo)
 async def source_file(path: str, repo: Repository = Depends(get_ready_user_repo),
                       user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session),
                       github: GitHubClient = Depends(get_github_client)):
-    """Fetch an indexed, non-sensitive file on demand at the exact commit that was indexed."""
+    """Complete source of one indexed, non-sensitive file at the exact commit that was indexed.
+
+    Fetched on demand from GitHub (never stored in our database) and returned with secrets redacted.
+    """
     if not path or len(path) > 1000:
         raise HTTPException(404, "File not found")
-    file_row = (await session.execute(select(File).where(
-        File.repo_id == repo.id, File.path == path, File.sensitive.is_(False)))).scalar_one_or_none()
+    file_row = (await session.execute(select(File).where(File.repo_id == repo.id, File.path == path))).scalar_one_or_none()
     if file_row is None:
-        raise HTTPException(404, "File not found or excluded from source viewing.")
-    parsed = urlparse(repo.url)
-    parts = parsed.path.strip("/").removesuffix(".git").split("/")
-    if parsed.hostname != "github.com" or len(parts) != 2:
+        raise HTTPException(404, "File not found in this indexed repository")
+    if file_row.sensitive:
+        raise HTTPException(403, "This file is marked sensitive; source content is not available")
+    if file_row.size > MAX_SOURCE_BYTES:
+        raise HTTPException(413, "This file is too large to display in the browser.")
+    if not repo.commit_sha:
+        raise HTTPException(409, "This repository has no indexed commit SHA; reindex it first")
+    full_name = github_full_name(repo.url)
+    if full_name is None:
         raise HTTPException(422, "Source viewing is available for GitHub repositories only.")
     try:
-        content = await github.get_file_content(user_github_token(user), "/".join(parts), path, repo.commit_sha or repo.branch)
+        content = await github.get_file_content(full_name, path, repo.commit_sha, user_github_token(user))
     except GitHubError as e:
-        status = {"reauth": 403, "not_found": 404, "rate_limit": 429}.get(e.kind, 502)
-        raise HTTPException(status, str(e)) from e
-    if len(content.encode("utf-8")) > 500_000:
+        raise to_http(e) from e
+    if len(content.encode("utf-8")) > MAX_SOURCE_BYTES:
         raise HTTPException(413, "This file is too large to display in the browser.")
-    return {"path": path, "commit_sha": repo.commit_sha, "content": content}
+    content, redactions = redact_secrets(content)
+    return {"path": path, "commit_sha": repo.commit_sha, "content": content, "secrets_redacted": redactions}
 
 
 @router.get("/{repo_id}/map")
