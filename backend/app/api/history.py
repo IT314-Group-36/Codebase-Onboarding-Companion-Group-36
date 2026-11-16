@@ -1,6 +1,6 @@
 """On-demand repository Git history, fetched from GitHub and never persisted."""
-from urllib.parse import urlparse
 import asyncio
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -29,7 +29,7 @@ async def repository_history(
     try:
         token = user_github_token(user)
     except GitHubError as e:
-        raise HTTPException(403, str(e)) from e
+        raise to_http(e) from e
     try:
         raw_commits = await github.list_commits(
             token, full_name, branch=repo.branch or None, path=path, per_page=limit

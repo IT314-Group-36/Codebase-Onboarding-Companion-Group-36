@@ -2,6 +2,7 @@
 
 Blocking work (git, tree-sitter, embeddings) runs in threads; DB and LLM calls are async."""
 import asyncio
+import hashlib
 import logging
 import time
 import uuid
@@ -9,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import islice
 from pathlib import Path
 
-from sqlalchemy import delete, insert, update
+from sqlalchemy import delete, insert, select, update
 
 from ai_pipeline.chunker import embed_text
 from ai_pipeline.module_map import deterministic_module_map, generate_module_map
@@ -25,6 +26,39 @@ from app.models import Chunk, Edge, Explanation, File, Repository, Symbol, User
 from app.services.retrieval import PgHybridRetriever
 
 log = logging.getLogger(__name__)
+
+def _content_hash(text: str, embedder_key: str) -> str:
+    """Hash chunk text together with the embedding configuration."""
+    return hashlib.sha256(f"{embedder_key}\\0{text}".encode("utf-8")).hexdigest()
+
+
+def _plan_embeddings(texts, cached, embedder_key):
+    """Return hashes and unique texts that still need embedding."""
+    hashes = [_content_hash(text, embedder_key) for text in texts]
+    todo_texts, todo_hashes, seen = [], [], set()
+
+    for text, content_hash in zip(texts, hashes, strict=True):
+        if content_hash not in cached and content_hash not in seen:
+            seen.add(content_hash)
+            todo_texts.append(text)
+            todo_hashes.append(content_hash)
+
+    return hashes, todo_texts, todo_hashes
+
+
+def _assemble_vectors(hashes, cached, fresh):
+    """Restore vectors to the original chunk order."""
+    vectors = []
+    for content_hash in hashes:
+        vector = cached.get(content_hash)
+        if vector is None:
+            vector = fresh.get(content_hash)
+        if vector is None:
+            raise ValueError(f"Missing embedding for chunk hash {content_hash}")
+        vectors.append(vector)
+    return vectors
+
+
 
 
 def _take(iterator, count: int) -> list:
@@ -86,9 +120,24 @@ async def _bulk(session, model, rows: list[dict], size: int = 500) -> None:
         await session.execute(insert(model), rows[i:i + size])
 
 
-async def _save(repo_id: int, sha: str, a, vectors: list[list[float]]) -> None:
+async def _save(
+    repo_id: int,
+    sha: str,
+    a,
+    vectors: list[list[float]],
+    hashes: list[str] | None = None,
+    embedded_chunks: int | None = None,
+    reused_chunks: int | None = None,
+) -> None:
     """Replace the repo's data atomically: readers keep seeing the old index until this commits."""
     from pathlib import PurePosixPath
+
+    hashes = hashes if hashes is not None else [None] * len(vectors)
+    report = {
+        **a.report,
+        "embedded_chunks": embedded_chunks if embedded_chunks is not None else len(vectors),
+        "reused_chunks": reused_chunks if reused_chunks is not None else 0,
+    }
     async with SessionLocal() as s, s.begin():
         for m in (Chunk, Edge, Symbol, File, Explanation):      # cached explanations describe the old code
             await s.execute(delete(m).where(m.repo_id == repo_id))
@@ -105,10 +154,10 @@ async def _save(repo_id: int, sha: str, a, vectors: list[list[float]]) -> None:
         await _bulk(s, Edge, edges)
         await _bulk(s, Chunk, [{"repo_id": repo_id, "file_path": c.metadata["file_path"], "symbol_uid": c.metadata["symbol_uid"],
                                 "start_line": c.metadata["start_line"], "end_line": c.metadata["end_line"],
-                                "content": c.page_content, "embedding": v}
-                               for c, v in zip(a.chunks, vectors, strict=True)], size=1000)
+                                "content": c.page_content, "content_hash": h, "embedding": v}
+                               for c, v, h in zip(a.chunks, vectors, hashes, strict=True)], size=1000)
         await s.execute(update(Repository).where(Repository.id == repo_id).values(
-            commit_sha=sha, tech_stack=a.tech_stack, index_report=a.report, stage="describing"))
+            commit_sha=sha, tech_stack=a.tech_stack, index_report=report, stage="describing"))
 
 
 async def _describe(repo_id: int, root: Path, a, llm, embedder) -> tuple[dict, dict | None, list[str]]:
@@ -209,21 +258,70 @@ async def run_indexing(repo_id: int, access_token: str | None, *, llm, embedder)
         lap("analyze")
         await _update(repo_id, stage="embedding")
         texts = [embed_text(c) for c in a.chunks]
+        embedder_key = f"{cfg.embed_backend}:{cfg.embed_model}:{cfg.embed_dim}"
+
+        # Reuse vectors from the previous index when the text and model match.
+        async with SessionLocal() as s:
+            rows = (
+                await s.execute(
+                    select(Chunk.content_hash, Chunk.embedding).where(
+                        Chunk.repo_id == repo_id,
+                        Chunk.content_hash.is_not(None),
+                    )
+                )
+            ).all()
+
+        cached = {
+            content_hash: [float(value) for value in vector]
+            for content_hash, vector in rows
+        }
+        hashes, todo_texts, todo_hashes = _plan_embeddings(
+            texts, cached, embedder_key
+        )
 
         async def report_progress(done: int, total: int) -> None:
-            await _update(repo_id, index_report={**a.report, "embedding_progress": {"completed": done, "total": total}})
+            await _update(
+                repo_id,
+                index_report={
+                    **a.report,
+                    "embedded_chunks": len(todo_texts),
+                    "reused_chunks": sum(1 for h in hashes if h in cached),
+                    "embedding_progress": {"completed": done, "total": total},
+                },
+            )
 
-        vectors = await _embed_all(texts, embedder, max(1, cfg.embed_batch_size), report_progress)
+        fresh_vectors = await _embed_all(
+            todo_texts, embedder, max(1, cfg.embed_batch_size), report_progress
+        )
+        fresh = dict(zip(todo_hashes, fresh_vectors, strict=True))
+        vectors = _assemble_vectors(hashes, cached, fresh)
+
+        embedded_chunks = len(todo_texts)
+        reused_chunks = sum(1 for h in hashes if h in cached)
+
         lap("embed")
         await _update(repo_id, stage="saving")
-        await _save(repo_id, sha, a, vectors)
+        await _save(
+            repo_id,
+            sha,
+            a,
+            vectors,
+            hashes=hashes,
+            embedded_chunks=embedded_chunks,
+            reused_chunks=reused_chunks,
+        )
         lap("save")
         module_map, summary, warnings = await _describe(repo_id, work / "clone", a, llm, embedder)
         lap("describe")
         timings["total"] = round(sum(timings.values()), 2)
         log.info("indexing repo %s timings (s): %s", repo_id, timings)
         await _update(repo_id, status="ready", stage=None, module_map=module_map, summary=summary,
-                      warnings=warnings, index_report={**a.report, "timings": timings})
+                      warnings=warnings, index_report={
+                          **a.report,
+                          "embedded_chunks": embedded_chunks,
+                          "reused_chunks": reused_chunks,
+                          "timings": timings,
+                      })
     except Exception as e:  # noqa: BLE001
         log.exception("indexing repo %s failed", repo_id)
         await _update(repo_id, status="failed", stage=None, error=str(e)[:1000])

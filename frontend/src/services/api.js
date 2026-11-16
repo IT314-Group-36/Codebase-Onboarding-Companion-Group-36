@@ -496,7 +496,26 @@ function adaptImpactReport(r) {
     summary: r.summary || '',
   };
 }
+// ============================================
+// CONVERSATION PERSISTENCE
+// ============================================
 
+export async function getConversations(repoId) {
+  return request(`/repos/${encodeURIComponent(repoId)}/conversations`);
+}
+
+export async function createConversation(repoId, title = 'New conversation') {
+  return request(`/repos/${encodeURIComponent(repoId)}/conversations`, {
+    method: 'POST',
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function getConversationMessages(repoId, conversationId) {
+  return request(
+    `/repos/${encodeURIComponent(repoId)}/conversations/${encodeURIComponent(conversationId)}/messages`
+  );
+}
 /**
  * Grounded AI Q&A over codebase with citations.
  * "What would break if I change X?" style questions come back with intent "impact" and a structured report;
@@ -541,12 +560,24 @@ export async function askCodebaseQuestion(repoId, question, hints = {}) {
 }
 
 /** Streams a grounded answer and sends the recent conversation turns to the backend. */
-export async function askCodebaseQuestionStream(repoId, question, hints = {}, history = [], onEvent) {
+export async function askCodebaseQuestionStream(
+  repoId,
+  question,
+  hints = {},
+  history = [],
+  onEvent,
+  conversationId = null
+) {
   const response = await fetch(`${BASE_URL}/repos/${encodeURIComponent(repoId)}/ask/stream`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-    body: JSON.stringify({ question, ...hints, history: history.slice(-12) }),
+   body: JSON.stringify({
+  question,
+  ...hints,
+  history: history.slice(-12),
+  conversation_id: conversationId,
+}),
   });
   if (!response.ok) {
     const error = await parseError(response);
