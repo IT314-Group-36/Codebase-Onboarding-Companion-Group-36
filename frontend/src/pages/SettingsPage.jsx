@@ -160,9 +160,9 @@ export default function SettingsPage() {
             <div className="cv-gh-status-box">
               <div className="cv-gh-status-dot" aria-hidden="true" />
               <div className="cv-gh-status-copy">
-                <strong>Status: Connected (http://localhost:8000)</strong>
+                <strong>Status: Connected</strong>
                 <p>
-                  PostgreSQL with pgvector hybrid search and ARQ background worker are active.
+                  PostgreSQL with pgvector hybrid search and background indexing are active.
                 </p>
               </div>
             </div>

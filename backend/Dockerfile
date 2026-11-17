@@ -1,5 +1,5 @@
 FROM python:3.12-slim
-# git is required: the worker clones repositories
+# git is required: indexing clones repositories
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 WORKDIR /app
@@ -12,4 +12,6 @@ COPY app ./app
 COPY alembic.ini ./
 COPY alembic ./alembic
 ENV PATH="/app/.venv/bin:$PATH" PYTHONPATH=/app PYTHONUNBUFFERED=1
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Apply database migrations, then start the API. Hosts such as Render set $PORT; locally it falls back to 8000.
+# One uvicorn process on purpose: indexing jobs run inside it, and small hosts have little RAM.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

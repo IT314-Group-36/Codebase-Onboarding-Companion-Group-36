@@ -197,7 +197,7 @@ export default function ConnectRepoPage() {
                 message: 'Lost communication with backend server while polling repository status.',
                 failingFile: null,
                 isRetryable: true,
-                advisory: 'Ensure FastAPI backend is running on http://localhost:8000.',
+                advisory: 'Check that the backend is running. On free hosting it may be waking up from sleep, so wait a minute and retry.',
                 technicalDetails: 'Multiple consecutive requests to GET /repos/{id} failed.',
               });
               showToast('Lost connection to backend server.', 'error');

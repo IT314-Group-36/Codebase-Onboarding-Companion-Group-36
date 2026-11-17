@@ -1,17 +1,38 @@
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]      # backend/ (holds .env, alembic.ini, ...)
+
+
+def normalize_database_url(url: str) -> str:
+    """Accept the URL exactly as a host gives it (Neon, Render, Heroku: `postgresql://` or `postgres://`) and turn it
+    into the psycopg 3 form SQLAlchemy needs. Neon hosts also get `sslmode=require` if the URL does not set it."""
+    url = url.strip()
+    for prefix in ("postgresql://", "postgres://"):
+        if url.startswith(prefix):
+            url = "postgresql+psycopg://" + url[len(prefix):]
+            break
+    parts = urlsplit(url)
+    if parts.scheme == "postgresql+psycopg" and (parts.hostname or "").endswith("neon.tech") and "sslmode=" not in parts.query:
+        query = f"{parts.query}&sslmode=require" if parts.query else "sslmode=require"
+        url = urlunsplit(parts._replace(query=query))
+    return url
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", extra="ignore")
 
     database_url: str = "postgresql+psycopg://onboard:onboard@localhost:5432/onboard"
-    redis_url: str = "redis://localhost:6379"
+    db_pool_size: int = 5                    # kept small: free Postgres hosts cap connections
+    db_max_overflow: int = 2
+    db_pool_recycle_seconds: int = 300       # hosts such as Neon close idle connections; replace them before that bites
+    db_connect_timeout_seconds: int = 30     # a sleeping Neon database needs a few seconds to wake up
+    max_concurrent_indexing: int = Field(1, ge=1, le=4)   # repositories indexed at the same time (RAM-bound)
+    job_timeout_seconds: int = 1800          # a background job running longer than this is marked failed
     cors_origins: list[str] = ["http://localhost:5173"]
     work_dir: str = "/tmp/onboarding_work"
     allow_local_repos: bool = False          # tests / local demos only
@@ -48,6 +69,11 @@ class Settings(BaseSettings):
 
     max_chunks: int = 5000
     max_file_bytes: int = 200_000
+
+    @field_validator("database_url")
+    @classmethod
+    def _normalize_database_url(cls, v: str) -> str:
+        return normalize_database_url(v)
 
     @property
     def github_oauth_configured(self) -> bool:

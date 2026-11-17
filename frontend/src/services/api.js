@@ -1,7 +1,7 @@
 /**
  * CODEVERSE — API Client Layer
  *
- * Connects frontend views to the FastAPI backend at /api (proxied to http://localhost:8000).
+ * Connects frontend views to the FastAPI backend at /api (the Vite dev proxy, nginx or Vercel rewrites forward it).
  * Handles response normalization, robust error extraction for FastAPI Pydantic details,
  * and data adaptation.
  */
@@ -88,7 +88,7 @@ export async function request(endpoint, options = {}) {
     });
   } catch (err) {
     throw new Error(
-      `Unable to communicate with backend server at ${BASE_URL}. Ensure FastAPI is running on http://localhost:8000 (${err.message})`,
+      `Unable to reach the backend server (${BASE_URL}). If it was idle it may be waking up, which can take up to a minute on free hosting: please try again shortly. (${err.message})`,
       { cause: err }
     );
   }
