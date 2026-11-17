@@ -122,7 +122,11 @@ production domain only, not on Vercel preview URLs.
 - **Neon scales to zero** after about 5 minutes idle; the first query then takes a few seconds (the connect
   timeout is 30 s and stale connections are replaced automatically).
 - **Memory:** the free Render instance has 512 MB. Very large repositories can run it out of memory; lower
-  `MAX_CHUNKS` or index smaller repos.
+  `MAX_CHUNKS` or index smaller repos. Git now has a 256 MiB per-process address-space limit on Linux,
+  a 200 MiB aggregate disk watchdog, and pre-checkout size checks (100 MiB total / 20 MiB per file).
+  Tune `CLONE_MEMORY_BYTES`, `MAX_CLONE_BYTES`, `MAX_CHECKOUT_BYTES` and `MAX_CLONE_FILE_BYTES` if needed;
+  keep `MAX_CONCURRENT_INDEXING=1`. The disk watchdog is not a strict filesystem quota, and parsing
+  still uses memory in the API process. Strict aggregate disk isolation requires a host-configured quota.
 - **Neon storage** is limited (1 GB on the free plan at the time of writing; check Neon's current limits). Each
   indexed repository stores its chunks and vectors.
 

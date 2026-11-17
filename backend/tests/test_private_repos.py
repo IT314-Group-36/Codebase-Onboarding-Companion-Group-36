@@ -30,12 +30,12 @@ def clone_calls(monkeypatch):
     calls = CloneCalls()
 
     def install(behaviour=lambda token: None if token == "gho_stored" else NEEDS_LOGIN):
-        def fake(url, branch, dest, token=None, timeout=300):
+        def fake(url, branch, dest, token=None, timeout=300, **kwargs):
             calls.append(token)
             err = behaviour(token)
             if err:
                 raise RuntimeError(CLONE_HEAD + err)
-            return real(url, branch, dest, None)               # the test repo is a local directory
+            return real(url, branch, dest, None, timeout, **kwargs)  # the test repo is a local directory
         monkeypatch.setattr(indexing, "clone_repo", fake)
         return calls
     calls.install = install
