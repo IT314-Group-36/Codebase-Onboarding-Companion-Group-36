@@ -69,6 +69,14 @@ class Settings(BaseSettings):
 
     max_chunks: int = 5000
     max_file_bytes: int = 200_000
+    # Git guardrails apply BEFORE analysis; sizes are bytes, not MiB.
+    max_clone_bytes: int = Field(200 * 1024 * 1024, ge=1024 * 1024)
+    max_checkout_bytes: int = Field(100 * 1024 * 1024, ge=1024 * 1024)
+    max_clone_file_bytes: int = Field(20 * 1024 * 1024, ge=1024)
+    clone_memory_bytes: int = Field(256 * 1024 * 1024, ge=64 * 1024 * 1024)
+    clone_cpu_seconds: int = Field(120, ge=1)
+    clone_timeout_seconds: int = Field(300, ge=1)
+    clone_min_free_disk_bytes: int = Field(256 * 1024 * 1024, ge=0)
 
     # --- abuse protection: keeps the free tiers (Gemini, Cloudflare Workers AI, Neon storage) from being drained ---
     # Per-user request limits (in-process, so they apply per server process; see app/core/ratelimit.py).
