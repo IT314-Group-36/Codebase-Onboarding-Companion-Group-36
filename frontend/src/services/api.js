@@ -52,7 +52,7 @@ async function parseError(response) {
     409: 'Repository is not ready for this operation or indexing is already in progress (HTTP 409).',
     404: 'Requested resource not found (HTTP 404).',
     422: 'Invalid request payload or URL format (HTTP 422).',
-    429: 'GitHub rate limit reached. Please try again in a few minutes.',
+    429: 'Too many requests (or a GitHub rate limit). Please wait a moment and try again.',
     503: 'LLM is not configured on the backend (LLM_API_KEY). Code search, file explorer, and dependency maps are available without it.',
     502: 'The backend AI provider call failed (rate limit or timeout).',
   };
