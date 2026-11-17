@@ -123,6 +123,14 @@ Set these in `backend/.env` (environment variables of the same name also work). 
 | `SESSION_COOKIE_NAME`, `SESSION_TTL_SECONDS`, `COOKIE_SECURE` | `session`, 7 days, `false` | cookie settings; set `COOKIE_SECURE=true` behind https |
 | `TOKEN_ENCRYPTION_KEY` | empty | Fernet key that encrypts stored GitHub tokens; comma-separate several keys to rotate |
 | `MAX_CHUNKS`, `MAX_FILE_BYTES` | `5000`, `200000` | indexing caps |
+| `RATE_LIMIT_ENABLED` | `true` | master switch for the per-user request limits below |
+| `RATE_LIMIT_LLM_PER_MINUTE`, `RATE_LIMIT_LLM_PER_HOUR` | `10`, `100` | `/ask`, `/ask/stream` and `explain=true` requests per user |
+| `RATE_LIMIT_READ_PER_MINUTE` | `60` | `/search`, `/explain`, `/impact`, `/onboarding-tasks` per user |
+| `RATE_LIMIT_INDEX_PER_HOUR` | `10` | add, re-index and issue-sync requests per user |
+| `RATE_LIMIT_REFRESH_PER_HOUR` | `5` | `/explain?refresh=true` per user (always a fresh LLM call) |
+| `MAX_REPOS_PER_USER` | `5` | repositories one account can keep (`403` beyond that) |
+| `MAX_ACTIVE_JOBS_PER_USER` | `2` | repositories one account can have queued or indexing at once (`429`) |
+| `MAX_TOTAL_CHUNKS` | `60000` | code chunks stored for all users together (about 270 MB; keeps Neon's free tier from filling up) |
 | `WORK_DIR` | `/tmp/onboarding_work` | where clones live during a job (deleted afterwards) |
 | `ALLOW_LOCAL_REPOS` | `false` | accept local directory paths instead of GitHub URLs (tests and demos only) |
 
@@ -288,3 +296,21 @@ per million input tokens, so roughly 5 million tokens a day; a typical repo uses
 5,000-chunk cap about 2,200 to 2,700. When the allowance runs out, indexing fails with a clear message and works again after
 the reset. See Workers AI in the Cloudflare dashboard for today's usage, and check Cloudflare's pricing page for the current
 numbers. Chunk text is sent to Cloudflare, so think about that before indexing private repos.
+
+
+## Abuse protection (rate limits and quotas)
+
+Anyone with a GitHub account can sign in, so the free tiers behind the app (Gemini, Cloudflare Workers AI, Neon) are
+protected in two ways. Defaults are in `app/core/config.py`; every number can be changed with the variables above.
+
+- **Rate limits** (`app/core/ratelimit.py`): per user, sliding window, answered with `429` and a `Retry-After` header.
+  Four budgets: *llm* (`/ask`, `/ask/stream`, and `explain=true` on `/impact` and `/onboarding-tasks`), *read*
+  (`/search`, `/explain`, `/impact`, `/onboarding-tasks`), *index* (add, re-index, issue sync) and *refresh*
+  (`/explain?refresh=true`). The counters live in the API process. The app runs as one process, so they are exact;
+  if you ever run several processes, each counts separately and the counters should move to Redis.
+- **Quotas** (`app/services/limits.py`): at most `MAX_REPOS_PER_USER` repositories and `MAX_ACTIVE_JOBS_PER_USER`
+  queued/indexing repositories per account, and `MAX_TOTAL_CHUNKS` stored chunks across all users. A repository that
+  would not fit fails during indexing, before any embedding call, so it spends no Cloudflare quota. Deleting a
+  repository frees its share.
+
+The limits are safeguards, not exact accounting: two simultaneous requests can overshoot a quota by one.

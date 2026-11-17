@@ -20,9 +20,13 @@ from app.api.deps import (
     get_queue,
     get_ready_user_repo,
     get_user_repo,
+    limit_index,
+    limit_llm,
+    limit_read,
 )
 from app.api.github import to_http
 from app.core.config import get_settings
+from app.core.ratelimit import enforce_llm, enforce_refresh
 from app.db.session import get_session
 from app.models import (
     Conversation,
@@ -51,6 +55,7 @@ from app.services.explain import TargetError, enrich_modules, explain_target
 from app.services.github import GitHubClient, GitHubError, github_full_name, user_github_token
 from app.services.graph_service import find_symbols, load_graphs
 from app.services.impact_qa import CAVEAT, answer_impact_question, build_report, resolve_target
+from app.services.limits import check_can_add_repo, check_job_slot
 from app.services.qa import LLMCallError, answer_question, explain_impact
 from app.services.retrieval import PgHybridRetriever, doc_to_hit
 
@@ -84,7 +89,7 @@ async def delete_repo(repo: Repository = Depends(get_user_repo), session: AsyncS
 
 
 @router.post("", response_model=RepoOut, status_code=202)
-async def register_repo(body: RepoCreate, user: User = Depends(get_current_user),
+async def register_repo(body: RepoCreate, user: User = Depends(limit_index),
                         session: AsyncSession = Depends(get_session), queue=Depends(get_queue)):
     try:
         url = validate_repo_url(body.url, get_settings().allow_local_repos)
@@ -95,6 +100,7 @@ async def register_repo(body: RepoCreate, user: User = Depends(get_current_user)
         Repository.owner_id == user.id, Repository.url == url, Repository.branch == branch))).scalar_one_or_none()
     if existing:                                  # idempotent: use POST /repos/{id}/reindex to refresh
         return existing
+    await check_can_add_repo(session, user.id)    # per-account repository / queue limits and the server's storage budget
     repo = Repository(owner_id=user.id, url=url, branch=branch, status="queued")
     session.add(repo)
     await session.commit()
@@ -173,6 +179,7 @@ async def ask_stream(
     session: AsyncSession = Depends(get_session),
     embedder=Depends(get_embedder_dep),
     llm=Depends(get_llm_dep),
+    _user: User = Depends(limit_llm),
 ):
     """Stream grounded answers and persist conversation history."""
     try:
@@ -443,9 +450,11 @@ async def repo_detail(repo: Repository = Depends(get_user_repo)):
 
 @router.post("/{repo_id}/reindex", response_model=RepoOut, status_code=202)
 async def reindex(body: ReindexIn | None = None, repo: Repository = Depends(get_user_repo),
+                  user: User = Depends(limit_index),
                   session: AsyncSession = Depends(get_session), queue=Depends(get_queue)):
     if repo.status in ("queued", "indexing"):
         raise HTTPException(409, "Indexing is already in progress")
+    await check_job_slot(session, user.id)
     repo.status, repo.stage, repo.error = "queued", None, None
     await session.commit()
     await session.refresh(repo)       # server-side updated_at is expired after UPDATE; async can't lazy-load it
@@ -528,12 +537,15 @@ async def get_map(repo: Repository = Depends(get_ready_user_repo), session: Asyn
 
 @router.get("/{repo_id}/explain")
 async def explain(file: str | None = None, symbol: str | None = None, refresh: bool = False,
+                  user: User = Depends(limit_read),
                   repo: Repository = Depends(get_ready_user_repo), session: AsyncSession = Depends(get_session),
                   llm=Depends(get_llm_dep)):
     """Beginner-friendly explanation of ONE file or function, plus how it relates to the rest of the code
     ("uses X, used by Y"). Relationships always come back; the prose needs an LLM key and is cached per repo."""
     if bool(file) == bool(symbol):
         raise HTTPException(422, "Provide exactly one of ?file=<path> or ?symbol=<uid or name>")
+    if refresh:                                    # always a new LLM call, so it has its own small budget
+        enforce_refresh(user.id)
     try:
         return await explain_target(session, repo, llm, file=file, symbol=symbol, refresh=refresh)
     except TargetError as e:
@@ -549,7 +561,8 @@ async def search_symbols(q: str = Query(min_length=1), limit: int = Query(20, le
 
 
 @router.post("/{repo_id}/search")
-async def search_code(body: SearchIn, repo: Repository = Depends(get_ready_user_repo), embedder=Depends(get_embedder_dep)):
+async def search_code(body: SearchIn, repo: Repository = Depends(get_ready_user_repo), embedder=Depends(get_embedder_dep),
+                      _user: User = Depends(limit_read)):
     """Retrieval only (no LLM): hybrid vector + keyword search over code chunks."""
     docs = await PgHybridRetriever(repo_id=repo.id, embeddings=embedder, k=body.k).ainvoke(body.query)
     return {"hits": [doc_to_hit(d) for d in docs]}
@@ -557,7 +570,7 @@ async def search_code(body: SearchIn, repo: Repository = Depends(get_ready_user_
 
 @router.post("/{repo_id}/ask")
 async def ask(body: AskIn, repo: Repository = Depends(get_ready_user_repo), session: AsyncSession = Depends(get_session),
-              embedder=Depends(get_embedder_dep), llm=Depends(get_llm_dep)):
+              embedder=Depends(get_embedder_dep), llm=Depends(get_llm_dep), _user: User = Depends(limit_llm)):
     """Ask anything about the repo. "What would break if I change X?" questions are answered from the import/call graphs
     (works without an LLM key); every other question is RAG Q&A exactly as before."""
     try:
@@ -580,7 +593,7 @@ async def ask(body: AskIn, repo: Repository = Depends(get_ready_user_repo), sess
 
 @router.get("/{repo_id}/impact")
 async def impact(symbol: str | None = None, file: str | None = None, depth: int = Query(3, ge=1, le=6),
-                 explain: bool = False, repo: Repository = Depends(get_ready_user_repo),
+                 explain: bool = False, user: User = Depends(limit_read), repo: Repository = Depends(get_ready_user_repo),
                  session: AsyncSession = Depends(get_session), llm=Depends(get_llm_dep)):
     """What is likely affected if this symbol (uid or name) or file changes? Reverse traversal with NetworkX.
     Same facts the Ask box uses: each affected item carries its call chain and a plain-English reason."""
@@ -599,6 +612,7 @@ async def impact(symbol: str | None = None, file: str | None = None, depth: int 
     if explain:
         if llm is None:
             raise HTTPException(503, "LLM is not configured (set LLM_API_KEY)")
+        enforce_llm(user.id)
         try:
             out["explanation"] = await explain_impact(llm, report["target"], report)
         except LLMCallError as e:
