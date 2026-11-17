@@ -13,6 +13,7 @@ from pathlib import Path
 from sqlalchemy import delete, insert, select, update
 
 from ai_pipeline.chunker import embed_text
+from ai_pipeline.clone_limits import CloneLimitError, CloneLimits
 from ai_pipeline.module_map import deterministic_module_map, generate_module_map
 from ai_pipeline.parser import language_of
 from ai_pipeline.pipeline import analyze_checkout
@@ -212,10 +213,23 @@ def _explain_failure_with_token(err: str) -> str:
 async def _clone(repo_id: int, url: str, branch: str, dest: Path, pasted_token: str | None) -> str:
     """Clone with the pasted token if given. Otherwise try anonymously first (public repos, and a revoked saved token
     can never break them), and only if that fails use the owner's saved GitHub token (private repos)."""
+    cfg = get_settings()
+    limits = CloneLimits(
+        max_disk_bytes=cfg.max_clone_bytes, max_checkout_bytes=cfg.max_checkout_bytes,
+        max_file_bytes=cfg.max_clone_file_bytes, memory_bytes=cfg.clone_memory_bytes,
+        cpu_seconds=cfg.clone_cpu_seconds, min_free_disk_bytes=cfg.clone_min_free_disk_bytes,
+    )
+
+    async def clone(token):
+        return await asyncio.to_thread(clone_repo, url, branch, dest, token,
+                                       timeout=cfg.clone_timeout_seconds, limits=limits)
+
     if pasted_token:
-        return await asyncio.to_thread(clone_repo, url, branch, dest, pasted_token)
+        return await clone(pasted_token)
     try:
-        return await asyncio.to_thread(clone_repo, url, branch, dest, None)
+        return await clone(None)
+    except CloneLimitError:
+        raise
     except RuntimeError as anonymous_error:
         low = str(anonymous_error).lower()
         if "remote branch" in low or "timed out" in low:      # the repo is reachable; a token would not help
@@ -224,7 +238,9 @@ async def _clone(repo_id: int, url: str, branch: str, dest: Path, pasted_token: 
         if not saved:
             raise
     try:
-        return await asyncio.to_thread(clone_repo, url, branch, dest, saved)
+        return await clone(saved)
+    except CloneLimitError:
+        raise
     except RuntimeError as e:
         raise RuntimeError(_explain_failure_with_token(str(e))) from e
 

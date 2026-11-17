@@ -10,9 +10,12 @@ import os
 import re
 import shutil
 import stat
-import subprocess
+import time
 from pathlib import Path
 
+import httpx
+
+from .clone_limits import CloneLimitError, CloneLimits, run_git
 from .config import MAX_FILES, SENSITIVE_PATTERNS, SKIP_DIRS
 
 _GITHUB_URL = re.compile(r"^https://github\.com/([\w.\-]+)/([\w.\-]+?)(?:\.git)?/?$")
@@ -54,32 +57,91 @@ def safe_rmtree(path) -> None:
         shutil.rmtree(path, onerror=_onerror)
 
 
-def clone_repo(url: str, branch: str, dest, token: str | None = None, timeout: int = 300) -> str:
-    """Shallow clone (FR-01). Returns the commit SHA. Raises RuntimeError with a readable message."""
+def _check_github_size(url: str, token: str | None, limits: CloneLimits, *, timeout: float = 10) -> None:
+    """Cheap early rejection. GitHub's history-inclusive KiB size is only a hint.
+
+    Missing/private repos, rate limits and metadata outages still go through the
+    bounded Git path, so preflight is never the sole resource protection.
+    """
+    match = _GITHUB_URL.fullmatch(url)
+    if not match:
+        return  # local test/demo repositories
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": "onboarding-companion"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    try:
+        response = httpx.get(
+            f"https://api.github.com/repos/{match[1]}/{match[2]}",
+            headers=headers, timeout=timeout, follow_redirects=False,
+        )
+        if response.status_code != 200:
+            return
+        size = response.json().get("size")
+    except (httpx.HTTPError, ValueError, AttributeError):
+        return
+    if isinstance(size, int) and size * 1024 > limits.max_disk_bytes:
+        raise CloneLimitError("Repository is too large for this server's clone disk budget (GitHub size estimate).")
+
+
+def _check_checkout(tree: bytes, limits: CloneLimits) -> None:
+    """Inspect expanded blob sizes before checkout, including compressed large files."""
+    total, count = 0, 0
+    for entry in tree.split(b"\0"):
+        if not entry:
+            continue
+        count += 1
+        if count > MAX_FILES:
+            raise CloneLimitError("Repository resource limit exceeded: too many files to check out.")
+        metadata = entry.split(b"\t", 1)[0].split()
+        if len(metadata) != 4:
+            raise RuntimeError("Could not inspect the repository file sizes.")
+        if metadata[1] != b"blob":  # submodule commits are never cloned recursively
+            continue
+        size = int(metadata[3])
+        if size > limits.max_file_bytes:
+            raise CloneLimitError("Repository resource limit exceeded: a file is too large to check out.")
+        total += size
+        if total > limits.max_checkout_bytes:
+            raise CloneLimitError("Repository resource limit exceeded: expanded checkout is too large.")
+
+
+def clone_repo(url: str, branch: str, dest, token: str | None = None, timeout: int = 300,
+               *, limits: CloneLimits | None = None) -> str:
+    """Bounded shallow clone, size inspection, then checkout. Return the commit SHA."""
+    limits = limits or CloneLimits()
+    deadline = time.monotonic() + timeout
     dest = Path(dest)
     safe_rmtree(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    cmd = ["git", "-c", "core.symlinks=false", "-c", "core.hooksPath=/dev/null",
-           "clone", "--depth", "1", "--single-branch", "--no-tags"]
+    _check_github_size(url, token, limits, timeout=min(10, max(0.1, timeout)))
+    git = ["git", "-c", "core.symlinks=false", "-c", "core.hooksPath=/dev/null",
+           "-c", "pack.threads=1", "-c", "fetch.unpackLimit=1"]
+    cmd = [*git, "clone", "--depth", "1", "--single-branch", "--no-tags", "--no-checkout", "--no-local"]
     if branch:
         cmd += ["--branch", validate_branch(branch)]
     cmd += ["--", url, str(dest)]           # "--" stops a URL from being parsed as an option
-    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_LFS_SKIP_SMUDGE": "1"}
     if token:                               # private repos: header via env, never in argv or .git/config
         basic = base64.b64encode(f"x-access-token:{token}".encode()).decode()
         env.update(GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="http.extraheader",
                    GIT_CONFIG_VALUE_0=f"AUTHORIZATION: basic {basic}")
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=timeout)
-    except subprocess.TimeoutExpired:
+        run_git(cmd, dest, env, deadline, limits)
+        tree = run_git([*git, "-C", str(dest), "ls-tree", "-r", "-l", "-z", "HEAD"],
+                       dest, env, deadline, limits)
+        _check_checkout(tree, limits)
+        run_git([*git, "-C", str(dest), "checkout", "--force", "--detach", "HEAD"],
+                dest, env, deadline, limits)
+        sha = run_git([*git, "-C", str(dest), "rev-parse", "HEAD"], dest, env, deadline, limits)
+        return sha.decode("ascii").strip()
+    except BaseException as exc:
+        # Reap subprocesses (run_git's finally) before deleting partial downloads.
         safe_rmtree(dest)
-        raise RuntimeError("Cloning timed out. The repository may be too large.") from None
-    if r.returncode != 0:
-        safe_rmtree(dest)
-        raise RuntimeError("Could not clone the repo. Is it public (or is the token valid), and are the "
-                           "URL/branch correct?\n" + r.stderr.replace(token or "\0", "***")[-500:])
-    sha = subprocess.run(["git", "-C", str(dest), "rev-parse", "HEAD"], capture_output=True, text=True)
-    return sha.stdout.strip()
+        if token and isinstance(exc, RuntimeError):
+            basic = base64.b64encode(f"x-access-token:{token}".encode()).decode()
+            message = str(exc).replace(token, "***").replace(basic, "***")
+            raise type(exc)(message) from None
+        raise
 
 
 def is_sensitive(name: str) -> bool:

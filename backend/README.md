@@ -123,6 +123,11 @@ Set these in `backend/.env` (environment variables of the same name also work). 
 | `SESSION_COOKIE_NAME`, `SESSION_TTL_SECONDS`, `COOKIE_SECURE` | `session`, 7 days, `false` | cookie settings; set `COOKIE_SECURE=true` behind https |
 | `TOKEN_ENCRYPTION_KEY` | empty | Fernet key that encrypts stored GitHub tokens; comma-separate several keys to rotate |
 | `MAX_CHUNKS`, `MAX_FILE_BYTES` | `5000`, `200000` | indexing caps |
+| `MAX_CLONE_BYTES` | `209715200` | 200 MiB aggregate clone/worktree disk watchdog budget; also Linux per-file hard cap |
+| `MAX_CHECKOUT_BYTES`, `MAX_CLONE_FILE_BYTES` | `104857600`, `20971520` | reject expanded trees over 100 MiB or individual files over 20 MiB before checkout |
+| `CLONE_MEMORY_BYTES`, `CLONE_CPU_SECONDS` | `268435456`, `120` | Linux hard per-process address-space (256 MiB) and CPU limits for Git and descendants |
+| `CLONE_TIMEOUT_SECONDS` | `300` | shared wall-clock deadline for clone, size inspection and checkout |
+| `CLONE_MIN_FREE_DISK_BYTES` | `268435456` | reserve at least 256 MiB free on the temporary work filesystem |
 | `RATE_LIMIT_ENABLED` | `true` | master switch for the per-user request limits below |
 | `RATE_LIMIT_LLM_PER_MINUTE`, `RATE_LIMIT_LLM_PER_HOUR` | `10`, `100` | `/ask`, `/ask/stream` and `explain=true` requests per user |
 | `RATE_LIMIT_READ_PER_MINUTE` | `60` | `/search`, `/explain`, `/impact`, `/onboarding-tasks` per user |
@@ -227,6 +232,35 @@ symbol-aware chunks -> Cloudflare embeddings -> one atomic DB swap -> LLM module
 README input for both LLM descriptions is limited to regular root-level text files (no symlinks or
 sensitive filenames). Files over 200 KB or containing NUL bytes are skipped. Secrets are redacted
 before the text is shortened for the prompt, including secrets crossing the prompt boundary.
+
+Content redaction covers known token formats, quoted/unquoted secret assignments, credential-bearing
+URIs (including database connection strings), and Bearer/Basic authorization values. It preserves
+line breaks for citations. Redaction is best-effort, not a guarantee: scan private code with a
+dedicated tool such as gitleaks before uploading it. Re-index existing repositories after a redaction
+update; this does not remove historical AI-provider requests, logs, or database backups. Rotate any
+credentials that may already have been disclosed.
+
+### Clone resource protection
+
+GitHub's reported repository size is screened before downloading (private repositories use the
+job's credential). This estimate includes history and can conservatively reject a large repository
+whose current branch is small. Missing metadata or GitHub rate limits do not disable the other checks.
+
+Git clones shallowly **without checkout** and without local hardlinks. The expanded tree's file
+count, total bytes and individual blob sizes are checked before checkout. LFS smudging and recursive
+submodules are not enabled. All Git phases share a wall-clock deadline, bounded output capture,
+an aggregate disk watchdog, and a free-disk reserve. Failed operations kill/reap the process tree
+before deleting the partial clone. Resource-limit failures are not retried with a saved OAuth token.
+
+Production Docker/Linux additionally applies hard kernel limits for address space, CPU time and
+per-file disk size to Git subprocesses, with one pack thread. These are **per process**, not a
+whole-job memory/CPU quota; the hosting container remains the outer memory boundary. Windows
+development uses the disk/time watchdog but does not provide the Linux kernel limits.
+
+The aggregate disk watchdog samples between operations and can overshoot its threshold between
+checks. A strict aggregate disk boundary requires a quota-limited work filesystem/container volume
+configured on the host; do not treat the watchdog as a filesystem quota. Keep indexing concurrency
+at one on Render's 512 MB tier and lower clone limits if needed.
 
 ## What changed vs. the first AI-team version
 
