@@ -354,16 +354,6 @@ export async function getFileContent(repoId, filePath) {
     }
     return { success: true, content: `// Source for ${filePath} could not be fetched from GitHub.\n// Indexed symbols and relationships remain available in the details panel.`, isPartial: true };
   }
-  const numericId = parseInt(repoId, 10);
-  const targetId = Number.isNaN(numericId) ? repoId : numericId;
-  const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
-  const raw = await request(`/repos/${encodeURIComponent(targetId)}/files/${encodedPath}/content`);
-  return {
-    success: true,
-    content: raw.content || '',
-    isPartial: Boolean(raw.is_partial),
-    commitSha: raw.commit_sha || null,
-  };
 }
 
 /**
