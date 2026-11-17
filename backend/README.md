@@ -224,6 +224,10 @@ clone (shallow, token via env) -> scan (skip symlinks/sensitive files) -> redact
 tree-sitter parse (Python, JS/JSX, TS/TSX) -> NetworkX import graph + call graph -> rank files ->
 symbol-aware chunks -> Cloudflare embeddings -> one atomic DB swap -> LLM module map + summary (validated, with fallback).
 
+README input for both LLM descriptions is limited to regular root-level text files (no symlinks or
+sensitive filenames). Files over 200 KB or containing NUL bytes are skipped. Secrets are redacted
+before the text is shortened for the prompt, including secrets crossing the prompt boundary.
+
 ## What changed vs. the first AI-team version
 
 | Problem | Fix |
