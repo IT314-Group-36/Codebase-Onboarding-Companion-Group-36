@@ -228,6 +228,13 @@ README input for both LLM descriptions is limited to regular root-level text fil
 sensitive filenames). Files over 200 KB or containing NUL bytes are skipped. Secrets are redacted
 before the text is shortened for the prompt, including secrets crossing the prompt boundary.
 
+Content redaction covers known token formats, quoted/unquoted secret assignments, credential-bearing
+URIs (including database connection strings), and Bearer/Basic authorization values. It preserves
+line breaks for citations. Redaction is best-effort, not a guarantee: scan private code with a
+dedicated tool such as gitleaks before uploading it. Re-index existing repositories after a redaction
+update; this does not remove historical AI-provider requests, logs, or database backups. Rotate any
+credentials that may already have been disclosed.
+
 ## What changed vs. the first AI-team version
 
 | Problem | Fix |
