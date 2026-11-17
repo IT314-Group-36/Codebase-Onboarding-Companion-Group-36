@@ -1,7 +1,6 @@
+import logging
 from contextlib import asynccontextmanager
 
-from arq import create_pool
-from arq.connections import RedisSettings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,16 +10,23 @@ from app.api.history import router as history_router
 from app.api.repos import router as repos_router
 from app.api.tasks import router as tasks_router
 from app.core.config import get_settings
+from app.services.jobs import InProcessQueue, recover_interrupted_jobs
+
+logging.basicConfig(level=logging.INFO)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    if not hasattr(app.state, "queue"):               # tests inject a fake queue before startup
-        app.state.queue = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+    own_queue = not hasattr(app.state, "queue")       # tests inject a fake queue before startup
+    if own_queue:
+        await recover_interrupted_jobs()              # jobs cut off by a restart would otherwise stay "indexing" forever
+        app.state.queue = InProcessQueue(settings.max_concurrent_indexing, settings.job_timeout_seconds)
     yield
     if hasattr(app.state.queue, "aclose"):
         await app.state.queue.aclose()
+    if own_queue:
+        del app.state.queue
 
 
 app = FastAPI(title="Codebase Onboarding Companion", version="0.2.0", lifespan=lifespan)

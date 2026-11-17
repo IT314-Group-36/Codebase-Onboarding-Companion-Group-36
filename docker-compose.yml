@@ -8,13 +8,11 @@ x-app: &app
       required: false
   environment:
     DATABASE_URL: postgresql+psycopg://onboard:onboard@db:5432/onboard
-    REDIS_URL: redis://redis:6379
     # The browser talks to the web container (same origin as the page), so CORS only matters if
     # you open the API directly from another origin. Override in backend/.env if needed.
     CORS_ORIGINS: '["http://localhost:5173"]'
   depends_on:
     db: {condition: service_healthy}
-    redis: {condition: service_started}
 
 services:
   db:
@@ -26,12 +24,6 @@ services:
       test: ["CMD-SHELL", "pg_isready -U onboard"]
       interval: 3s
       retries: 20
-  redis:
-    image: redis:7-alpine
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 3s
-      retries: 20
   migrate:
     <<: *app
     command: alembic upgrade head
@@ -41,25 +33,12 @@ services:
     ports: ["8000:8000"]
     depends_on:
       migrate: {condition: service_completed_successfully}
-      redis: {condition: service_healthy}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
-  worker:
-    <<: *app
-    command: arq app.worker.WorkerSettings
-    depends_on:
-      migrate: {condition: service_completed_successfully}
-      redis: {condition: service_healthy}
-    healthcheck:
-      test: ["CMD", "arq", "--check", "app.worker.WorkerSettings"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
   web:
     build:
       context: ./frontend

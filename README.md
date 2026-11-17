@@ -28,7 +28,7 @@ user's indexed data from the backend; GitHub disconnect forgets the saved creden
 ```
 .
 ├── backend/                 FastAPI API + AI pipeline (details: backend/README.md)
-│   ├── app/                 FastAPI app: api/, core/, db/, services/, models.py, schemas.py, worker.py
+│   ├── app/                 FastAPI app: api/, core/, db/, services/, models.py, schemas.py
 │   ├── ai_pipeline/         parser, graph, chunker, embeddings, LLM chains (imported by app/)
 │   ├── alembic/             database migrations
 │   ├── tests/
@@ -38,8 +38,9 @@ user's indexed data from the backend; GitHub disconnect forgets the saved creden
 ├── frontend/                React + Vite app (details: frontend/README.md)
 │   ├── Dockerfile           dev stage (Vite) and prod stage (nginx)
 │   └── nginx.conf           serves the build and proxies /api to the api container
-├── docker-compose.yml       db (pgvector), redis, migrate, api, worker, web
-├── docker-compose.dev.yml   development overrides: hot reload for api, worker and web
+├── docker-compose.yml       db (pgvector), migrate, api, web
+├── docker-compose.dev.yml   development overrides: hot reload for api and web
+├── DEPLOYMENT.md            deploying to Neon + Render + Vercel (free tiers)
 ├── .env.example             optional compose settings (WEB_PORT)
 └── .gitignore
 ```
@@ -49,10 +50,10 @@ user's indexed data from the backend; GitHub disconnect forgets the saved creden
 ```
 browser ──> web (nginx :5173) ──/api/*──> api (FastAPI :8000) ──> db (Postgres + pgvector)
                                               │
-                                              └──> redis ──> worker (arq): clone, parse, embed, LLM steps
+                                              └──> background jobs (in the API process): clone, parse, embed, LLM steps
 ```
 
-The API returns immediately when you register a repo; the worker does the indexing and the UI polls
+The API returns immediately when you register a repo; a background job in the API process does the indexing and the UI polls
 `GET /repos/{id}` for progress.
 
 ## Typical user workflow
@@ -64,7 +65,7 @@ The API returns immediately when you register a repo; the worker does the indexi
 5. **Ask grounded questions.** Ask Codebase Q&A for explanations and source references, or ask what may be affected by changing a function or file.
 6. **Review project context.** Browse recent Git history and contribution activity, and use the onboarding task list as a starting point for a first contribution.
 
-The indexing process is asynchronous so a long clone or embedding run does not hold the browser request open. The web client polls the repository status while the worker continues in the background.
+The indexing process is asynchronous so a long clone or embedding run does not hold the browser request open. The web client polls the repository status while the background job continues.
 
 ## Indexing and search pipeline
 
@@ -95,13 +96,13 @@ GitHub repository + selected branch
 
 The parser uses tree-sitter for Python, JavaScript, JSX, TypeScript, and TSX. It creates chunks around functions, methods, and classes so search results can retain file paths and line ranges. Embeddings come from Cloudflare Workers AI (`bge-small-en-v1.5`, 384 dimensions); PostgreSQL combines vector similarity with full-text search for retrieval.
 
-The worker writes indexing results as a repository-scoped operation. A reindex keeps the previous readable index available until the replacement is ready, then swaps the data atomically. Redis and ARQ queue background jobs, while Postgres stores repository metadata, graph data, chunks, and vectors.
+The indexing job writes its results as a repository-scoped operation. A reindex keeps the previous readable index available until the replacement is ready, then swaps the data atomically. Background jobs run inside the API process (one repository is indexed at a time by default), while Postgres stores repository metadata, graph data, chunks, and vectors.
 
 ## Design choices
 
 | Design choice | Why it is used |
 |---|---|
-| Background indexing with Redis and ARQ | Repository cloning, parsing, and embedding can take longer than a normal web request. A queued worker lets the UI show progress and recover from job failures. |
+| In-process background indexing | Repository cloning, parsing, and embedding can take longer than a normal web request. A background job lets the UI show progress, and running it inside the API process needs no Redis or separate worker, so the app fits one free host. A job cut off by a restart is marked failed at startup and can be re-indexed. |
 | Cloudflare Workers AI embeddings | A hosted embedding model needs no model download and almost no RAM, so the app fits small free hosts, and the free daily allowance covers normal use. Chunk text is sent to Cloudflare, which matters for private repos. |
 | Postgres, pgvector, and full-text search | One database stores application records and supports both semantic and lexical retrieval, filtered by repository. |
 | Graph-backed dependency and impact views | Import and call relationships provide explicit paths that can be inspected alongside generated explanations. |
@@ -113,7 +114,7 @@ The worker writes indexing results as a repository-scoped operation. A reindex k
 
 - OAuth secrets, LLM keys, and generated session secrets belong in `backend/.env`. Keep this file local and out of commits; the tracked `.env.example` contains placeholders.
 - GitHub credentials saved for sign-in are encrypted before storage. The browser uses an HttpOnly session cookie and does not receive the GitHub token.
-- The worker uses a temporary clone for analysis and removes it after indexing. The app stores derived metadata, graph relationships, chunks, and embeddings rather than a permanent copy of the whole repository.
+- Indexing uses a temporary clone for analysis and removes it after indexing. The app stores derived metadata, graph relationships, chunks, and embeddings rather than a permanent copy of the whole repository.
 - Source code shown in the Explorer is fetched on demand from the indexed GitHub commit. Sensitive files are excluded, and source responses are size-limited.
 - Repository text is treated as untrusted input to LLM prompts. Returned paths and citations are checked against indexed repository data before they are shown.
 
@@ -167,7 +168,7 @@ copy backend\.env.example backend\.env
 docker compose up --build
 ```
 
-Open the web app in a browser with `start http://localhost:5173`. To check service status from another Command Prompt window, run `docker compose ps`; to follow service logs, run `docker compose logs -f api worker web`. Stop the foreground stack with `Ctrl+C`.
+Open the web app in a browser with `start http://localhost:5173`. To check service status from another Command Prompt window, run `docker compose ps`; to follow service logs, run `docker compose logs -f api web`. Stop the foreground stack with `Ctrl+C`.
 
 ## Development with hot reload
 
@@ -175,7 +176,7 @@ Open the web app in a browser with `start http://localhost:5173`. To check servi
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
-Edits under `backend/app` and `backend/ai_pipeline` restart the api and worker automatically, and frontend edits
+Edits under `backend/app` and `backend/ai_pipeline` restart the api automatically, and frontend edits
 appear through Vite HMR. The URLs are the same as above.
 
 ## Running without Docker (optional)
@@ -183,11 +184,10 @@ appear through Vite HMR. The URLs are the same as above.
 Run only the infrastructure in Docker, and the apps on your machine:
 
 ```bash
-docker compose up db redis
+docker compose up db
 cd backend && uv sync && uv run alembic upgrade head
-uv run uvicorn app.main:app --reload          # terminal 1
-uv run arq app.worker.WorkerSettings          # terminal 2
-cd frontend && npm install && npm run dev     # terminal 3, http://localhost:5173
+uv run uvicorn app.main:app --reload          # terminal 1 (also runs the background jobs)
+cd frontend && npm install && npm run dev     # terminal 2, http://localhost:5173
 ```
 
 Vite proxies `/api` to `http://localhost:8000` in this mode. See the backend and frontend READMEs for details.

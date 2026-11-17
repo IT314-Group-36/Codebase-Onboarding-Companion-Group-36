@@ -1,6 +1,6 @@
 # Codebase Onboarding Companion: backend + AI pipeline
 
-FastAPI + Alembic + Postgres/pgvector + ARQ (Redis) + tree-sitter + NetworkX. Everything here runs on free
+FastAPI + Alembic + Postgres/pgvector + in-process background jobs + tree-sitter + NetworkX. Everything here runs on free
 tools: Cloudflare Workers AI embeddings and the Gemini free tier for the LLM steps (through LangChain), no paid service required.
 
 ## Run it
@@ -9,20 +9,19 @@ From the repository root:
 
 ```bash
 cp backend/.env.example backend/.env   # set CF_ACCOUNT_ID and CF_API_TOKEN (required, see "Cloudflare Workers AI embeddings" below) and optionally your free LLM_API_KEY (the old name GOOGLE_API_KEY still works)
-docker compose up --build              # db, redis, migrations, api (:8000), worker, web (:5173)
+docker compose up --build              # db, migrations, api (:8000), web (:5173)
 ```
 
 Then open http://localhost:8000/docs for the API, or http://localhost:5173 for the web app.
 For hot reload while developing: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build`.
 
-Without Docker for the backend itself (uv only, no pip/venv/requirements.txt): start Postgres with the pgvector extension and Redis
-(`docker compose up db redis` does exactly that), then
+Without Docker for the backend itself (uv only, no pip/venv/requirements.txt): start Postgres with the pgvector extension
+(`docker compose up db` does exactly that), then
 ```bash
 cd backend
 uv sync                                   # creates .venv from uv.lock
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload      # terminal 1
-uv run arq app.worker.WorkerSettings      # terminal 2
 ```
 Add a dependency with `uv add <pkg>`; commit `pyproject.toml` and `uv.lock` together.
 
@@ -87,9 +86,9 @@ repository or the user.
 
 ### Private repositories
 
-Sign in with GitHub and register the repo URL: nothing else is needed. The worker first tries an anonymous clone
+Sign in with GitHub and register the repo URL: nothing else is needed. The indexing job first tries an anonymous clone
 (so public repos never use your token, and a revoked token cannot break them); if that fails it clones with the token
-saved at sign-in. The token is decrypted only inside the worker for that clone and is never put in the job queue,
+saved at sign-in. The token is decrypted only inside the indexing job for that clone and is never put in the job queue,
 logs or API responses. Pasting a token as `access_token` on `POST /repos` or `/reindex` still works and takes
 priority; that one is passed through the queue for the job and never stored.
 
@@ -107,7 +106,11 @@ Set these in `backend/.env` (environment variables of the same name also work). 
 | `LLM_MIN_INTERVAL_SECONDS` | `4` | spacing between LLM calls (free-tier rate limits) |
 | `LLM_TIMEOUT_SECONDS`, `LLM_MAX_RETRIES` | `60`, `4` | per-call timeout and retries |
 | `DATABASE_URL` | local Postgres | overridden by `docker-compose.yml` inside Docker |
-| `REDIS_URL` | `redis://localhost:6379` | job queue; overridden by compose inside Docker |
+| `MAX_CONCURRENT_INDEXING` | `1` | repositories indexed at the same time (indexing is memory-heavy) |
+| `JOB_TIMEOUT_SECONDS` | `1800` | a background job running longer than this is marked failed |
+| `DB_POOL_SIZE` / `DB_MAX_OVERFLOW` | `5` / `2` | connection pool size; keep small on free Postgres hosts |
+| `DB_POOL_RECYCLE_SECONDS` | `300` | replaces pooled connections before the host closes them when idle |
+| `DB_CONNECT_TIMEOUT_SECONDS` | `30` | a sleeping Neon database needs a few seconds to wake up |
 | `CORS_ORIGINS` | `["http://localhost:5173"]` | JSON list; only matters when the browser calls the API directly. Compose also sets it, which takes precedence over `.env` |
 | `EMBED_BACKEND`, `EMBED_MODEL`, `EMBED_DIM` | `cloudflare`, `@cf/baai/bge-small-en-v1.5`, `384` | embeddings: `cloudflare` (hosted Workers AI, see below) or `hash` (tests only) |
 | `CF_ACCOUNT_ID`, `CF_API_TOKEN` | empty | Cloudflare Workers AI credentials, required for indexing and search (`CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` also work) |
@@ -224,7 +227,7 @@ symbol-aware chunks -> Cloudflare embeddings -> one atomic DB swap -> LLM module
 | Random sampling at the chunk cap | files ranked (README, entry points, import-graph hubs first, tests last) |
 | Character-based chunks | tree-sitter chunks per function/method/class header, exact line ranges |
 | LLM guessed structure from names | import-graph facts (hubs, entry candidates, folder dependencies) go into the prompt; paths validated |
-| Everything synchronous | async LLM calls; blocking work in threads; ARQ + Redis job queue |
+| Everything synchronous | async LLM calls; blocking work in threads; in-process background jobs |
 | Free-tier rate limits | min-interval throttle, concurrency cap, retry with backoff, graceful fallback if the LLM fails |
 | Secrets matched by filename only | content redaction (AWS, GitHub, Google, Slack, Stripe, JWT, private keys, high-entropy assignments) |
 | URL passed straight to `git` | https GitHub allowlist, branch validation, `--` separator, per-job temp dir, symlinks never followed, token never in argv |
@@ -252,7 +255,7 @@ function-level chunks with exact line numbers), and the NetworkX graphs.
   call to an unknown receiver (`x.save()`) only resolves inside the same file or imported files. The API says so in `caveat`.
 - Only Python, JS/JSX and TS/TSX are parsed; other languages are indexed as line-window text chunks (still searchable).
 - Whole files are not stored after indexing (the clone is deleted, DR-03); source is fetched on demand from GitHub at the pinned index commit, and only indexed non-sensitive files up to 500 KB are shown.
-- Secret redaction is regex-based. For production add gitleaks in the worker.
+- Secret redaction is regex-based. For production add gitleaks in the indexing job.
 - `tree-sitter` is pinned `<0.26`: 0.26.0 segfaulted in the Python binding on larger files.
 - Changing `EMBED_DIM` needs a new Alembic migration and a reindex of every repo.
 - `google_genai:gemini-3.6-flash` is the default `LLM_MODEL`: confirm in AI Studio that it is available on your free tier.

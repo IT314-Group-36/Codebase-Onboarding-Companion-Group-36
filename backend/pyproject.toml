@@ -13,7 +13,6 @@ dependencies = [
     "pgvector>=0.3",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
-    "arq>=0.26",
     "networkx>=3.3",
     "tree-sitter>=0.23,<0.26",   # 0.26.0 segfaults in the Python binding on larger files
     "tree-sitter-python>=0.23",
