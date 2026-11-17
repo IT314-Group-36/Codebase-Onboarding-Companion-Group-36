@@ -9,6 +9,17 @@ browser ──> Vercel (React app)  ──/api/*──>  Render (FastAPI + backg
 
 Background indexing runs inside the Render web service (no Redis, no worker). One repository is indexed at a time.
 
+## Current deployment
+
+| Part | Where | URL |
+|---|---|---|
+| Frontend | Vercel (Hobby), project `onboarding-companion` | https://onboarding-companion-pearl.vercel.app |
+| Backend | Render (free, Docker, Singapore) | https://onboarding-companion.onrender.com |
+| Database | Neon (free, Singapore), project `onboarding-companion`, direct connection | not public |
+
+`frontend/vercel.json` forwards `/api/*` to the Render URL above. If the Render service is ever renamed or
+recreated, update that host and the three Render variables that mention the Vercel URL.
+
 ## 0. Before you start
 
 - The GitHub repo can be public or private, but see the Vercel note below if it belongs to an organization.
@@ -22,21 +33,34 @@ Background indexing runs inside the Render web service (no Redis, no worker). On
 
 ## 1. Neon (database)
 
-1. Create a project (any region close to your Render region). Postgres 16 or newer.
+1. Create a project (any region close to your Render region, e.g. AWS Singapore + Render Singapore).
+   Keep only **Postgres database** switched on; the other services (Object storage, Functions, AI gateway,
+   Realtime, Better Auth) are not used.
 2. Open **Connect** and copy the **direct** connection string (host without `-pooler`). It looks like
    `postgresql://user:pass@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require`.
    Paste it as `DATABASE_URL` as it is: the app converts the prefix to `postgresql+psycopg://` itself.
 3. Nothing else to do: the `vector` extension and all tables are created by the migrations, which run
-   automatically every time the Render service starts.
+   automatically every time the Render service starts. If the string ends in `&channel_binding=require`, keep it;
+   if Render's logs ever complain about channel binding, remove that part and keep `?sslmode=require`.
+4. After the first Render deploy you can check the result in Neon's **SQL Editor**:
+   `select table_name from information_schema.tables where table_schema = 'public' order by table_name;`
+   should list 13 tables (`alembic_version`, `chunks`, `conversation_messages`, `conversations`, `edges`,
+   `explanations`, `files`, `issue_syncs`, `issues`, `repositories`, `symbols`, `task_progress`, `users`).
 
 ## 2. Render (backend)
 
-1. **New + > Web Service**, connect the GitHub repo.
-2. Settings: **Language: Docker**, **Root Directory: `backend`** (Dockerfile path `./Dockerfile`),
-   **Instance type: Free**, **Health Check Path: `/health`**, auto-deploy on `main`.
-3. Add the environment variables below, then deploy. The container runs `alembic upgrade head` and then starts
-   the API on Render's `$PORT`.
-4. Open `https://<service>.onrender.com/health`; it should answer `{"status":"ok"}`. Note the URL.
+1. **New + > Web Service**. If the repo is not listed, connect GitHub and install the Render GitHub app on the
+   organization that owns the repo (an org owner may need to approve it).
+2. Settings: **Language: Docker**, **Branch: `main`**, **Region** next to your Neon region,
+   **Root Directory: leave blank**, **Dockerfile Path: `backend/Dockerfile`**,
+   **Instance type: Free** (make sure the $0 plan is selected, not $7).
+3. Under **Advanced**: **Docker Build Context Directory: `./backend`**, **Health Check Path: `/health`**,
+   **Auto-Deploy: On Commit**. Leave **Docker Command** and **Pre-Deploy Command** empty (the Dockerfile already
+   runs the migrations).
+4. Add the environment variables below (**Add from .env** pastes them all at once; no quotes around values),
+   then deploy. The container runs `alembic upgrade head` and then starts the API on Render's `$PORT`.
+   Migrations print nothing to the log: a healthy start ends with `Uvicorn running on http://0.0.0.0:10000`.
+5. Open `https://<service>.onrender.com/health`; it should answer `{"status":"ok"}`. Note the URL.
 
 | Variable | Value |
 |---|---|
@@ -96,7 +120,8 @@ production domain only, not on Vercel preview URLs.
   timeout is 30 s and stale connections are replaced automatically).
 - **Memory:** the free Render instance has 512 MB. Very large repositories can run it out of memory; lower
   `MAX_CHUNKS` or index smaller repos.
-- **Neon storage** is limited (0.5 GB on free); each indexed repository stores its chunks and vectors.
+- **Neon storage** is limited (1 GB on the free plan at the time of writing; check Neon's current limits). Each
+  indexed repository stores its chunks and vectors.
 
 ## Troubleshooting
 
