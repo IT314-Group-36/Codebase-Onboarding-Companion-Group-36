@@ -76,6 +76,9 @@ recreated, update that host and the three Render variables that mention the Verc
 | `CORS_ORIGINS` | `["https://<your-app>.vercel.app"]` (a JSON list) |
 | `LLM_MIN_INTERVAL_SECONDS` | `4` on a free LLM tier, lower on a paid one |
 
+Rate limits and per-user quotas are on by default and need no variables; see "Abuse protection" in
+`backend/README.md` to tune them (for example `MAX_TOTAL_CHUNKS` to match your Neon storage).
+
 Leave `ALLOW_LOCAL_REPOS` unset (it must stay false in production). Optional: `GITHUB_TOKEN` (higher GitHub API
 rate limit for the issues sync), `MAX_CONCURRENT_INDEXING` (default 1; keep 1 on a 512 MB instance).
 

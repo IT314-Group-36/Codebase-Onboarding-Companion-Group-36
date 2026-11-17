@@ -9,7 +9,10 @@ from app.api.deps import (
     get_queue,
     get_ready_user_repo,
     get_user_repo,
+    limit_index,
+    limit_read,
 )
+from app.core.ratelimit import enforce_llm
 from app.db.session import get_session
 from app.models import IssueSync, Repository, User
 from app.schemas import ReindexIn, SyncOut, TaskPlanOut, TaskProgressIn, TaskProgressOut
@@ -21,7 +24,7 @@ router = APIRouter(prefix="/repos", tags=["onboarding-tasks"])
 
 
 @router.post("/{repo_id}/issues/sync", response_model=SyncOut, status_code=202)
-async def sync_issues(body: ReindexIn | None = None, repo: Repository = Depends(get_user_repo),
+async def sync_issues(body: ReindexIn | None = None, repo: Repository = Depends(get_user_repo), _user: User = Depends(limit_index),
                       session: AsyncSession = Depends(get_session), queue=Depends(get_queue)):
     """Fetch the repo's beginner-friendly open issues from GitHub (background job). The token is used for this job only."""
     if sync_in_progress(await session.get(IssueSync, repo.id)):
@@ -42,13 +45,15 @@ async def issue_sync_status(repo: Repository = Depends(get_user_repo), session: 
 async def onboarding_tasks(limit: int = Query(5, ge=1, le=10, description="Maximum number of issue tasks"),
                            include_generated: bool = Query(True, description="Add orientation tasks when few issues qualify"),
                            explain: bool = Query(False, description="Add a short LLM-written guide to each issue task"),
-                           repo: Repository = Depends(get_ready_user_repo), user: User = Depends(get_current_user),
+                           repo: Repository = Depends(get_ready_user_repo), user: User = Depends(limit_read),
                            session: AsyncSession = Depends(get_session),
                            embedder=Depends(get_embedder_dep), llm=Depends(get_llm_dep)):
     """A first-week plan: the best beginner-friendly issues, easiest first, each with the files to open.
     Every task carries its stable `key` and the signed-in user's saved `status`."""
     if explain and llm is None:
         raise HTTPException(503, "LLM is not configured (set LLM_API_KEY). The plan itself works without it.")
+    if explain:
+        enforce_llm(user.id)
     try:
         return await build_plan(session, repo, embedder, limit=limit, include_generated=include_generated,
                                 llm=llm, explain=explain, user_id=user.id)

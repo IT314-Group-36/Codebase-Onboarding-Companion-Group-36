@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.ratelimit import enforce_index, enforce_llm, enforce_read
 from app.core.security import read_session_token
 from app.db.session import get_session
 from app.models import Repository, User
@@ -57,3 +58,22 @@ async def get_ready_user_repo(repo: Repository = Depends(get_user_repo)) -> Repo
     if repo.status != "ready":
         raise HTTPException(409, f"Repository is not ready (status: {repo.status})")
     return repo
+
+
+# ---------- per-user rate limits ----------
+# Each one signs the user in (401 when not), counts the request against a bucket (429 + Retry-After when the user is
+# over it) and returns the user, so a route can use it in place of get_current_user.
+
+async def limit_llm(user: User = Depends(get_current_user)) -> User:
+    enforce_llm(user.id)
+    return user
+
+
+async def limit_read(user: User = Depends(get_current_user)) -> User:
+    enforce_read(user.id)
+    return user
+
+
+async def limit_index(user: User = Depends(get_current_user)) -> User:
+    enforce_index(user.id)
+    return user

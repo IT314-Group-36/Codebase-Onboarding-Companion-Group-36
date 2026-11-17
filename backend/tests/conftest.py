@@ -46,6 +46,14 @@ def make_git_repo(root: Path, files: dict = REPO_FILES) -> Path:
     return root
 
 
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """User ids restart at 1 in every test, so the in-memory counters must not carry over between tests."""
+    from app.core.ratelimit import limiter
+    limiter.reset()
+    yield
+
+
 @pytest.fixture
 def git_repo(tmp_path) -> Path:
     return make_git_repo(tmp_path / "shop_repo")

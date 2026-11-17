@@ -70,6 +70,19 @@ class Settings(BaseSettings):
     max_chunks: int = 5000
     max_file_bytes: int = 200_000
 
+    # --- abuse protection: keeps the free tiers (Gemini, Cloudflare Workers AI, Neon storage) from being drained ---
+    # Per-user request limits (in-process, so they apply per server process; see app/core/ratelimit.py).
+    rate_limit_enabled: bool = True
+    rate_limit_llm_per_minute: int = Field(10, ge=1)      # /ask, /ask/stream and any request that calls the LLM
+    rate_limit_llm_per_hour: int = Field(100, ge=1)
+    rate_limit_read_per_minute: int = Field(60, ge=1)     # /search, /explain, /impact, /onboarding-tasks
+    rate_limit_index_per_hour: int = Field(10, ge=1)      # register, re-index and issue-sync requests
+    rate_limit_refresh_per_hour: int = Field(5, ge=1)     # /explain?refresh=true (always a fresh LLM call)
+    # Quotas.
+    max_repos_per_user: int = Field(5, ge=1)              # repositories one account can keep at the same time
+    max_active_jobs_per_user: int = Field(2, ge=1)        # repositories one account can have queued/indexing at once
+    max_total_chunks: int = Field(60_000, ge=1)           # all users together; roughly 4-5 KB each in Postgres
+
     @field_validator("database_url")
     @classmethod
     def _normalize_database_url(cls, v: str) -> str:

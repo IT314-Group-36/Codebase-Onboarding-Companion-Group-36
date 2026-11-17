@@ -23,6 +23,7 @@ from app.core.config import get_settings
 from app.core.security import SecurityConfigError, TokenDecryptError, decrypt_token
 from app.db.session import SessionLocal
 from app.models import Chunk, Edge, Explanation, File, Repository, Symbol, User
+from app.services.limits import storage_full_message, total_chunks
 from app.services.retrieval import PgHybridRetriever
 
 log = logging.getLogger(__name__)
@@ -256,6 +257,12 @@ async def run_indexing(repo_id: int, access_token: str | None, *, llm, embedder)
         a = await asyncio.to_thread(analyze_checkout, work / "clone", max_chunks=cfg.max_chunks,
                                     max_file_bytes=cfg.max_file_bytes)
         lap("analyze")
+        # Storage budget, checked BEFORE embedding so a repository that does not fit costs no Cloudflare quota.
+        # This repository's own old chunks are excluded: a re-index replaces them.
+        async with SessionLocal() as s:
+            used_elsewhere = await total_chunks(s, exclude_repo_id=repo_id)
+        if used_elsewhere + len(a.chunks) > cfg.max_total_chunks:
+            raise RuntimeError(storage_full_message(used_elsewhere, len(a.chunks)))
         await _update(repo_id, stage="embedding")
         texts = [embed_text(c) for c in a.chunks]
         embedder_key = f"{cfg.embed_backend}:{cfg.embed_model}:{cfg.embed_dim}"
