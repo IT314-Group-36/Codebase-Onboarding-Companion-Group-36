@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ai_pipeline.graph import module_of
 from ai_pipeline.llm import structured_chain
+from app.core.ratelimit import enforce_llm
 from app.models import Chunk, Explanation, File, Repository
 from app.services.graph_service import load_graphs, resolve_symbol
 from app.services.qa import (
@@ -243,9 +244,13 @@ async def _generate_symbol(llm, repo, sym, rel, sentence, code) -> dict:
 
 
 # ----------------------------------------------------------------------------- entry point
-async def explain_target(session: AsyncSession, repo: Repository, llm, *, file: str | None = None,
-                         symbol: str | None = None, refresh: bool = False) -> dict:
-    """Explain one file or one symbol. Raises TargetError (404/409) or LLMCallError (502)."""
+async def explain_target(session: AsyncSession, repo: Repository, llm, *, user_id: int, file: str | None = None,
+                          symbol: str | None = None, refresh: bool = False) -> dict:
+    """Explain one target; charge the authenticated user's AI budget only before generation.
+
+    Cache hits and relationship-only responses do not spend AI quota. A rejected
+    generation propagates the limiter's HTTP 429 (with Retry-After) unchanged.
+    """
     fg, sg = await load_graphs(session, repo.id)
     warnings: list[str] = []
     if file is not None:
@@ -284,6 +289,7 @@ async def explain_target(session: AsyncSession, repo: Repository, llm, *, file: 
         elif llm is None:
             warnings.append("No LLM API key is set (LLM_API_KEY): showing relationships only.")
         else:
+            enforce_llm(user_id)  # Cache miss or forced refresh: no provider call before this check.
             if kind == "file":
                 explanation, w = await _generate_file(llm, repo, file, rel, sentence, code)
                 warnings += w
