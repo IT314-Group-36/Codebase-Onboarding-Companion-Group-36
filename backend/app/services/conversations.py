@@ -26,6 +26,8 @@ def bounded_text(text: str, byte_limit: int) -> str:
 
 def bounded_citations(citations: list) -> list[dict]:
     """Keep a bounded JSON payload without inventing/truncating citation paths."""
+    if not isinstance(citations, list):
+        return []
     result = []
     for item in citations[:32]:
         if not isinstance(item, dict):
