@@ -84,6 +84,7 @@ class ConversationMessageOut(BaseModel):
     status: Literal["pending", "completed", "failed"]
     citations: list = Field(default_factory=list)
     created_at: datetime
+    truncated: bool = False
 
 
 class ConversationOut(BaseModel):

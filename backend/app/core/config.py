@@ -93,6 +93,17 @@ class Settings(BaseSettings):
     max_total_chunks: int = Field(60_000, ge=1)           # all users together; roughly 4-5 KB each in Postgres
     max_task_progress_per_repo: int = Field(200, ge=1)
     max_total_task_progress: int = Field(20_000, ge=1)
+    max_conversations_per_repo: int = Field(20, ge=1)
+    max_conversations_per_user: int = Field(100, ge=1)
+    max_total_conversations: int = Field(5_000, ge=1)
+    max_messages_per_conversation: int = Field(100, ge=2)
+    max_messages_per_user: int = Field(2_000, ge=2)
+    max_total_messages: int = Field(20_000, ge=2)
+    max_message_content_bytes: int = Field(32_000, ge=1)
+    max_message_citations_bytes: int = Field(8_192, ge=2)
+    conversation_stream_timeout_seconds: int = Field(120, ge=1)
+    storage_budget_bytes: int = Field(400 * 1024 * 1024, ge=1)
+    storage_chunk_bytes: int = Field(6_000, ge=1)  # minimum planning allowance per code chunk
 
     @field_validator("database_url")
     @classmethod

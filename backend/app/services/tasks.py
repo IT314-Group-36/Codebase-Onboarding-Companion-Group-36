@@ -32,7 +32,7 @@ from app.models import Edge, File, Issue, IssueSync, Repository, TaskProgress
 from app.services.issues import sync_view
 from app.services.qa import LLMCallError
 from app.services.retrieval import hybrid_search
-from app.services.storage import lock_storage
+from app.services.storage import PROGRESS_BYTES, check_storage_budget, lock_storage
 
 RELATED_PER_TASK = 3
 TASK_KEY_RE = r"^(issue-[0-9]{1,9}|gen-[a-z0-9]+(-[a-z0-9]+)*)$"     # also checked by the progress endpoint
@@ -116,6 +116,7 @@ async def save_progress(session: AsyncSession, user_id: int, repo_id: int, key: 
         total = await session.scalar(select(func.count()).select_from(TaskProgress))
         if total >= cfg.max_total_task_progress:
             raise HTTPException(503, "The server's task-progress storage is full.")
+        await check_storage_budget(session, PROGRESS_BYTES)
     stmt = pg_insert(TaskProgress).values(user_id=user_id, repo_id=repo_id, task_key=key, status=status)
     await session.execute(stmt.on_conflict_do_update(
         constraint="uq_task_progress_user_repo_key", set_={"status": status, "updated_at": func.now()}))

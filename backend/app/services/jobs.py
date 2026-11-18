@@ -13,7 +13,7 @@ import logging
 from sqlalchemy import select, update
 
 from app.db.session import SessionLocal
-from app.models import IssueSync, Repository
+from app.models import ConversationMessage, IssueSync, Repository
 from app.services import runtime
 from app.services.indexing import run_indexing
 from app.services.issues import run_issue_sync
@@ -98,16 +98,18 @@ class InProcessQueue:
 
 
 async def recover_interrupted_jobs() -> None:
-    """At startup nothing can still be running: anything left queued/indexing/syncing was cut off by a restart."""
+    """Recover interrupted jobs and pending answers after this single-process API restarts."""
     try:
         async with SessionLocal() as s:
             repos = await s.execute(update(Repository).where(Repository.status.in_(("queued", "indexing")))
                                     .values(status="failed", stage=None, error=INTERRUPTED_REPO_MESSAGE))
             syncs = await s.execute(update(IssueSync).where(IssueSync.status.in_(("queued", "syncing")))
                                     .values(status="failed", message=INTERRUPTED_SYNC_MESSAGE))
+            answers = await s.execute(update(ConversationMessage).where(ConversationMessage.status == "pending")
+                                      .values(status="failed"))
             await s.commit()
-        if repos.rowcount or syncs.rowcount:
-            log.warning("marked %s interrupted indexing job(s) and %s issue sync(s) as failed",
-                        repos.rowcount, syncs.rowcount)
+        if repos.rowcount or syncs.rowcount or answers.rowcount:
+            log.warning("marked %s interrupted indexing job(s), %s issue sync(s) and %s answer(s) as failed",
+                        repos.rowcount, syncs.rowcount, answers.rowcount)
     except Exception:  # noqa: BLE001  (a database hiccup must not stop the API from starting)
         log.exception("could not check for interrupted jobs at startup")
