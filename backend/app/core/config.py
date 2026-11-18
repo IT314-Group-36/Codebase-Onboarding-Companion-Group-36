@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     rate_limit_llm_per_hour: int = Field(100, ge=1)
     rate_limit_read_per_minute: int = Field(60, ge=1)     # /search, /explain, /impact, /onboarding-tasks
     rate_limit_index_per_hour: int = Field(10, ge=1)      # register, re-index and issue-sync requests
-    rate_limit_refresh_per_hour: int = Field(5, ge=1)     # /explain?refresh=true (always a fresh LLM call)
+    rate_limit_refresh_per_hour: int = Field(5, ge=1)     # extra /explain?refresh=true request budget
     # Quotas.
     max_repos_per_user: int = Field(5, ge=1)              # repositories one account can keep at the same time
     max_active_jobs_per_user: int = Field(2, ge=1)        # repositories one account can have queued/indexing at once

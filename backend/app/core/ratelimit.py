@@ -81,5 +81,5 @@ def enforce_index(user_id: int) -> None:
 
 
 def enforce_refresh(user_id: int) -> None:
-    """For /explain?refresh=true, which always makes a new LLM call and overwrites the cache."""
+    """Extra budget for refresh requests; actual generation also needs enforce_llm."""
     _enforce(user_id, "refresh", [(get_settings().rate_limit_refresh_per_hour, 3600)], "explanation refreshes")

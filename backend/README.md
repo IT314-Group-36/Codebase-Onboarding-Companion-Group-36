@@ -129,10 +129,10 @@ Set these in `backend/.env` (environment variables of the same name also work). 
 | `CLONE_TIMEOUT_SECONDS` | `300` | shared wall-clock deadline for clone, size inspection and checkout |
 | `CLONE_MIN_FREE_DISK_BYTES` | `268435456` | reserve at least 256 MiB free on the temporary work filesystem |
 | `RATE_LIMIT_ENABLED` | `true` | master switch for the per-user request limits below |
-| `RATE_LIMIT_LLM_PER_MINUTE`, `RATE_LIMIT_LLM_PER_HOUR` | `10`, `100` | `/ask`, `/ask/stream` and `explain=true` requests per user |
+| `RATE_LIMIT_LLM_PER_MINUTE`, `RATE_LIMIT_LLM_PER_HOUR` | `10`, `100` | shared per-user AI budget: Q&A, explanation generation, and `explain=true` on impact/tasks |
 | `RATE_LIMIT_READ_PER_MINUTE` | `60` | `/search`, `/explain`, `/impact`, `/onboarding-tasks` per user |
 | `RATE_LIMIT_INDEX_PER_HOUR` | `10` | add, re-index and issue-sync requests per user |
-| `RATE_LIMIT_REFRESH_PER_HOUR` | `5` | `/explain?refresh=true` per user (always a fresh LLM call) |
+| `RATE_LIMIT_REFRESH_PER_HOUR` | `5` | extra `/explain?refresh=true` request budget; actual generation also consumes AI quota |
 | `MAX_REPOS_PER_USER` | `5` | repositories one account can keep (`403` beyond that) |
 | `MAX_ACTIVE_JOBS_PER_USER` | `2` | repositories one account can have queued or indexing at once (`429`) |
 | `MAX_TOTAL_CHUNKS` | `60000` | code chunks stored for all users together (about 270 MB; keeps Neon's free tier from filling up) |
@@ -193,6 +193,15 @@ docker compose exec db psql -U onboard -c "UPDATE repositories SET owner_id = (S
 
 Relationships are computed from the stored graphs, so they are never invented; the LLM only writes prose around them and any symbol name it makes up is dropped.
 Explanations are cached per repo (table `explanations`, dropped on reindex, ignored if the commit changed); `refresh=true` regenerates.
+
+Every `/explain` request consumes the read budget. A file or symbol explanation that needs a new
+LLM generation also consumes the signed-in user's shared AI budget, immediately before generation.
+This includes stale-cache misses and forced refreshes. A cache hit or relationship-only response
+(sensitive file, no indexed text, or missing LLM configuration) does not consume AI quota.
+When AI quota is exhausted, generation returns `429` with `Retry-After` without calling the model
+or changing the cache; existing cached explanations remain available within the read limit.
+Failed provider attempts still consume AI quota. Refresh requests retain their additional small
+refresh budget; the normal AI budget is not bypassed by requesting a refresh.
 
 ### Asking "what would break if I change X?" in the Ask box
 
@@ -342,7 +351,8 @@ Anyone with a GitHub account can sign in, so the free tiers behind the app (Gemi
 protected in two ways. Defaults are in `app/core/config.py`; every number can be changed with the variables above.
 
 - **Rate limits** (`app/core/ratelimit.py`): per user, sliding window, answered with `429` and a `Retry-After` header.
-  Four budgets: *llm* (`/ask`, `/ask/stream`, and `explain=true` on `/impact` and `/onboarding-tasks`), *read*
+  Four budgets: *llm* (`/ask`, `/ask/stream`, uncached/refreshed file or symbol explanation generation,
+  and `explain=true` on `/impact` and `/onboarding-tasks`), *read*
   (`/search`, `/explain`, `/impact`, `/onboarding-tasks`), *index* (add, re-index, issue sync) and *refresh*
   (`/explain?refresh=true`). The counters live in the API process. The app runs as one process, so they are exact;
   if you ever run several processes, each counts separately and the counters should move to Redis.
