@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.ratelimit import enforce_index, enforce_llm, enforce_read
+from app.core.ratelimit import enforce_index, enforce_llm, enforce_read, enforce_write
 from app.core.security import read_session_token
 from app.db.session import get_session
 from app.models import Repository, User
@@ -76,4 +76,9 @@ async def limit_read(user: User = Depends(get_current_user)) -> User:
 
 async def limit_index(user: User = Depends(get_current_user)) -> User:
     enforce_index(user.id)
+    return user
+
+
+async def limit_write(user: User = Depends(get_current_user)) -> User:
+    enforce_write(user.id)
     return user

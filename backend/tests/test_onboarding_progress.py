@@ -75,6 +75,7 @@ async def test_saved_progress_comes_back_in_the_plan(client, git_repo):
 
 async def test_progress_can_be_changed_back_and_is_one_row(client, git_repo):
     rid = await index(client, git_repo)
+    await add_issue(rid, 1)
     for status in ("completed", "pending", "in-progress", "completed"):
         assert (await put(client, rid, "issue-1", status)).status_code == 200
     async with SessionLocal() as s:
@@ -135,6 +136,7 @@ async def test_unauthenticated_requests_are_refused(client, git_repo):
 
 async def test_progress_is_deleted_with_the_repository(client, git_repo):
     rid = await index(client, git_repo)
+    await add_issue(rid, 1)
     assert (await put(client, rid, "issue-1", "completed")).status_code == 200
     from sqlalchemy import delete
 

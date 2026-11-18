@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
-    get_current_user,
     get_embedder_dep,
     get_llm_dep,
     get_queue,
@@ -11,6 +10,7 @@ from app.api.deps import (
     get_user_repo,
     limit_index,
     limit_read,
+    limit_write,
 )
 from app.core.ratelimit import enforce_llm
 from app.db.session import get_session
@@ -64,7 +64,7 @@ async def onboarding_tasks(limit: int = Query(5, ge=1, le=10, description="Maxim
 @router.put("/{repo_id}/onboarding-tasks/{task_key}/progress", response_model=TaskProgressOut)
 async def set_task_progress(body: TaskProgressIn,
                             task_key: str = Path(pattern=TASK_KEY_RE, max_length=TASK_KEY_MAX),
-                            repo: Repository = Depends(get_user_repo), user: User = Depends(get_current_user),
+                            repo: Repository = Depends(get_ready_user_repo), user: User = Depends(limit_write),
                             session: AsyncSession = Depends(get_session)):
     """Save the signed-in user's progress on one task (pending, in-progress or completed). Progress is per user."""
     await save_progress(session, user.id, repo.id, task_key, body.status)

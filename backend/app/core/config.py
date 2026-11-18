@@ -86,10 +86,13 @@ class Settings(BaseSettings):
     rate_limit_read_per_minute: int = Field(60, ge=1)     # /search, /explain, /impact, /onboarding-tasks
     rate_limit_index_per_hour: int = Field(10, ge=1)      # register, re-index and issue-sync requests
     rate_limit_refresh_per_hour: int = Field(5, ge=1)     # extra /explain?refresh=true request budget
+    rate_limit_write_per_minute: int = Field(60, ge=1)   # progress writes and conversation create/delete
     # Quotas.
     max_repos_per_user: int = Field(5, ge=1)              # repositories one account can keep at the same time
     max_active_jobs_per_user: int = Field(2, ge=1)        # repositories one account can have queued/indexing at once
     max_total_chunks: int = Field(60_000, ge=1)           # all users together; roughly 4-5 KB each in Postgres
+    max_task_progress_per_repo: int = Field(200, ge=1)
+    max_total_task_progress: int = Field(20_000, ge=1)
 
     @field_validator("database_url")
     @classmethod
