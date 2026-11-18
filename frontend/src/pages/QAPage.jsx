@@ -9,6 +9,7 @@ import {
   FileCode,
   ExternalLink,
   Trash2,
+  Plus,
   CheckCircle2,
   Search,
 } from 'lucide-react';
@@ -19,9 +20,12 @@ import {
   getConversations,
   createConversation,
   getConversationMessages,
+  deleteConversation,
 } from '../services/api';
 import LoadingState from '../components/LoadingState';
 import Button from '../components/Button';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { showToast } from '../utils/toast';
 import useReducedMotion from '../hooks/useReducedMotion';
 import { TypingIndicator, StreamingLabel, AnswerError, QAAnnouncer } from '../components/QAStates';
 import ImpactReport, { ImpactAnswerExtras } from '../components/ImpactReport';
@@ -66,6 +70,8 @@ export default function QAPage() {
   const [mode, setMode] = useState('ask'); // 'ask' | 'search'
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [deleteChatTarget, setDeleteChatTarget] = useState(null);
+  const [deletingChat, setDeletingChat] = useState(false);
 
   const messagesEndRef = useRef(null);
   const messageSeqRef = useRef(1);
@@ -95,6 +101,7 @@ export default function QAPage() {
 
   async function loadConversation() {
     setLoadingConversation(true);
+    setDeleteChatTarget(null);
     setConversationId(null);
     setMessages(INITIAL_MESSAGES);
 
@@ -128,7 +135,9 @@ export default function QAPage() {
           savedMessages.map((message) => ({
             id: String(message.id),
             sender: message.role,
-            text: message.content || '',
+            text: message.truncated
+              ? `${message.content || ''}\n\n[This older message is displayed as a bounded excerpt.]`
+              : message.content || '',
             citations: message.citations || [],
             referencedFiles: (message.citations || []).map((c) => c.path),
             timestamp: message.created_at
@@ -276,7 +285,7 @@ export default function QAPage() {
   else if (lastMsg?.isError) announcement = 'The answer failed. Use the Try again button to ask again.';
   else if (messages.length > 1 && lastMsg?.sender === 'assistant') announcement = 'Answer ready.';
 
-  const handleClearChat = async () => {
+  const handleNewChat = async () => {
   if (isAsking || loadingConversation) return;
 
   try {
@@ -293,18 +302,45 @@ export default function QAPage() {
       {
         id: `msg-init-${newConversation.id}`,
         sender: 'assistant',
-        text: 'Conversation history cleared. How else can I assist your codebase exploration?',
+        text: 'A new conversation is ready. Your earlier chats have not been deleted.',
         citations: [],
         referencedFiles: [],
         timestamp: 'Just now',
       },
     ]);
   } catch (error) {
-    console.error('Failed to create a new conversation:', error);
+    showToast(error.message || 'Could not start a new chat.', 'error');
   } finally {
     setLoadingConversation(false);
   }
 };
+
+  const handleDeleteChat = async () => {
+    const target = deleteChatTarget;
+    if (!target || target.repoId !== repoId || target.conversationId !== conversationId
+        || isAsking || loadingConversation || deletingChat) return;
+    setDeletingChat(true);
+    setLoadingConversation(true);
+    try {
+      await deleteConversation(target.repoId, target.conversationId);
+      setConversationId(null);
+      setMessages(INITIAL_MESSAGES);
+      setDeleteChatTarget(null);
+      showToast('Chat and its saved messages deleted.', 'success');
+      // Deletion succeeds even if another global limit prevents a fresh chat.
+      try {
+        const fresh = await createConversation(repoId, 'New conversation');
+        setConversationId(fresh.id);
+      } catch (error) {
+        showToast(error.message || 'Use New chat to try starting again.', 'error');
+      }
+    } catch (error) {
+      showToast(error.message || 'Could not delete this chat.', 'error');
+    } finally {
+      setDeletingChat(false);
+      setLoadingConversation(false);
+    }
+  };
 
   if (loading) {
     return <LoadingState message="Connecting to codebase intelligence assistant..." fullPage />;
@@ -319,6 +355,15 @@ export default function QAPage() {
 
   return (
     <div className="cv-qa-page">
+      <ConfirmDialog
+        open={Boolean(deleteChatTarget)}
+        title="Delete this chat?"
+        message="Permanently delete this conversation and all its saved questions and answers? Other chats are kept."
+        confirmLabel="Delete chat"
+        loading={deletingChat}
+        onConfirm={handleDeleteChat}
+        onCancel={() => !deletingChat && setDeleteChatTarget(null)}
+      />
       {/* Top Header */}
       <header className="cv-qa-header">
         <div className="cv-qa-header__left">
@@ -397,11 +442,21 @@ export default function QAPage() {
           <Button
             variant="secondary"
             size="sm"
-            icon={<Trash2 size={14} />}
-            onClick={handleClearChat}
+            icon={<Plus size={14} />}
+            onClick={handleNewChat}
             disabled={isAsking || loadingConversation}
           >
-            Clear
+            New chat
+          </Button>
+
+          <Button
+            variant="danger"
+            size="sm"
+            icon={<Trash2 size={14} />}
+            onClick={() => setDeleteChatTarget({ repoId, conversationId })}
+            disabled={!conversationId || isAsking || loadingConversation}
+          >
+            Delete chat
           </Button>
 
           <Button

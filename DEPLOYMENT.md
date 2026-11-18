@@ -128,7 +128,13 @@ production domain only, not on Vercel preview URLs.
   keep `MAX_CONCURRENT_INDEXING=1`. The disk watchdog is not a strict filesystem quota, and parsing
   still uses memory in the API process. Strict aggregate disk isolation requires a host-configured quota.
 - **Neon storage** is limited (1 GB on the free plan at the time of writing; check Neon's current limits). Each
-  indexed repository stores its chunks and vectors.
+  indexed repository stores its chunks and vectors. Progress and chat data now have row caps and share
+  a 400 MiB application planning budget (`STORAGE_BUDGET_BYTES`) with indexed chunks. Pending answers
+  reserve their maximum configured payload before generation. Tune the `MAX_TASK_PROGRESS_*`,
+  `MAX_CONVERSATIONS_*`, `MAX_MESSAGES_*` and message-byte settings in `backend/.env.example` as needed.
+  No migration or automatic history purge is required. Existing over-limit data blocks growing writes,
+  not reads/deletions. This is not a physical database quota: leave headroom for indexes, other derived
+  tables and bloat, and monitor actual usage in Neon.
 
 ## Troubleshooting
 

@@ -26,6 +26,7 @@ from app.db.session import SessionLocal
 from app.models import Chunk, Edge, Explanation, File, Repository, Symbol, User
 from app.services.limits import storage_full_message, total_chunks
 from app.services.retrieval import PgHybridRetriever
+from app.services.storage import check_storage_budget, chunk_reservation_bytes, lock_storage
 
 log = logging.getLogger(__name__)
 
@@ -141,6 +142,12 @@ async def _save(
         "reused_chunks": reused_chunks if reused_chunks is not None else 0,
     }
     async with SessionLocal() as s, s.begin():
+        await lock_storage(s)
+        used_elsewhere = await total_chunks(s, exclude_repo_id=repo_id)
+        if used_elsewhere + len(a.chunks) > get_settings().max_total_chunks:
+            raise RuntimeError(storage_full_message(used_elsewhere, len(a.chunks)))
+        await check_storage_budget(s, sum(chunk_reservation_bytes(c.page_content) for c in a.chunks),
+                                   replace_chunk_repo=repo_id)
         for m in (Chunk, Edge, Symbol, File, Explanation):      # cached explanations describe the old code
             await s.execute(delete(m).where(m.repo_id == repo_id))
         safe = set(a.safe_files)
@@ -277,8 +284,10 @@ async def run_indexing(repo_id: int, access_token: str | None, *, llm, embedder)
         # This repository's own old chunks are excluded: a re-index replaces them.
         async with SessionLocal() as s:
             used_elsewhere = await total_chunks(s, exclude_repo_id=repo_id)
-        if used_elsewhere + len(a.chunks) > cfg.max_total_chunks:
-            raise RuntimeError(storage_full_message(used_elsewhere, len(a.chunks)))
+            if used_elsewhere + len(a.chunks) > cfg.max_total_chunks:
+                raise RuntimeError(storage_full_message(used_elsewhere, len(a.chunks)))
+            await check_storage_budget(s, sum(chunk_reservation_bytes(c.page_content) for c in a.chunks),
+                                       replace_chunk_repo=repo_id)
         await _update(repo_id, stage="embedding")
         texts = [embed_text(c) for c in a.chunks]
         embedder_key = f"{cfg.embed_backend}:{cfg.embed_model}:{cfg.embed_dim}"

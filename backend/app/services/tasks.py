@@ -7,9 +7,10 @@ import re
 from datetime import datetime, timezone
 from typing import List
 
+from fastapi import HTTPException
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,13 +23,16 @@ from ai_pipeline.onboarding_tasks import (
     ScoredIssue,
     assign_days,
     generated_tasks,
+    ineligible_reason,
     plain_summary,
     rank_issues,
 )
+from app.core.config import get_settings
 from app.models import Edge, File, Issue, IssueSync, Repository, TaskProgress
 from app.services.issues import sync_view
 from app.services.qa import LLMCallError
 from app.services.retrieval import hybrid_search
+from app.services.storage import PROGRESS_BYTES, check_storage_budget, lock_storage
 
 RELATED_PER_TASK = 3
 TASK_KEY_RE = r"^(issue-[0-9]{1,9}|gen-[a-z0-9]+(-[a-z0-9]+)*)$"     # also checked by the progress endpoint
@@ -91,11 +95,60 @@ async def load_progress(session: AsyncSession, user_id: int, repo_id: int) -> di
 
 
 async def save_progress(session: AsyncSession, user_id: int, repo_id: int, key: str, status: str) -> None:
-    """Insert or update one row. Concurrent clicks cannot create duplicates (unique key + ON CONFLICT)."""
+    """Validate a real task and bound new rows, including concurrent requests."""
+    await lock_storage(session)
+    repo = await session.get(Repository, repo_id)
+    if repo is None or repo.owner_id != user_id:
+        raise HTTPException(404, "Repository not found")
+    await _validate_task(session, repo, key)
+    match = (TaskProgress.user_id == user_id, TaskProgress.repo_id == repo_id, TaskProgress.task_key == key)
+    if status == "pending":  # Missing progress already means pending; resetting releases storage.
+        await session.execute(delete(TaskProgress).where(*match))
+        await session.commit()
+        return
+    existing = await session.scalar(select(TaskProgress.id).where(*match))
+    if existing is None:
+        cfg = get_settings()
+        count = await session.scalar(select(func.count()).select_from(TaskProgress).where(
+            TaskProgress.user_id == user_id, TaskProgress.repo_id == repo_id))
+        if count >= cfg.max_task_progress_per_repo:
+            raise HTTPException(403, "This repository's task-progress limit is reached. Reset progress to free space.")
+        total = await session.scalar(select(func.count()).select_from(TaskProgress))
+        if total >= cfg.max_total_task_progress:
+            raise HTTPException(503, "The server's task-progress storage is full.")
+        await check_storage_budget(session, PROGRESS_BYTES)
     stmt = pg_insert(TaskProgress).values(user_id=user_id, repo_id=repo_id, task_key=key, status=status)
     await session.execute(stmt.on_conflict_do_update(
         constraint="uq_task_progress_user_repo_key", set_={"status": status, "updated_at": func.now()}))
     await session.commit()
+
+
+def _issue_info(row: Issue) -> IssueInfo:
+    return IssueInfo(number=row.number, title=row.title, body=row.body, labels=list(row.labels or []), url=row.url,
+                     comments=row.comments, assignees=row.assignees, locked=row.locked, updated_at=row.gh_updated_at)
+
+
+async def _validate_task(session: AsyncSession, repo: Repository, key: str) -> None:
+    """No embeddings/LLM/network: accept a synced eligible issue or a real orientation task.
+
+    Orientation tasks remain valid even when a different plan limit hides them.
+    They are derived from the same repository data and generator as the plan.
+    """
+    if len(key) > TASK_KEY_MAX or re.fullmatch(TASK_KEY_RE, key) is None:
+        raise HTTPException(404, "Task not found")
+    if key.startswith("issue-"):
+        number = int(key.removeprefix("issue-"))
+        issue = await session.scalar(select(Issue).where(Issue.repo_id == repo.id, Issue.number == number))
+        if issue is not None and key == f"issue-{number}" and ineligible_reason(_issue_info(issue)) is None:
+            return
+    elif key.startswith("gen-"):
+        paths = (await session.execute(select(File.path).where(
+            File.repo_id == repo.id, File.sensitive.is_(False)).order_by(File.path))).scalars().all()
+        candidates = generated_tasks(repo.summary, repo.module_map, PathIndex(list(paths)),
+                                     await _top_imported(session, repo.id))
+        if key in {task_key({"source": "generated", "title": task["title"]}) for task in candidates}:
+            return
+    raise HTTPException(404, "Task not found in this repository's current onboarding data. Refresh the plan.")
 
 
 def _issue_task(sc: ScoredIssue, related: list[dict]) -> dict:
@@ -152,9 +205,7 @@ async def build_plan(session: AsyncSession, repo: Repository, embedder, *, limit
     now = now or datetime.now(timezone.utc)
     sync = sync_view(await session.get(IssueSync, repo.id))
     rows = (await session.execute(select(Issue).where(Issue.repo_id == repo.id))).scalars().all()
-    infos = [IssueInfo(number=r.number, title=r.title, body=r.body, labels=list(r.labels or []), url=r.url,
-                       comments=r.comments, assignees=r.assignees, locked=r.locked, updated_at=r.gh_updated_at)
-             for r in rows]
+    infos = [_issue_info(row) for row in rows]
     picked, eligible = rank_issues(infos, now, limit)
 
     paths = (await session.execute(select(File.path).where(File.repo_id == repo.id, File.sensitive.is_(False))

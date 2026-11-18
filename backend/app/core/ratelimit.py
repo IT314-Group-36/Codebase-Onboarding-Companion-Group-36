@@ -75,6 +75,11 @@ def enforce_read(user_id: int) -> None:
     _enforce(user_id, "read", [(get_settings().rate_limit_read_per_minute, 60)], "requests")
 
 
+def enforce_write(user_id: int) -> None:
+    """Small persisted writes must not bypass the request budgets."""
+    _enforce(user_id, "write", [(get_settings().rate_limit_write_per_minute, 60)], "storage writes")
+
+
 def enforce_index(user_id: int) -> None:
     """For requests that start background work: adding, re-indexing and syncing issues."""
     _enforce(user_id, "index", [(get_settings().rate_limit_index_per_hour, 3600)], "indexing requests")

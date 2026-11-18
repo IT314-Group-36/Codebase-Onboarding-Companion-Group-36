@@ -21,7 +21,7 @@ to connect repositories, explore files, view the dependency map, ask questions a
 | `/repository/:repoId` | Repository overview | `GET /repos/{id}` |
 | `/explorer/:repoId` | File explorer (symbols, imports) | `GET /repos/{id}/files`, `/files/{path}`, `/symbols` |
 | `/dependencies/:repoId` | Dependency map | `GET /repos/{id}/map`, `/impact` |
-| `/qa/:repoId` | Ask questions | `POST /repos/{id}/ask`, `/search` |
+| `/qa/:repoId` | Ask questions | `/ask/stream`, `/search`, conversation list/create/messages/delete |
 | `/onboarding/:repoId` | First-week tasks | `GET /repos/{id}/onboarding-tasks`, `PUT /repos/{id}/onboarding-tasks/{key}/progress`, `POST`/`GET /repos/{id}/issues/sync` |
 | `/settings` | Settings | `GET /auth/me`, `POST /auth/logout`; hidden repos stored in localStorage |
 
@@ -88,6 +88,15 @@ Run from `frontend/`.
 | `npm run preview` | Preview the production build |
 
 There is no frontend test suite yet; `npm run lint` and `npm run build` are the checks.
+
+### Chat storage controls
+
+**New chat** starts/reuses an empty conversation without deleting earlier history.
+**Delete chat** asks for confirmation, then permanently deletes the current conversation and its
+messages on the server. Quota errors are displayed as notifications; deletion is not reported as
+failed merely because the server cannot allocate a replacement chat. Older oversized saved messages
+are shown as marked bounded excerpts. Recent browser history is bounded before sending, while the
+backend uses its own bounded saved context. See `backend/README.md` for chat/progress caps and pagination.
 
 ## Backend connection
 

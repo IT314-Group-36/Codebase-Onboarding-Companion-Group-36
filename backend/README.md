@@ -58,9 +58,10 @@ Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv 
 | POST | `/repos/{id}/search` | hybrid retrieval, no LLM: `{query, k}` |
 | POST | `/repos/{id}/ask` | `{question, symbol?, file?, depth?}`: "what would break if I change X?" is answered from the import/call graphs; any other question is RAG with validated citations (see below) |
 | POST | `/repos/{id}/ask/stream` | `{question, conversation_id?, symbol?, file?, depth?}`: streams a grounded answer (Server-Sent Events: `conversation`, `sources`, `token`, `result`, `error`, `done`) and saves both messages. Earlier completed turns of the conversation (last 12) come from the database; a failed or interrupted answer is saved as `failed` and is not sent to the model again. Without `conversation_id` a new conversation is created |
-| GET | `/repos/{id}/conversations` | your saved conversations for this repository, most recently active first (the first question becomes the title) |
+| GET | `/repos/{id}/conversations` | your saved conversations, most recently active first; `limit=50` (max 100), `offset=0` |
 | POST | `/repos/{id}/conversations` | `{title?}`: start a conversation; while your newest one is still empty it is returned again instead of creating another |
-| GET | `/repos/{id}/conversations/{conversation_id}/messages` | the saved messages, in order, with `status` (`pending/completed/failed`) and citations |
+| GET | `/repos/{id}/conversations/{conversation_id}/messages` | latest `limit=100` messages (max 200), returned chronologically; `offset` pages backwards; bounded legacy excerpts have `truncated=true` |
+| DELETE | `/repos/{id}/conversations/{conversation_id}` | explicitly delete an owned chat and its messages; `409` while an answer is pending |
 | GET | `/repos/{id}/impact?symbol=\|file=&depth=&explain=` | "what breaks if I change this" (reverse traversal); same report the Ask box shows, with a call chain and a reason per item |
 
 Every `/repos` and `/github` route needs the session cookie (401 otherwise), and a user only ever sees their own
@@ -77,7 +78,7 @@ accessible with this GitHub account).
 |---|---|
 | `POST /repos/{id}/issues/sync` | Fetch beginner-friendly open issues from GitHub (background job); poll `GET` on the same path |
 | `GET /repos/{id}/onboarding-tasks` | The plan: issues (easiest first) plus orientation tasks when fewer than 3 issues suit a newcomer |
-| `PUT /repos/{id}/onboarding-tasks/{key}/progress` | Save the signed-in user's status for one task: `pending`, `in-progress` or `completed` |
+| `PUT /repos/{id}/onboarding-tasks/{key}/progress` | Save status for a real task in this user's ready repository; invented/ineligible keys return `404`; `pending` removes its progress row |
 
 Every task in the plan carries a stable `key` (`issue-<number>` or `gen-<slug>`) and the user's saved `status`
 (`pending` when nothing is saved). Progress lives in the `task_progress` table, one row per user, repository and
@@ -133,9 +134,16 @@ Set these in `backend/.env` (environment variables of the same name also work). 
 | `RATE_LIMIT_READ_PER_MINUTE` | `60` | `/search`, `/explain`, `/impact`, `/onboarding-tasks` per user |
 | `RATE_LIMIT_INDEX_PER_HOUR` | `10` | add, re-index and issue-sync requests per user |
 | `RATE_LIMIT_REFRESH_PER_HOUR` | `5` | extra `/explain?refresh=true` request budget; actual generation also consumes AI quota |
+| `RATE_LIMIT_WRITE_PER_MINUTE` | `60` | shared per-user budget for progress writes and chat create/delete |
 | `MAX_REPOS_PER_USER` | `5` | repositories one account can keep (`403` beyond that) |
 | `MAX_ACTIVE_JOBS_PER_USER` | `2` | repositories one account can have queued or indexing at once (`429`) |
 | `MAX_TOTAL_CHUNKS` | `60000` | code chunks stored for all users together (about 270 MB; keeps Neon's free tier from filling up) |
+| `MAX_TASK_PROGRESS_PER_REPO`, `MAX_TOTAL_TASK_PROGRESS` | `200`, `20000` | stored non-pending progress rows per owned repository / server |
+| `MAX_CONVERSATIONS_PER_REPO`, `MAX_CONVERSATIONS_PER_USER`, `MAX_TOTAL_CONVERSATIONS` | `20`, `100`, `5000` | conversation row caps; empty-chat reuse is still permitted |
+| `MAX_MESSAGES_PER_CONVERSATION`, `MAX_MESSAGES_PER_USER`, `MAX_TOTAL_MESSAGES` | `100`, `2000`, `20000` | message row caps, counting pending/failed messages; each turn needs two slots |
+| `MAX_MESSAGE_CONTENT_BYTES`, `MAX_MESSAGE_CITATIONS_BYTES` | `32000`, `8192` | persisted UTF-8 message/JSON citation payload bounds |
+| `CONVERSATION_STREAM_TIMEOUT_SECONDS` | `120` | wall-clock limit on the model's answer stream |
+| `STORAGE_BUDGET_BYTES`, `STORAGE_CHUNK_BYTES` | `419430400`, `6000` | shared 400 MiB planning budget; minimum estimated bytes per chunk |
 | `WORK_DIR` | `/tmp/onboarding_work` | where clones live during a job (deleted afterwards) |
 | `ALLOW_LOCAL_REPOS` | `false` | accept local directory paths instead of GitHub URLs (tests and demos only) |
 
@@ -351,14 +359,57 @@ Anyone with a GitHub account can sign in, so the free tiers behind the app (Gemi
 protected in two ways. Defaults are in `app/core/config.py`; every number can be changed with the variables above.
 
 - **Rate limits** (`app/core/ratelimit.py`): per user, sliding window, answered with `429` and a `Retry-After` header.
-  Four budgets: *llm* (`/ask`, `/ask/stream`, uncached/refreshed file or symbol explanation generation,
+  Five budgets: *llm* (`/ask`, `/ask/stream`, uncached/refreshed file or symbol explanation generation,
   and `explain=true` on `/impact` and `/onboarding-tasks`), *read*
   (`/search`, `/explain`, `/impact`, `/onboarding-tasks`), *index* (add, re-index, issue sync) and *refresh*
-  (`/explain?refresh=true`). The counters live in the API process. The app runs as one process, so they are exact;
+  (`/explain?refresh=true`), and *write* (task progress and chat create/delete). The counters live in the API process.
+  The app runs as one process, so they are exact;
   if you ever run several processes, each counts separately and the counters should move to Redis.
 - **Quotas** (`app/services/limits.py`): at most `MAX_REPOS_PER_USER` repositories and `MAX_ACTIVE_JOBS_PER_USER`
   queued/indexing repositories per account, and `MAX_TOTAL_CHUNKS` stored chunks across all users. A repository that
   would not fit fails during indexing, before any embedding call, so it spends no Cloudflare quota. Deleting a
   repository frees its share.
 
-The limits are safeguards, not exact accounting: two simultaneous requests can overshoot a quota by one.
+### Progress and conversation storage
+
+Progress keys must identify either a synced eligible issue in that repository or an orientation task
+derived from its current indexed data. Validation does not call embeddings, GitHub or the LLM.
+Orientation tasks remain valid if a different plan limit hides them. Invented keys cannot allocate
+rows. Setting status to `pending` deletes the row (absence already means pending); updates to existing
+valid rows still work when row capacity is full.
+
+Chat and progress row caps and their storage reservations are checked in a short transaction protected
+by a shared PostgreSQL advisory lock. This also covers the final indexing swap, so concurrent writers
+cannot separately reserve the same remaining capacity. Repository registration/queue quotas retain
+their existing best-effort checks. No storage lock is held while waiting for an embedding or LLM call.
+
+Before streaming starts, the server reserves BOTH a question row and a pending-answer row, plus a
+conversation slot when needed. Every message reserves its full configured content/citation allowance,
+including failed/pending rows. Answers are stopped at their UTF-8 byte cap or stream timeout and marked
+failed, never silently marked complete after truncation. Citation paths are not cut into invented paths.
+Only 24 recent message rows are read to assemble the last 12 completed context messages.
+
+The shared planning estimate includes:
+- chunks: at least `STORAGE_CHUNK_BYTES`, or UTF-8 content + vector bytes + 1 KiB allowance, whichever is larger;
+- task progress: 1 KiB per row;
+- conversations: 2 KiB per row;
+- messages: content/citation caps + 1 KiB per row, or the larger actual payload for legacy records.
+
+The shared budget may be reached before any individual row cap. It is checked before embedding and
+rechecked at the atomic save. Reindexing replaces, rather than double-counts, its previous chunks.
+Non-growing updates and deletions remain allowed when a configured budget is lowered.
+
+Per-account/owned-repository caps return `403`; global row/planning-budget exhaustion returns `503`;
+write-rate exhaustion returns `429` with `Retry-After`. An oversized question returns `413` before
+allocating rows. Users can explicitly delete chats (with message cascade), delete an indexed repository,
+or reset progress to free application capacity. The UI distinguishes **New chat** (keeps earlier chats)
+from confirmed **Delete chat**. On single-process API startup, interrupted pending answers become failed,
+so they do not permanently prevent chat deletion.
+
+**Existing data is not automatically deleted or rewritten.** Larger legacy payloads are counted in
+planning and returned as bounded, marked excerpts. Old invented progress rows are included in caps;
+an administrator may review them manually, or the owner can remove the repository and its derived data.
+
+This estimate is **not a physical PostgreSQL/Neon disk quota**. Other derived tables, indexes, WAL,
+backups and database bloat still need headroom and monitoring in Neon. Deleting rows releases logical
+capacity immediately, but does not guarantee an immediate reduction in physical database size.

@@ -501,6 +501,14 @@ export async function createConversation(repoId, title = 'New conversation') {
   });
 }
 
+/** Explicitly remove one owned chat and its persisted messages. */
+export async function deleteConversation(repoId, conversationId) {
+  return request(
+    `/repos/${encodeURIComponent(repoId)}/conversations/${encodeURIComponent(conversationId)}`,
+    { method: 'DELETE' }
+  );
+}
+
 export async function getConversationMessages(repoId, conversationId) {
   return request(
     `/repos/${encodeURIComponent(repoId)}/conversations/${encodeURIComponent(conversationId)}/messages`
@@ -565,7 +573,10 @@ export async function askCodebaseQuestionStream(
    body: JSON.stringify({
   question,
   ...hints,
-  history: history.slice(-12),
+   history: history.slice(-12).map((turn) => ({
+     role: turn.role,
+     content: Array.from(turn.content).slice(0, 4000).join(''),
+   })),
   conversation_id: conversationId,
 }),
   });

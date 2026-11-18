@@ -5,7 +5,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from sqlalchemy import exists, func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ai_pipeline.graph import module_graph
@@ -23,6 +23,7 @@ from app.api.deps import (
     limit_index,
     limit_llm,
     limit_read,
+    limit_write,
 )
 from app.api.github import to_http
 from app.core.config import get_settings
@@ -51,6 +52,15 @@ from app.schemas import (
     SearchIn,
     SymbolOut,
 )
+from app.services.conversations import (
+    DEFAULT_TITLE,
+    bounded_citations,
+    bounded_text,
+    create_chat,
+    delete_chat,
+    message_page,
+    reserve_turn,
+)
 from app.services.explain import TargetError, enrich_modules, explain_target
 from app.services.github import GitHubClient, GitHubError, github_full_name, user_github_token
 from app.services.graph_service import find_symbols, load_graphs
@@ -62,7 +72,6 @@ from app.services.retrieval import PgHybridRetriever, doc_to_hit
 router = APIRouter(prefix="/repos", tags=["repos"])
 
 MAX_SOURCE_BYTES = 500_000       # largest file the browser source viewer will show
-DEFAULT_CONVERSATION_TITLE = "New conversation"
 
 
 def _completed_turns(rows: list[ConversationMessage]) -> list[ConversationMessage]:
@@ -114,6 +123,8 @@ async def register_repo(body: RepoCreate, user: User = Depends(limit_index),
     response_model=list[ConversationOut],
 )
 async def list_conversations(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     repo: Repository = Depends(get_ready_user_repo),
     session: AsyncSession = Depends(get_session),
 ):
@@ -125,6 +136,7 @@ async def list_conversations(
             Conversation.user_id == repo.owner_id,
         )
         .order_by(Conversation.updated_at.desc(), Conversation.id.desc())
+        .limit(limit).offset(offset)
     )
     return result.scalars().all()
 
@@ -138,38 +150,21 @@ async def create_conversation(
     body: ConversationCreate | None = None,
     repo: Repository = Depends(get_ready_user_repo),
     session: AsyncSession = Depends(get_session),
+    _user: User = Depends(limit_write),
 ):
     """Create a conversation for the signed-in repository owner."""
-    title = body.title.strip() if body and body.title.strip() else DEFAULT_CONVERSATION_TITLE
+    title = body.title.strip() if body and body.title.strip() else DEFAULT_TITLE
+    return await create_chat(session, repo, title)
 
-    # Reuse the newest conversation if it is still empty, so clicking "Clear" repeatedly (or the page loading
-    # twice) does not pile up empty conversations.
-    empty = await session.scalar(
-        select(Conversation)
-        .where(
-            Conversation.repo_id == repo.id,
-            Conversation.user_id == repo.owner_id,
-            ~exists().where(ConversationMessage.conversation_id == Conversation.id),
-        )
-        .order_by(Conversation.id.desc())
-        .limit(1)
-    )
-    if empty is not None:
-        if title != DEFAULT_CONVERSATION_TITLE:
-            empty.title = title
-            await session.commit()
-            await session.refresh(empty)       # updated_at is set by the database; async cannot lazy-load it
-        return empty
 
-    conversation = Conversation(
-        user_id=repo.owner_id,
-        repo_id=repo.id,
-        title=title,
-    )
-    session.add(conversation)
-    await session.commit()
-    await session.refresh(conversation)
-    return conversation
+@router.delete("/{repo_id}/conversations/{conversation_id}", status_code=204)
+async def delete_conversation(
+    conversation_id: int, repo: Repository = Depends(get_user_repo),
+    session: AsyncSession = Depends(get_session), _user: User = Depends(limit_write),
+):
+    """Explicitly delete one owned chat and all its messages, freeing storage."""
+    await delete_chat(session, repo, conversation_id)
+    return Response(status_code=204)
 
 
 @router.post("/{repo_id}/ask/stream")
@@ -182,6 +177,11 @@ async def ask_stream(
     _user: User = Depends(limit_llm),
 ):
     """Stream grounded answers and persist conversation history."""
+    cfg = get_settings()
+    conversation, user_message, assistant_message, previous = await reserve_turn(
+        session, repo, body.question, body.conversation_id,
+    )
+    previous_messages = _completed_turns(previous)
     try:
         impact_answer = await answer_impact_question(
             session,
@@ -194,57 +194,17 @@ async def ask_stream(
             llm=llm,
         )
     except TargetError as e:
+        assistant_message.status = "failed"
+        assistant_message.content = bounded_text(str(e.detail), cfg.max_message_content_bytes)
+        await session.commit()
         raise HTTPException(e.status, e.detail) from e
-
-    # Load an existing conversation or create a new one.
-    if body.conversation_id is not None:
-        conversation = await session.scalar(
-            select(Conversation).where(
-                Conversation.id == body.conversation_id,
-                Conversation.repo_id == repo.id,
-                Conversation.user_id == repo.owner_id,
-            )
-        )
-        if conversation is None:
-            raise HTTPException(404, "Conversation not found")
-    else:
-        conversation = Conversation(
-            user_id=repo.owner_id,
-            repo_id=repo.id,
-            title=body.question.strip()[:200] or DEFAULT_CONVERSATION_TITLE,
-        )
-        session.add(conversation)
-        await session.flush()
-
-    # Retrieve previous messages from the database, not browser history.
-    previous = await session.execute(
-        select(ConversationMessage)
-        .where(ConversationMessage.conversation_id == conversation.id)
-        .order_by(ConversationMessage.created_at, ConversationMessage.id)
-    )
-    previous_messages = _completed_turns(list(previous.scalars().all()))
-
-    # Newest activity first in the conversation list; the first question names a still-untitled conversation.
-    conversation.updated_at = func.now()
-    if conversation.title == DEFAULT_CONVERSATION_TITLE and not previous_messages:
-        conversation.title = body.question.strip()[:200] or DEFAULT_CONVERSATION_TITLE
-
-    # Persist the user's question and a pending assistant response.
-    user_message = ConversationMessage(
-        conversation_id=conversation.id,
-        role="user",
-        content=body.question,
-        status="completed",
-    )
-    assistant_message = ConversationMessage(
-        conversation_id=conversation.id,
-        role="assistant",
-        content="",
-        status="pending",
-    )
-    session.add_all([user_message, assistant_message])
+    except Exception:
+        assistant_message.status = "failed"
+        assistant_message.content = bounded_text("The answer could not be prepared.", cfg.max_message_content_bytes)
+        await session.commit()
+        raise
+    # Release read transactions too: no storage lock/connection is held during streaming.
     await session.commit()
-    await session.refresh(assistant_message)
 
     async def events():
         yield "data: " + json.dumps({
@@ -263,6 +223,10 @@ async def ask_stream(
                     or impact_answer.get("explanation")
                     or json.dumps(impact_answer)
                 )
+                if len(answer_text.encode("utf-8")) > cfg.max_message_content_bytes:
+                    answer_text = bounded_text(answer_text, cfg.max_message_content_bytes)
+                    raise RuntimeError("The answer exceeded the message storage byte limit.")
+                impact_answer["citations"] = bounded_citations(impact_answer.get("citations", []))
                 assistant_message.content = answer_text
                 assistant_message.status = "completed"
                 assistant_message.citations = impact_answer.get("citations", [])
@@ -276,7 +240,7 @@ async def ask_stream(
                 return
 
             if llm is None:
-                assistant_message.content = "LLM is not configured."
+                assistant_message.content = bounded_text("LLM is not configured.", cfg.max_message_content_bytes)
                 assistant_message.status = "failed"
                 await session.commit()
                 yield "data: " + json.dumps({
@@ -292,7 +256,7 @@ async def ask_stream(
             ).ainvoke(body.question)
 
             if not docs:
-                answer_text = "No indexed code matched this question."
+                answer_text = bounded_text("No indexed code matched this question.", cfg.max_message_content_bytes)
                 assistant_message.content = answer_text
                 assistant_message.status = "completed"
                 assistant_message.citations = []
@@ -337,14 +301,15 @@ async def ask_stream(
                 )
             )
 
-            citations = [
+            citations = bounded_citations([
                 {
                     "path": d.metadata["file_path"],
                     "start_line": d.metadata["start_line"],
                     "end_line": d.metadata["end_line"],
                 }
                 for d in docs
-            ]
+            ])
+            assistant_message.citations = citations
             sources = [
                 {
                     k: d.metadata[k]
@@ -365,14 +330,20 @@ async def ask_stream(
                 "sources": sources,
             }) + "\n\n"
 
-            async for chunk in llm.astream(messages):
-                content = getattr(chunk, "content", "")
-                if isinstance(content, str) and content:
-                    answer_text += content
-                    yield "data: " + json.dumps({
-                        "type": "token",
-                        "text": content,
-                    }) + "\n\n"
+            answer_bytes = 0
+            async with asyncio.timeout(cfg.conversation_stream_timeout_seconds):
+                async for chunk in llm.astream(messages):
+                    content = getattr(chunk, "content", "")
+                    if isinstance(content, str) and content:
+                        raw = content.encode("utf-8")
+                        remaining = cfg.max_message_content_bytes - answer_bytes
+                        piece = raw[:remaining].decode("utf-8", errors="ignore")
+                        answer_text += piece
+                        answer_bytes += len(piece.encode("utf-8"))
+                        if piece:
+                            yield "data: " + json.dumps({"type": "token", "text": piece}) + "\n\n"
+                        if len(raw) > remaining:
+                            raise RuntimeError("The answer exceeded the message storage byte limit.")
 
             assistant_message.content = answer_text
             assistant_message.status = "completed"
@@ -386,9 +357,10 @@ async def ask_stream(
             assistant_message.status = "failed"
             await session.commit()
 
+            detail = "The answer timed out; please try again." if isinstance(e, TimeoutError) else str(e)[:240]
             yield "data: " + json.dumps({
                 "type": "error",
-                "message": f"The streamed answer failed: {str(e)[:240]}",
+                "message": f"The streamed answer failed: {detail}",
             }) + "\n\n"
 
         finally:
@@ -417,6 +389,8 @@ async def ask_stream(
 )
 async def get_conversation_messages(
     conversation_id: int,
+    limit: int = Query(100, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     repo: Repository = Depends(get_ready_user_repo),
     session: AsyncSession = Depends(get_session),
 ):
@@ -431,12 +405,7 @@ async def get_conversation_messages(
     if conversation is None:
         raise HTTPException(404, "Conversation not found")
 
-    result = await session.execute(
-        select(ConversationMessage)
-        .where(ConversationMessage.conversation_id == conversation.id)
-        .order_by(ConversationMessage.created_at, ConversationMessage.id)
-    )
-    return result.scalars().all()
+    return await message_page(session, conversation.id, limit, offset)
 @router.get("", response_model=list[RepoOut])
 async def list_repos(user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
     return (await session.execute(
