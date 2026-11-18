@@ -65,7 +65,7 @@ def _enforce(user_id: int, bucket: str, rules: list[Rule], what: str) -> None:
 
 
 def enforce_llm(user_id: int) -> None:
-    """For requests that call the LLM (and so spend Gemini quota)."""
+    """Shared AI budget, including explanation cache misses/refreshes before generation."""
     s = get_settings()
     _enforce(user_id, "llm", [(s.rate_limit_llm_per_minute, 60), (s.rate_limit_llm_per_hour, 3600)], "AI requests")
 

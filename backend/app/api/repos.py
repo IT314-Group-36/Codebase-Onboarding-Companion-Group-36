@@ -544,10 +544,10 @@ async def explain(file: str | None = None, symbol: str | None = None, refresh: b
     ("uses X, used by Y"). Relationships always come back; the prose needs an LLM key and is cached per repo."""
     if bool(file) == bool(symbol):
         raise HTTPException(422, "Provide exactly one of ?file=<path> or ?symbol=<uid or name>")
-    if refresh:                                    # always a new LLM call, so it has its own small budget
+    if refresh:                                    # extra refresh-request budget, in addition to generation's AI quota
         enforce_refresh(user.id)
     try:
-        return await explain_target(session, repo, llm, file=file, symbol=symbol, refresh=refresh)
+        return await explain_target(session, repo, llm, user_id=user.id, file=file, symbol=symbol, refresh=refresh)
     except TargetError as e:
         raise HTTPException(e.status, e.detail) from e
     except LLMCallError as e:
