@@ -557,28 +557,24 @@ export async function askCodebaseQuestion(repoId, question, hints = {}) {
   };
 }
 
-/** Streams a grounded answer and sends the recent conversation turns to the backend. */
+/** Stream an answer using server-owned history identified by conversationId. */
 export async function askCodebaseQuestionStream(
   repoId,
   question,
   hints = {},
-  history = [],
   onEvent,
   conversationId = null
 ) {
+  const body = { question, conversation_id: conversationId };
+  // Only supported target hints belong in the payload, never browser history.
+  for (const key of ['symbol', 'file', 'depth']) {
+    if (hints?.[key] != null) body[key] = hints[key];
+  }
   const response = await fetch(`${BASE_URL}/repos/${encodeURIComponent(repoId)}/ask/stream`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-   body: JSON.stringify({
-  question,
-  ...hints,
-   history: history.slice(-12).map((turn) => ({
-     role: turn.role,
-     content: Array.from(turn.content).slice(0, 4000).join(''),
-   })),
-  conversation_id: conversationId,
-}),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     const error = await parseError(response);
