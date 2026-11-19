@@ -86,7 +86,7 @@ export default function RepoOverviewPage() {
   };
 
   // Dark Aurora accent palette for language distribution bar (warm amber, soft blue, electric blue, slate)
-  const warmLangColors = ['#F5A524', '#4C9AFF', '#1F6FEB', '#C4845C', '#7B96B2'];
+  const warmLangColors = ['#DB5227', '#9AA9B8', '#76828E', '#C4845C', '#7B96B2'];
 
   const importantFilesList = useMemo(() => {
     if (!repo) return [];

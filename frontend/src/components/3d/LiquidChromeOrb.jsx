@@ -134,13 +134,13 @@ const FS_SOURCE = `
       // Fresnel rim reflection
       float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 3.0);
 
-      // Base dark aurora liquid metal: Electric Blue key illumination (#1F6FEB), Soft Blue highlights
-      vec3 baseMetal = vec3(0.40, 0.55, 0.75) * (diff * 0.5 + 0.28);
-      baseMetal += vec3(0.85, 0.92, 1.0) * spec * 0.95;
-      baseMetal += vec3(0.19, 0.37, 0.60) * envReflection;
+      // Base dark aurora liquid metal: Electric Blue key illumination (#76828E), Soft Blue highlights
+      vec3 baseMetal = vec3(0.46, 0.51, 0.56) * (diff * 0.5 + 0.28);
+      baseMetal += vec3(0.94, 0.96, 0.97) * spec * 0.95;
+      baseMetal += vec3(0.01, 0.21, 0.38) * envReflection;
 
-      // Warm Amber glow on rim & secondary reflection (#F5A524)
-      vec3 amberRimColor = vec3(0.65, 0.42, 0.26); // #F5A524
+      // Warm Amber glow on rim & secondary reflection (#DB5227)
+      vec3 amberRimColor = vec3(0.70, 0.28, 0.14); // #DB5227
       float amberRimStrength = fresnel * 0.75 + max(dot(normal, amberLightDir), 0.0) * 0.25;
 
       vec3 finalColor = mix(baseMetal, amberRimColor, amberRimStrength * 0.65);

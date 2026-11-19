@@ -1,16 +1,16 @@
 /* ===================================================
    CODEVERSE — Topbar Component (Dark Aurora UI)
-   - Background: rgba(7, 18, 38, 0.78)
-   - Border: rgba(76, 154, 255, 0.16)
-   - Accent: Warm Amber #F5A524 & Soft Blue #4C9AFF
+   - Background: rgba(10, 22, 36, 0.78)
+   - Border: rgba(118, 130, 142, 0.16)
+   - Accent: Warm Amber #DB5227 & Soft Blue #9AA9B8
    =================================================== */
 
 .cv-topbar {
   height: var(--topbar-height);
-  background-color: rgba(7, 18, 38, 0.78);
+  background-color: rgba(10, 22, 36, 0.78);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(76, 154, 255, 0.16);
+  border-bottom: 1px solid rgba(118, 130, 142, 0.16);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -18,7 +18,7 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  box-shadow: 0 2px 14px rgba(2, 6, 15, 0.5);
+  box-shadow: 0 2px 14px rgba(10, 12, 18, 0.5);
 }
 
 .cv-topbar__left {
@@ -30,14 +30,14 @@
 .cv-topbar__menu-toggle {
   display: none;
   padding: 6px;
-  color: #9AA7BD;
+  color: #A9B4BF;
   border-radius: var(--radius-xs);
   transition: all var(--duration-fast) var(--ease-default);
 }
 
 .cv-topbar__menu-toggle:hover {
   color: #FFFFFF;
-  background-color: rgba(31, 111, 235, 0.15);
+  background-color: rgba(2, 54, 97, 0.15);
 }
 
 /* Breadcrumbs */
@@ -53,13 +53,13 @@
 }
 
 .cv-topbar__crumb-sep {
-  color: #B8C3D6;
+  color: #B9C2CB;
   margin: 0 6px;
   opacity: 0.6;
 }
 
 .cv-topbar__crumb-link {
-  color: #9AA7BD;
+  color: #A9B4BF;
   text-decoration: none;
   transition: color var(--duration-fast) var(--ease-default);
 }
@@ -87,9 +87,9 @@
   gap: 5px;
   padding: 3px 9px;
   border-radius: var(--radius-full);
-  background: rgba(245, 165, 36, 0.14);
-  border: 1px solid rgba(245, 165, 36, 0.35);
-  color: #F5A524;
+  background: rgba(219, 82, 39, 0.14);
+  border: 1px solid rgba(219, 82, 39, 0.35);
+  color: #DB5227;
   font-size: 0.7rem;
   font-family: var(--font-mono);
   font-weight: 600;
@@ -104,7 +104,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #9AA7BD;
+  color: #A9B4BF;
   position: relative;
   transition: all var(--duration-fast) var(--ease-default);
   border: 1px solid transparent;
@@ -112,8 +112,8 @@
 
 .cv-topbar__icon-btn:hover {
   color: #FFFFFF;
-  background-color: rgba(31, 111, 235, 0.15);
-  border-color: rgba(76, 154, 255, 0.20);
+  background-color: rgba(2, 54, 97, 0.15);
+  border-color: rgba(118, 130, 142, 0.20);
 }
 
 .cv-topbar__notif-dot {
@@ -123,8 +123,8 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #F5A524;
-  box-shadow: 0 0 6px #F5A524;
+  background-color: #DB5227;
+  box-shadow: 0 0 6px #DB5227;
 }
 
 /* User Avatar & Button */
@@ -134,29 +134,29 @@
   gap: 9px;
   padding: 3px 9px 3px 4px;
   border-radius: var(--radius-full);
-  background-color: rgba(11, 26, 51, 0.7);
-  border: 1px solid rgba(76, 154, 255, 0.20);
+  background-color: rgba(14, 32, 52, 0.7);
+  border: 1px solid rgba(118, 130, 142, 0.20);
   transition: all var(--duration-fast) var(--ease-default);
 }
 
 .cv-topbar__user-btn:hover {
-  border-color: rgba(31, 111, 235, 0.45);
-  background-color: rgba(11, 26, 51, 0.9);
-  box-shadow: 0 0 12px rgba(31, 111, 235, 0.25);
+  border-color: rgba(2, 54, 97, 0.45);
+  background-color: rgba(14, 32, 52, 0.9);
+  box-shadow: 0 0 12px rgba(2, 54, 97, 0.25);
 }
 
 .cv-topbar__user-avatar {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0E2E66 0%, #1F6FEB 100%);
+  background: linear-gradient(135deg, #023661 0%, #76828E 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #FFFFFF;
   font-size: 0.72rem;
   font-weight: 700;
-  border: 1px solid rgba(76, 154, 255, 0.3);
+  border: 1px solid rgba(118, 130, 142, 0.3);
 }
 
 .cv-topbar__user-name {
@@ -171,11 +171,11 @@
   top: calc(100% + 6px);
   right: 20px;
   width: 250px;
-  background-color: #071226;
-  border: 1px solid rgba(76, 154, 255, 0.24);
+  background-color: #0A1624;
+  border: 1px solid rgba(118, 130, 142, 0.24);
   border-radius: var(--radius-md);
   padding: 6px;
-  box-shadow: 0 12px 36px rgba(2, 6, 15, 0.85), 0 0 16px rgba(31, 111, 235, 0.20);
+  box-shadow: 0 12px 36px rgba(10, 12, 18, 0.85), 0 0 16px rgba(2, 54, 97, 0.20);
   z-index: 100;
   animation: cvMenuFade 150ms var(--ease-default);
 }
@@ -193,7 +193,7 @@
 
 .cv-topbar__dropdown-head {
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(76, 154, 255, 0.14);
+  border-bottom: 1px solid rgba(118, 130, 142, 0.14);
   margin-bottom: 4px;
 }
 
@@ -205,7 +205,7 @@
 
 .cv-topbar__dropdown-desc {
   font-size: 0.7rem;
-  color: #9AA7BD;
+  color: #A9B4BF;
 }
 
 .cv-topbar__dropdown-item {
@@ -223,7 +223,7 @@
 
 .cv-topbar__dropdown-item:hover {
   color: #FFFFFF;
-  background-color: rgba(31, 111, 235, 0.16);
+  background-color: rgba(2, 54, 97, 0.16);
 }
 
 .cv-topbar__dropdown-item--danger:hover {
@@ -244,8 +244,8 @@
   gap: 10px;
   padding: 3px 12px 3px 4px;
   border-radius: var(--radius-full);
-  background-color: rgba(11, 26, 51, 0.7);
-  border: 1px solid rgba(76, 154, 255, 0.20);
+  background-color: rgba(14, 32, 52, 0.7);
+  border: 1px solid rgba(118, 130, 142, 0.20);
   color: #FFFFFF;
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-default);
@@ -253,23 +253,23 @@
 
 .cv-topbar__profile-btn:hover,
 .cv-topbar__profile-btn[aria-expanded='true'] {
-  border-color: rgba(31, 111, 235, 0.45);
-  background-color: rgba(11, 26, 51, 0.9);
-  box-shadow: 0 0 12px rgba(31, 111, 235, 0.25);
+  border-color: rgba(2, 54, 97, 0.45);
+  background-color: rgba(14, 32, 52, 0.9);
+  box-shadow: 0 0 12px rgba(2, 54, 97, 0.25);
 }
 
 .cv-topbar__avatar {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0E2E66 0%, #1F6FEB 100%);
+  background: linear-gradient(135deg, #023661 0%, #76828E 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #FFFFFF;
   font-size: 0.72rem;
   font-weight: 700;
-  border: 1px solid rgba(76, 154, 255, 0.3);
+  border: 1px solid rgba(118, 130, 142, 0.3);
   flex-shrink: 0;
 }
 
@@ -283,7 +283,7 @@
 
 .cv-topbar__user-handle {
   font-size: 0.7rem;
-  color: #9AA7BD;
+  color: #A9B4BF;
 }
 
 @media (max-width: 640px) {
@@ -311,7 +311,7 @@
 
 .cv-topbar__profile-email {
   font-size: 0.75rem;
-  color: #9AA7BD;
+  color: #A9B4BF;
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -321,9 +321,9 @@
   margin-top: 6px;
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  background-color: rgba(31, 111, 235, 0.15);
-  border: 1px solid rgba(76, 154, 255, 0.25);
-  color: #4C9AFF;
+  background-color: rgba(2, 54, 97, 0.15);
+  border: 1px solid rgba(118, 130, 142, 0.25);
+  color: #9AA9B8;
   font-size: 0.72rem;
   font-family: var(--font-mono);
 }
@@ -331,7 +331,7 @@
 .cv-topbar__dropdown-divider {
   height: 1px;
   margin: 4px 0;
-  background-color: rgba(76, 154, 255, 0.14);
+  background-color: rgba(118, 130, 142, 0.14);
 }
 
 .cv-topbar__menu-item {
@@ -341,7 +341,7 @@
   width: 100%;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
-  color: #B8C3D6;
+  color: #B9C2CB;
   font-size: 0.82rem;
   text-align: left;
   cursor: pointer;
@@ -350,7 +350,7 @@
 
 .cv-topbar__menu-item:hover {
   color: #FFFFFF;
-  background-color: rgba(31, 111, 235, 0.15);
+  background-color: rgba(2, 54, 97, 0.15);
 }
 
 .cv-topbar__menu-item--danger:hover {

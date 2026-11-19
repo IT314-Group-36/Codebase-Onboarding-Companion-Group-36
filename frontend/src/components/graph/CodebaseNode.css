@@ -6,10 +6,10 @@
   width: 240px;
   height: 82px;
   box-sizing: border-box;
-  background: rgba(7, 18, 38, 0.88);
+  background: rgba(10, 22, 36, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(76, 154, 255, 0.2);
+  border: 1px solid rgba(118, 130, 142, 0.2);
   border-radius: var(--radius-sm);
   padding: 9px 13px;
   display: flex;
@@ -18,34 +18,34 @@
   position: relative;
   cursor: pointer;
   user-select: none;
-  box-shadow: 0 4px 16px rgba(2, 6, 15, 0.7);
+  box-shadow: 0 4px 16px rgba(10, 12, 18, 0.7);
   transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cv-node-card:hover {
-  background: rgba(11, 26, 51, 0.95);
-  border-color: rgba(31, 111, 235, 0.55);
+  background: rgba(14, 32, 52, 0.95);
+  border-color: rgba(2, 54, 97, 0.55);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(2, 6, 15, 0.8), 0 0 16px rgba(31, 111, 235, 0.22);
+  box-shadow: 0 8px 24px rgba(10, 12, 18, 0.8), 0 0 16px rgba(2, 54, 97, 0.22);
 }
 
-/* Selected state: Warm Amber (#F5A524) with restrained glow */
+/* Selected state: Warm Amber (#DB5227) with restrained glow */
 .cv-node-card--selected {
-  border-color: #F5A524 !important;
+  border-color: #DB5227 !important;
   border-width: 1.5px;
   background: rgba(20, 28, 42, 0.98) !important;
-  box-shadow: 0 0 20px rgba(245, 165, 36, 0.35), 0 8px 24px rgba(2, 6, 15, 0.8) !important;
+  box-shadow: 0 0 20px rgba(219, 82, 39, 0.35), 0 8px 24px rgba(10, 12, 18, 0.8) !important;
 }
 
 /* Search match state */
 .cv-node-card--search-match {
-  outline: 2px solid #F5A524;
+  outline: 2px solid #DB5227;
   outline-offset: 2px;
 }
 
 /* Root entrypoint node subtle distinct indicator */
 .cv-node-card--root {
-  border-left: 3px solid #1F6FEB;
+  border-left: 3px solid #76828E;
 }
 
 /* Dimmed node when layer filter doesn't match */
@@ -70,16 +70,16 @@
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #4C9AFF;
+  color: #9AA9B8;
 }
 
 .cv-node-type-icon {
-  color: #4C9AFF;
+  color: #9AA9B8;
   flex-shrink: 0;
 }
 
 .cv-node-card--selected .cv-node-type-icon {
-  color: #F5A524;
+  color: #DB5227;
 }
 
 .cv-node-card__type-text {
@@ -98,29 +98,29 @@
   font-family: var(--font-mono);
   font-weight: 700;
   cursor: pointer;
-  border: 1px solid rgba(76, 154, 255, 0.22);
-  background-color: rgba(11, 26, 51, 0.7);
-  color: #4C9AFF;
+  border: 1px solid rgba(118, 130, 142, 0.22);
+  background-color: rgba(14, 32, 52, 0.7);
+  color: #9AA9B8;
   transition: all 140ms ease;
   line-height: 1;
 }
 
 .cv-node-expand-btn:hover {
-  border-color: #F5A524;
-  color: #F5A524;
-  background-color: rgba(245, 165, 36, 0.14);
+  border-color: #DB5227;
+  color: #DB5227;
+  background-color: rgba(219, 82, 39, 0.14);
 }
 
 .cv-node-expand-btn--collapsed {
-  border-color: rgba(245, 165, 36, 0.4);
-  color: #F5A524;
-  background-color: rgba(245, 165, 36, 0.1);
+  border-color: rgba(219, 82, 39, 0.4);
+  color: #DB5227;
+  background-color: rgba(219, 82, 39, 0.1);
 }
 
 .cv-node-expand-btn--expanded {
-  border-color: rgba(76, 154, 255, 0.25);
+  border-color: rgba(118, 130, 142, 0.25);
   color: var(--text-muted);
-  background-color: rgba(11, 26, 51, 0.8);
+  background-color: rgba(14, 32, 52, 0.8);
 }
 
 /* Primary Module Name */
@@ -154,7 +154,7 @@
   font-size: 0.64rem;
   font-family: var(--font-mono);
   color: var(--text-secondary);
-  border-top: 1px solid rgba(76, 154, 255, 0.14);
+  border-top: 1px solid rgba(118, 130, 142, 0.14);
   padding-top: 4px;
 }
 
@@ -167,8 +167,8 @@
   width: 8px !important;
   height: 8px !important;
   border-radius: 50% !important;
-  background-color: rgba(76, 154, 255, 0.35) !important;
-  border: 1px solid #071226 !important;
+  background-color: rgba(118, 130, 142, 0.35) !important;
+  border: 1px solid #0A1624 !important;
   transition: all 150ms ease;
 }
 
@@ -182,7 +182,7 @@
 
 .cv-node-card:hover .cv-node-handle,
 .cv-node-card--selected .cv-node-handle {
-  background-color: #F5A524 !important;
+  background-color: #DB5227 !important;
   transform: scale(1.25);
-  box-shadow: 0 0 8px rgba(245, 165, 36, 0.6);
+  box-shadow: 0 0 8px rgba(219, 82, 39, 0.6);
 }

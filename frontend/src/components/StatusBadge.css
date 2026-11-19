@@ -30,15 +30,15 @@
 }
 
 .cv-badge--analyzing {
-  background-color: rgba(245, 165, 36, 0.14);
-  color: #F5A524;
-  border-color: rgba(245, 165, 36, 0.35);
+  background-color: rgba(219, 82, 39, 0.14);
+  color: #DB5227;
+  border-color: rgba(219, 82, 39, 0.35);
 }
 
 .cv-badge--connected {
-  background-color: rgba(31, 111, 235, 0.14);
-  color: #4C9AFF;
-  border-color: rgba(76, 154, 255, 0.25);
+  background-color: rgba(2, 54, 97, 0.14);
+  color: #9AA9B8;
+  border-color: rgba(118, 130, 142, 0.25);
 }
 
 .cv-badge--error {
@@ -49,15 +49,15 @@
 
 .cv-badge--pending {
   background-color: rgba(133, 139, 152, 0.12);
-  color: #9AA7BD;
-  border-color: rgba(76, 154, 255, 0.18);
+  color: #A9B4BF;
+  border-color: rgba(118, 130, 142, 0.18);
 }
 
 .cv-badge__pulse {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background-color: #F5A524;
+  background-color: #DB5227;
   animation: cvBadgePulse 1.8s ease-in-out infinite;
 }
 

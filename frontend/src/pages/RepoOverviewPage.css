@@ -12,10 +12,10 @@
 
 /* Header */
 .cv-ro-header {
-  background: rgba(7, 18, 38, 0.78);
+  background: rgba(10, 22, 36, 0.78);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(76, 154, 255, 0.18);
+  border: 1px solid rgba(118, 130, 142, 0.18);
   border-radius: var(--radius-md);
   padding: 26px 28px;
   display: flex;
@@ -25,7 +25,7 @@
   flex-wrap: wrap;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 16px 36px -12px rgba(2, 6, 15, 0.7), 0 0 24px rgba(14, 46, 102, 0.22);
+  box-shadow: 0 16px 36px -12px rgba(10, 12, 18, 0.7), 0 0 24px rgba(2, 54, 97, 0.22);
 }
 
 /* Dark Aurora specular top highlight */
@@ -36,7 +36,7 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, rgba(31, 111, 235, 0.45) 0%, rgba(76, 154, 255, 0.2) 50%, rgba(245, 165, 36, 0.3) 100%);
+  background: linear-gradient(90deg, rgba(2, 54, 97, 0.45) 0%, rgba(118, 130, 142, 0.2) 50%, rgba(219, 82, 39, 0.3) 100%);
   pointer-events: none;
 }
 
@@ -90,15 +90,15 @@
 }
 
 .cv-ro-meta-item svg {
-  color: #4C9AFF;
+  color: #9AA9B8;
 }
 
 .cv-ro-meta-item code {
-  color: #F5A524;
-  background: rgba(245, 165, 36, 0.12);
+  color: #DB5227;
+  background: rgba(219, 82, 39, 0.12);
   padding: 2px 7px;
   border-radius: var(--radius-xs);
-  border: 1px solid rgba(245, 165, 36, 0.22);
+  border: 1px solid rgba(219, 82, 39, 0.22);
   font-family: var(--font-mono);
   font-size: 0.76rem;
 }
@@ -118,10 +118,10 @@
 }
 
 .cv-ro-metric-cell {
-  background: rgba(7, 18, 38, 0.72);
+  background: rgba(10, 22, 36, 0.72);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(76, 154, 255, 0.16);
+  border: 1px solid rgba(118, 130, 142, 0.16);
   border-radius: var(--radius-md);
   padding: 16px 20px;
   display: flex;
@@ -129,7 +129,7 @@
   align-items: center;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 8px 24px -8px rgba(2, 6, 15, 0.5);
+  box-shadow: 0 8px 24px -8px rgba(10, 12, 18, 0.5);
   transition: all var(--duration-fast) var(--ease-default);
 }
 
@@ -140,15 +140,15 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, rgba(31, 111, 235, 0.3) 0%, transparent 100%);
+  background: linear-gradient(90deg, rgba(2, 54, 97, 0.3) 0%, transparent 100%);
   pointer-events: none;
 }
 
 .cv-ro-metric-cell:hover {
-  border-color: rgba(31, 111, 235, 0.45);
-  background: rgba(11, 26, 51, 0.85);
+  border-color: rgba(2, 54, 97, 0.45);
+  background: rgba(14, 32, 52, 0.85);
   transform: translateY(-2px);
-  box-shadow: 0 12px 28px -8px rgba(2, 6, 15, 0.6), 0 0 18px rgba(31, 111, 235, 0.2);
+  box-shadow: 0 12px 28px -8px rgba(10, 12, 18, 0.6), 0 0 18px rgba(2, 54, 97, 0.2);
 }
 
 .cv-ro-metric-cell__label {
@@ -160,7 +160,7 @@
 }
 
 .cv-ro-metric-cell__label svg {
-  color: #4C9AFF;
+  color: #9AA9B8;
 }
 
 .cv-ro-metric-cell__value {
@@ -179,10 +179,10 @@
 }
 
 .cv-ro-card {
-  background: rgba(7, 18, 38, 0.72);
+  background: rgba(10, 22, 36, 0.72);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(76, 154, 255, 0.16);
+  border: 1px solid rgba(118, 130, 142, 0.16);
   border-radius: var(--radius-md);
   padding: 22px 24px;
   display: flex;
@@ -190,7 +190,7 @@
   gap: 16px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 12px 28px -10px rgba(2, 6, 15, 0.6);
+  box-shadow: 0 12px 28px -10px rgba(10, 12, 18, 0.6);
 }
 
 /* Metallic specular top highlight on cards */
@@ -201,7 +201,7 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, rgba(31, 111, 235, 0.35) 0%, rgba(76, 154, 255, 0.15) 50%, rgba(245, 165, 36, 0.25) 100%);
+  background: linear-gradient(90deg, rgba(2, 54, 97, 0.35) 0%, rgba(118, 130, 142, 0.15) 50%, rgba(219, 82, 39, 0.25) 100%);
   pointer-events: none;
 }
 
@@ -273,10 +273,10 @@
 .cv-ro-lang-track {
   width: 100%;
   height: 6px;
-  background-color: rgba(11, 26, 51, 0.8);
+  background-color: rgba(14, 32, 52, 0.8);
   border-radius: 3px;
   overflow: hidden;
-  border: 1px solid rgba(76, 154, 255, 0.14);
+  border: 1px solid rgba(118, 130, 142, 0.14);
 }
 
 .cv-ro-lang-fill {
@@ -289,7 +289,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  border-top: 1px solid rgba(76, 154, 255, 0.14);
+  border-top: 1px solid rgba(118, 130, 142, 0.14);
   padding-top: 14px;
 }
 
@@ -310,16 +310,16 @@
 .cv-ro-tech-tag {
   font-size: 0.76rem;
   font-weight: 500;
-  color: #4C9AFF;
-  background-color: rgba(11, 26, 51, 0.75);
-  border: 1px solid rgba(76, 154, 255, 0.22);
+  color: #9AA9B8;
+  background-color: rgba(14, 32, 52, 0.75);
+  border: 1px solid rgba(118, 130, 142, 0.22);
   padding: 3px 10px;
   border-radius: var(--radius-xs);
   transition: border-color var(--duration-fast) var(--ease-default);
 }
 
 .cv-ro-tech-tag:hover {
-  border-color: rgba(31, 111, 235, 0.5);
+  border-color: rgba(2, 54, 97, 0.5);
   color: #FFFFFF;
 }
 
@@ -352,7 +352,7 @@
   color: var(--text-secondary);
   line-height: 1.5;
   padding-left: 14px;
-  border-left: 2px solid rgba(31, 111, 235, 0.4);
+  border-left: 2px solid rgba(2, 54, 97, 0.4);
 }
 
 .cv-ro-arch-points li strong {
@@ -360,8 +360,8 @@
 }
 
 .cv-ro-arch-points li code {
-  color: #4C9AFF;
-  background: rgba(14, 46, 102, 0.25);
+  color: #9AA9B8;
+  background: rgba(2, 54, 97, 0.25);
   padding: 1px 6px;
   border-radius: var(--radius-xs);
   font-size: 0.78rem;
@@ -371,10 +371,10 @@
   display: inline-flex;
   align-items: center;
   padding: 8px 12px;
-  background: rgba(14, 46, 102, 0.2);
-  border: 1px solid rgba(31, 111, 235, 0.3);
+  background: rgba(2, 54, 97, 0.2);
+  border: 1px solid rgba(2, 54, 97, 0.3);
   border-radius: var(--radius-xs);
-  color: #4C9AFF;
+  color: #9AA9B8;
   font-size: 0.76rem;
   font-weight: 500;
 }
@@ -392,18 +392,18 @@
   justify-content: space-between;
   gap: 16px;
   padding: 12px 16px;
-  background: rgba(7, 18, 38, 0.65);
-  border: 1px solid rgba(76, 154, 255, 0.14);
+  background: rgba(10, 22, 36, 0.65);
+  border: 1px solid rgba(118, 130, 142, 0.14);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-default);
 }
 
 .cv-ro-file-row:hover {
-  background: rgba(11, 26, 51, 0.85);
-  border-color: rgba(31, 111, 235, 0.45);
+  background: rgba(14, 32, 52, 0.85);
+  border-color: rgba(2, 54, 97, 0.45);
   transform: translateX(3px);
-  box-shadow: 0 4px 16px rgba(2, 6, 15, 0.4), 0 0 12px rgba(31, 111, 235, 0.15);
+  box-shadow: 0 4px 16px rgba(10, 12, 18, 0.4), 0 0 12px rgba(2, 54, 97, 0.15);
 }
 
 .cv-ro-file-row__title {
@@ -414,7 +414,7 @@
 }
 
 .cv-ro-file-row__icon {
-  color: #4C9AFF;
+  color: #9AA9B8;
   flex-shrink: 0;
 }
 
@@ -429,8 +429,8 @@
   font-size: 0.7rem;
   font-weight: 500;
   color: var(--text-secondary);
-  background-color: rgba(11, 26, 51, 0.7);
-  border: 1px solid rgba(76, 154, 255, 0.2);
+  background-color: rgba(14, 32, 52, 0.7);
+  border: 1px solid rgba(118, 130, 142, 0.2);
   padding: 2px 7px;
   border-radius: var(--radius-xs);
 }
@@ -448,7 +448,7 @@
   align-items: center;
   gap: 5px;
   font-size: 0.78rem;
-  color: #F5A524;
+  color: #DB5227;
   font-weight: 500;
   opacity: 0.85;
   transition: all var(--duration-fast) var(--ease-default);
@@ -473,17 +473,17 @@
   gap: 14px;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(7, 18, 38, 0.6);
-  border: 1px solid rgba(76, 154, 255, 0.14);
+  background: rgba(10, 22, 36, 0.6);
+  border: 1px solid rgba(118, 130, 142, 0.14);
   transition: border-color var(--duration-fast) var(--ease-default);
 }
 
 .cv-ro-timeline__item:hover {
-  border-color: rgba(31, 111, 235, 0.35);
+  border-color: rgba(2, 54, 97, 0.35);
 }
 
 .cv-ro-timeline__point {
-  color: #F5A524;
+  color: #DB5227;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -491,8 +491,8 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(245, 165, 36, 0.12);
-  border: 1px solid rgba(245, 165, 36, 0.25);
+  background: rgba(219, 82, 39, 0.12);
+  border: 1px solid rgba(219, 82, 39, 0.25);
 }
 
 .cv-ro-timeline__content {
@@ -516,8 +516,8 @@
 .cv-repo-not-found {
   text-align: center;
   padding: 60px 24px;
-  background: rgba(7, 18, 38, 0.72);
-  border: 1px solid rgba(76, 154, 255, 0.16);
+  background: rgba(10, 22, 36, 0.72);
+  border: 1px solid rgba(118, 130, 142, 0.16);
   border-radius: var(--radius-md);
   margin: 40px auto;
   max-width: 500px;

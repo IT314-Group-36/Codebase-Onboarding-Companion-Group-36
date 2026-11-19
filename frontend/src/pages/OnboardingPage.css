@@ -18,12 +18,12 @@
   gap: 1.5rem;
   flex-wrap: wrap;
   padding: 22px 24px;
-  background: rgba(7, 18, 38, 0.78);
+  background: rgba(10, 22, 36, 0.78);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(76, 154, 255, 0.18);
+  border: 1px solid rgba(118, 130, 142, 0.18);
   border-radius: var(--radius-md);
-  box-shadow: 0 12px 28px -10px rgba(2, 6, 15, 0.6);
+  box-shadow: 0 12px 28px -10px rgba(10, 12, 18, 0.6);
   position: relative;
   overflow: hidden;
 }
@@ -35,7 +35,7 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, rgba(31, 111, 235, 0.45) 0%, rgba(76, 154, 255, 0.2) 50%, rgba(245, 165, 36, 0.3) 100%);
+  background: linear-gradient(90deg, rgba(2, 54, 97, 0.45) 0%, rgba(118, 130, 142, 0.2) 50%, rgba(219, 82, 39, 0.3) 100%);
   pointer-events: none;
 }
 
@@ -52,17 +52,17 @@
   width: 36px;
   height: 36px;
   border-radius: var(--radius-sm);
-  background: rgba(11, 26, 51, 0.7);
-  border: 1px solid rgba(76, 154, 255, 0.22);
-  color: #4C9AFF;
+  background: rgba(14, 32, 52, 0.7);
+  border: 1px solid rgba(118, 130, 142, 0.22);
+  color: #9AA9B8;
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-default);
 }
 
 .cv-onboarding-back-btn:hover {
-  background: rgba(245, 165, 36, 0.15);
-  border-color: #F5A524;
-  color: #F5A524;
+  background: rgba(219, 82, 39, 0.15);
+  border-color: #DB5227;
+  color: #DB5227;
 }
 
 .cv-onboarding-title-row {
@@ -92,9 +92,9 @@
   gap: 0.3rem;
   font-family: var(--font-mono);
   font-size: 0.74rem;
-  color: #4C9AFF;
-  background: rgba(14, 46, 102, 0.3);
-  border: 1px solid rgba(31, 111, 235, 0.3);
+  color: #9AA9B8;
+  background: rgba(2, 54, 97, 0.3);
+  border: 1px solid rgba(2, 54, 97, 0.3);
   padding: 0.18rem 0.55rem;
   border-radius: var(--radius-xs);
 }
@@ -117,13 +117,13 @@
 }
 
 .cv-onboarding-progress-card {
-  background: rgba(7, 18, 38, 0.78);
+  background: rgba(10, 22, 36, 0.78);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(76, 154, 255, 0.18);
+  border: 1px solid rgba(118, 130, 142, 0.18);
   border-radius: var(--radius-md);
   padding: 1.6rem 2rem;
-  box-shadow: 0 16px 36px -12px rgba(2, 6, 15, 0.7), 0 0 24px rgba(14, 46, 102, 0.2);
+  box-shadow: 0 16px 36px -12px rgba(10, 12, 18, 0.7), 0 0 24px rgba(2, 54, 97, 0.2);
   position: relative;
   overflow: hidden;
 }
@@ -135,7 +135,7 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, rgba(31, 111, 235, 0.4) 0%, rgba(245, 165, 36, 0.3) 100%);
+  background: linear-gradient(90deg, rgba(2, 54, 97, 0.4) 0%, rgba(219, 82, 39, 0.3) 100%);
   pointer-events: none;
 }
 
@@ -171,7 +171,7 @@
   font-family: var(--font-mono);
   font-size: 0.72rem;
   text-transform: uppercase;
-  color: #4C9AFF;
+  color: #9AA9B8;
   letter-spacing: 0.08em;
   font-weight: 600;
 }
@@ -187,8 +187,8 @@
 .cv-onboarding-bar-track {
   width: 100%;
   height: 8px;
-  background: rgba(11, 26, 51, 0.8);
-  border: 1px solid rgba(76, 154, 255, 0.14);
+  background: rgba(14, 32, 52, 0.8);
+  border: 1px solid rgba(118, 130, 142, 0.14);
   border-radius: var(--radius-full);
   overflow: hidden;
   margin-bottom: 1.35rem;
@@ -196,10 +196,10 @@
 
 .cv-onboarding-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #F5A524 0%, #1F6FEB 100%);
+  background: linear-gradient(90deg, #DB5227 0%, #76828E 100%);
   border-radius: var(--radius-full);
   transition: width 0.4s var(--ease-default);
-  box-shadow: 0 0 10px rgba(245, 165, 36, 0.4);
+  box-shadow: 0 0 10px rgba(219, 82, 39, 0.4);
 }
 
 .cv-onboarding-stat-pills {
@@ -218,7 +218,7 @@
 }
 
 .cv-onboarding-pill svg {
-  color: #4C9AFF;
+  color: #9AA9B8;
 }
 
 .cv-onboarding-pill--time {
@@ -230,7 +230,7 @@
 }
 
 .cv-onboarding-pill--time svg {
-  color: #F5A524;
+  color: #DB5227;
 }
 
 /* Controls & Tabs */
@@ -244,7 +244,7 @@
 .cv-onboarding-status-tabs {
   display: flex;
   gap: 0.6rem;
-  border-bottom: 1px solid rgba(76, 154, 255, 0.16);
+  border-bottom: 1px solid rgba(118, 130, 142, 0.16);
   padding-bottom: 0.85rem;
 }
 
@@ -262,16 +262,16 @@
 
 .cv-onboarding-tab:hover {
   color: #FFFFFF;
-  background: rgba(11, 26, 51, 0.6);
-  border-color: rgba(76, 154, 255, 0.18);
+  background: rgba(14, 32, 52, 0.6);
+  border-color: rgba(118, 130, 142, 0.18);
 }
 
 .cv-onboarding-tab--active {
   color: #FFFFFF;
-  background: rgba(31, 111, 235, 0.22);
-  border-color: #1F6FEB;
+  background: rgba(2, 54, 97, 0.22);
+  border-color: #76828E;
   font-weight: 600;
-  box-shadow: 0 0 12px rgba(31, 111, 235, 0.25);
+  box-shadow: 0 0 12px rgba(2, 54, 97, 0.25);
 }
 
 .cv-onboarding-category-pills {
@@ -282,8 +282,8 @@
 }
 
 .cv-onboarding-cat-chip {
-  background: rgba(7, 18, 38, 0.7);
-  border: 1px solid rgba(76, 154, 255, 0.18);
+  background: rgba(10, 22, 36, 0.7);
+  border: 1px solid rgba(118, 130, 142, 0.18);
   border-radius: var(--radius-full);
   padding: 0.28rem 0.85rem;
   font-size: 0.76rem;
@@ -293,13 +293,13 @@
 }
 
 .cv-onboarding-cat-chip:hover {
-  border-color: rgba(31, 111, 235, 0.45);
+  border-color: rgba(2, 54, 97, 0.45);
   color: #FFFFFF;
 }
 
 .cv-onboarding-cat-chip--active {
-  background: rgba(14, 46, 102, 0.35);
-  border-color: #4C9AFF;
+  background: rgba(2, 54, 97, 0.35);
+  border-color: #9AA9B8;
   color: #FFFFFF;
   font-weight: 600;
 }
@@ -312,14 +312,14 @@
 }
 
 .cv-onboarding-card {
-  background: rgba(7, 18, 38, 0.75);
+  background: rgba(10, 22, 36, 0.75);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(76, 154, 255, 0.16);
+  border: 1px solid rgba(118, 130, 142, 0.16);
   border-radius: var(--radius-md);
   padding: 1.35rem 1.6rem;
   transition: all var(--duration-fast) var(--ease-default);
-  box-shadow: 0 8px 24px -8px rgba(2, 6, 15, 0.6);
+  box-shadow: 0 8px 24px -8px rgba(10, 12, 18, 0.6);
   position: relative;
   overflow: hidden;
 }
@@ -331,21 +331,21 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, rgba(31, 111, 235, 0.3) 0%, transparent 100%);
+  background: linear-gradient(90deg, rgba(2, 54, 97, 0.3) 0%, transparent 100%);
   pointer-events: none;
 }
 
 .cv-onboarding-card:hover {
-  border-color: rgba(31, 111, 235, 0.45);
-  background: rgba(11, 26, 51, 0.85);
+  border-color: rgba(2, 54, 97, 0.45);
+  background: rgba(14, 32, 52, 0.85);
   transform: translateY(-2px);
-  box-shadow: 0 12px 28px -8px rgba(2, 6, 15, 0.7), 0 0 16px rgba(31, 111, 235, 0.15);
+  box-shadow: 0 12px 28px -8px rgba(10, 12, 18, 0.7), 0 0 16px rgba(2, 54, 97, 0.15);
 }
 
 .cv-onboarding-card--completed {
   opacity: 0.68;
   background: rgba(8, 12, 20, 0.6);
-  border-color: rgba(76, 154, 255, 0.1);
+  border-color: rgba(118, 130, 142, 0.1);
 }
 
 .cv-onboarding-card__head {
@@ -366,11 +366,11 @@
 }
 
 .cv-onboarding-checkbox:hover {
-  color: #F5A524;
+  color: #DB5227;
 }
 
 .cv-onboarding-checkbox--checked {
-  color: #4C9AFF;
+  color: #9AA9B8;
 }
 
 .cv-onboarding-card__info {
@@ -402,9 +402,9 @@
 }
 
 .cv-onboarding-diff--medium {
-  color: #F5A524;
-  background: rgba(245, 165, 36, 0.14);
-  border: 1px solid rgba(245, 165, 36, 0.28);
+  color: #DB5227;
+  background: rgba(219, 82, 39, 0.14);
+  border: 1px solid rgba(219, 82, 39, 0.28);
 }
 
 .cv-onboarding-diff--hard {
@@ -490,18 +490,18 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.25rem 0.65rem;
-  background: rgba(11, 26, 51, 0.7);
-  border: 1px solid rgba(76, 154, 255, 0.2);
+  background: rgba(14, 32, 52, 0.7);
+  border: 1px solid rgba(118, 130, 142, 0.2);
   border-radius: var(--radius-xs);
-  color: #F5A524;
+  color: #DB5227;
   font-size: 0.76rem;
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-default);
 }
 
 .cv-onboarding-file-btn:hover {
-  background: rgba(14, 46, 102, 0.35);
-  border-color: rgba(31, 111, 235, 0.45);
+  background: rgba(2, 54, 97, 0.35);
+  border-color: rgba(2, 54, 97, 0.45);
   color: #FFFFFF;
 }
 
@@ -517,7 +517,7 @@
 .cv-onboarding-card__drawer {
   margin: 1rem 0 0 2.25rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(76, 154, 255, 0.14);
+  border-top: 1px solid rgba(118, 130, 142, 0.14);
 }
 
 .cv-onboarding-drawer-title {
@@ -548,16 +548,16 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #F5A524;
-  box-shadow: 0 0 6px rgba(245, 165, 36, 0.5);
+  background: #DB5227;
+  box-shadow: 0 0 6px rgba(219, 82, 39, 0.5);
 }
 
 /* Empty State */
 .cv-onboarding-empty {
   text-align: center;
   padding: 3.5rem 2rem;
-  background: rgba(7, 18, 38, 0.75);
-  border: 1px solid rgba(76, 154, 255, 0.16);
+  background: rgba(10, 22, 36, 0.75);
+  border: 1px solid rgba(118, 130, 142, 0.16);
   border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
@@ -581,7 +581,7 @@
 .cv-onboarding-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(2, 6, 15, 0.8);
+  background: rgba(10, 12, 18, 0.8);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
@@ -594,18 +594,18 @@
 .cv-onboarding-modal {
   width: 100%;
   max-width: 520px;
-  background: rgba(7, 18, 38, 0.95);
+  background: rgba(10, 22, 36, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(76, 154, 255, 0.22);
+  border: 1px solid rgba(118, 130, 142, 0.22);
   border-radius: var(--radius-lg);
-  box-shadow: 0 24px 50px rgba(2, 6, 15, 0.9), 0 0 30px rgba(31, 111, 235, 0.2);
+  box-shadow: 0 24px 50px rgba(10, 12, 18, 0.9), 0 0 30px rgba(2, 54, 97, 0.2);
   overflow: hidden;
 }
 
 .cv-onboarding-modal__head {
   padding: 1.6rem 1.75rem 1rem;
-  border-bottom: 1px solid rgba(76, 154, 255, 0.14);
+  border-bottom: 1px solid rgba(118, 130, 142, 0.14);
 }
 
 .cv-onboarding-modal__head h3 {
@@ -645,8 +645,8 @@
 .cv-onboarding-form-group input,
 .cv-onboarding-form-group select {
   height: 40px;
-  background: rgba(11, 26, 51, 0.8);
-  border: 1px solid rgba(76, 154, 255, 0.2);
+  background: rgba(14, 32, 52, 0.8);
+  border: 1px solid rgba(118, 130, 142, 0.2);
   border-radius: var(--radius-sm);
   padding: 0 0.9rem;
   font-size: 0.88rem;
@@ -657,8 +657,8 @@
 
 .cv-onboarding-form-group input:focus,
 .cv-onboarding-form-group select:focus {
-  border-color: rgba(31, 111, 235, 0.6);
-  box-shadow: 0 0 10px rgba(31, 111, 235, 0.25);
+  border-color: rgba(2, 54, 97, 0.6);
+  box-shadow: 0 0 10px rgba(2, 54, 97, 0.25);
 }
 
 .cv-onboarding-form-row {

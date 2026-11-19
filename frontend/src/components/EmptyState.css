@@ -5,15 +5,15 @@
   justify-content: center;
   text-align: center;
   padding: 48px 24px;
-  background: linear-gradient(180deg, rgba(11, 26, 51, 0.65) 0%, rgba(7, 18, 38, 0.85) 100%);
+  background: linear-gradient(180deg, rgba(14, 32, 52, 0.65) 0%, rgba(10, 22, 36, 0.85) 100%);
   backdrop-filter: blur(12px);
-  border: 1px dashed rgba(76, 154, 255, 0.28);
+  border: 1px dashed rgba(118, 130, 142, 0.28);
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 20px rgba(2, 6, 15, 0.6);
+  box-shadow: 0 4px 20px rgba(10, 12, 18, 0.6);
 }
 
 .cv-empty-state__icon {
-  color: #4C9AFF;
+  color: #9AA9B8;
   margin-bottom: 14px;
   opacity: 0.85;
 }
@@ -27,7 +27,7 @@
 
 .cv-empty-state__desc {
   font-size: 0.84rem;
-  color: #9AA7BD;
+  color: #A9B4BF;
   max-width: 420px;
   line-height: 1.5;
   margin-bottom: 20px;

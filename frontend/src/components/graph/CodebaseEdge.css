@@ -8,14 +8,14 @@
 
 /* Inactive edge: Subtle Dark Aurora Blue */
 .cv-graph-edge--inactive {
-  stroke: rgba(76, 154, 255, 0.25) !important;
+  stroke: rgba(118, 130, 142, 0.25) !important;
   stroke-width: 1.4px !important;
   opacity: 0.65;
 }
 
-/* Active edge: Warm Amber (#F5A524) with smooth flowing animation */
+/* Active edge: Warm Amber (#DB5227) with smooth flowing animation */
 .cv-graph-edge--active {
-  stroke: #F5A524 !important;
+  stroke: #DB5227 !important;
   stroke-width: 2.2px !important;
   opacity: 1 !important;
   stroke-dasharray: 6 4;
@@ -23,7 +23,7 @@
 }
 
 .cv-graph-edge--incoming {
-  stroke: #4C9AFF !important;
+  stroke: #9AA9B8 !important;
   stroke-width: 2px !important;
 }
 
@@ -38,10 +38,10 @@
 
 /* Floating Edge Label Pill */
 .cv-graph-edge-label {
-  background-color: rgba(11, 26, 51, 0.92);
+  background-color: rgba(14, 32, 52, 0.92);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(76, 154, 255, 0.3);
+  border: 1px solid rgba(118, 130, 142, 0.3);
   border-radius: var(--radius-xs);
   color: #FFFFFF;
   font-family: var(--font-mono);
@@ -49,7 +49,7 @@
   padding: 2px 7px;
   line-height: 1.4;
   white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(2, 6, 15, 0.8), 0 0 8px rgba(31, 111, 235, 0.2);
+  box-shadow: 0 4px 12px rgba(10, 12, 18, 0.8), 0 0 8px rgba(2, 54, 97, 0.2);
   user-select: none;
   animation: cvFadeIn 180ms ease;
 }

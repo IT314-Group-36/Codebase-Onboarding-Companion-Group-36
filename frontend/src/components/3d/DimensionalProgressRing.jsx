@@ -71,28 +71,28 @@ export default function DimensionalProgressRing({
         <defs>
           {/* Warm Amber active gradient */}
           <linearGradient id="cv-ring-amber-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#FFB84D" />
-            <stop offset="60%" stopColor="#F5A524" />
-            <stop offset="100%" stopColor="#E08A0B" />
+            <stop offset="0%" stopColor="#E8683F" />
+            <stop offset="60%" stopColor="#DB5227" />
+            <stop offset="100%" stopColor="#C4441E" />
           </linearGradient>
 
           {/* Deep Dark Aurora recessed track gradient */}
           <linearGradient id="cv-ring-track-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#0E2E66" />
-            <stop offset="100%" stopColor="#071226" />
+            <stop offset="0%" stopColor="#023661" />
+            <stop offset="100%" stopColor="#0A1624" />
           </linearGradient>
 
           {/* Metallic bead gradients */}
           <radialGradient id="cv-bead-active" cx="35%" cy="35%" r="65%">
             <stop offset="0%" stopColor="#FFEAD8" />
-            <stop offset="45%" stopColor="#F5A524" />
+            <stop offset="45%" stopColor="#DB5227" />
             <stop offset="100%" stopColor="#703E1C" />
           </radialGradient>
 
           <radialGradient id="cv-bead-inactive" cx="35%" cy="35%" r="65%">
-            <stop offset="0%" stopColor="#4C9AFF" />
-            <stop offset="50%" stopColor="#0E2E66" />
-            <stop offset="100%" stopColor="#071226" />
+            <stop offset="0%" stopColor="#9AA9B8" />
+            <stop offset="50%" stopColor="#023661" />
+            <stop offset="100%" stopColor="#0A1624" />
           </radialGradient>
 
           {/* Outer bezel shadow */}
@@ -107,7 +107,7 @@ export default function DimensionalProgressRing({
           cy={size / 2}
           r={radius + strokeWidth / 2 + 2}
           fill="none"
-          stroke="rgba(76, 154, 255, 0.22)"
+          stroke="rgba(118, 130, 142, 0.22)"
           strokeWidth="1.2"
         />
 
@@ -127,7 +127,7 @@ export default function DimensionalProgressRing({
           cy={size / 2}
           r={radius - strokeWidth / 2 - 2}
           fill="none"
-          stroke="rgba(76, 154, 255, 0.16)"
+          stroke="rgba(118, 130, 142, 0.16)"
           strokeWidth="1.2"
         />
 

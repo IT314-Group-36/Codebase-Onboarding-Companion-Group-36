@@ -1,8 +1,8 @@
 /* ===================================================
    CODEVERSE — Dashboard Page (Dark Aurora UI)
-   - Background: #02060F with diffuse blue ambient glow
-   - Surfaces: #071226 / #0B1A33
-   - Accents: Electric Blue #1F6FEB & Warm Amber #F5A524
+   - Background: #0A0C12 with diffuse blue ambient glow
+   - Surfaces: #0A1624 / #0E2034
+   - Accents: Electric Blue #76828E & Warm Amber #DB5227
    =================================================== */
 
 .cv-dashboard {
@@ -42,9 +42,9 @@
 
 .cv-dashboard-user-pill {
   font-size: 0.72rem;
-  color: #4C9AFF;
-  background-color: rgba(11, 26, 51, 0.8);
-  border: 1px solid rgba(76, 154, 255, 0.24);
+  color: #9AA9B8;
+  background-color: rgba(14, 32, 52, 0.8);
+  border: 1px solid rgba(118, 130, 142, 0.24);
   padding: 3px 9px;
   border-radius: var(--radius-xs);
   font-weight: 500;
@@ -53,7 +53,7 @@
 
 .cv-dashboard-subtitle {
   font-size: 0.86rem;
-  color: #9AA7BD;
+  color: #A9B4BF;
   margin-top: 3px;
 }
 
@@ -83,18 +83,18 @@
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  background: rgba(7, 18, 38, 0.75);
+  background: rgba(10, 22, 36, 0.75);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(76, 154, 255, 0.18);
+  border: 1px solid rgba(118, 130, 142, 0.18);
   border-radius: var(--radius-sm);
-  color: #9AA7BD;
+  color: #A9B4BF;
   font-size: 0.78rem;
   margin-bottom: 22px;
   box-shadow: var(--shadow-sm);
 }
 
 .cv-dashboard-demo-strip__icon {
-  color: #F5A524;
+  color: #DB5227;
   flex-shrink: 0;
 }
 
@@ -132,7 +132,7 @@
 
 .cv-section-desc {
   font-size: 0.78rem;
-  color: #9AA7BD;
+  color: #A9B4BF;
   margin-top: 1px;
 }
 
@@ -155,14 +155,14 @@
 .cv-dashboard-filter-icon {
   position: absolute;
   left: 8px;
-  color: #9AA7BD;
+  color: #A9B4BF;
   pointer-events: none;
 }
 
 .cv-dashboard-filter-select select {
   padding: 5px 10px 5px 26px;
-  background-color: #050D1D;
-  border: 1px solid rgba(76, 154, 255, 0.22);
+  background-color: #080F18;
+  border: 1px solid rgba(118, 130, 142, 0.22);
   border-radius: var(--radius-sm);
   color: #E2E8F0;
   font-size: 0.78rem;
@@ -172,8 +172,8 @@
 }
 
 .cv-dashboard-filter-select select:focus {
-  border-color: #1F6FEB;
-  box-shadow: 0 0 10px rgba(31, 111, 235, 0.35);
+  border-color: #76828E;
+  box-shadow: 0 0 10px rgba(2, 54, 97, 0.35);
   outline: none;
 }
 
@@ -185,10 +185,10 @@
 
 /* Onboarding Panel */
 .cv-onboarding-card {
-  background: linear-gradient(180deg, rgba(11, 26, 51, 0.75) 0%, rgba(7, 18, 38, 0.90) 100%);
+  background: linear-gradient(180deg, rgba(14, 32, 52, 0.75) 0%, rgba(10, 22, 36, 0.90) 100%);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(76, 154, 255, 0.20);
+  border: 1px solid rgba(118, 130, 142, 0.20);
   border-radius: var(--radius-md);
   padding: 18px 20px;
   display: flex;
@@ -196,7 +196,7 @@
   gap: 14px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(2, 6, 15, 0.65);
+  box-shadow: 0 4px 20px rgba(10, 12, 18, 0.65);
 }
 
 .cv-onboarding-progress-block {
@@ -204,7 +204,7 @@
   flex-direction: column;
   gap: 8px;
   padding-bottom: 14px;
-  border-bottom: 1px solid rgba(76, 154, 255, 0.15);
+  border-bottom: 1px solid rgba(118, 130, 142, 0.15);
 }
 
 .cv-onboarding-progress-row {
@@ -216,36 +216,36 @@
 .cv-onboarding-progress-label {
   font-size: 0.8rem;
   font-weight: 500;
-  color: #9AA7BD;
+  color: #A9B4BF;
 }
 
 .cv-onboarding-progress-value {
   font-size: 1rem;
   font-weight: 700;
-  color: #F5A524;
+  color: #DB5227;
   font-family: var(--font-mono);
 }
 
 .cv-progress-track {
   width: 100%;
   height: 6px;
-  background-color: rgba(7, 18, 38, 0.9);
-  border: 1px solid rgba(76, 154, 255, 0.18);
+  background-color: rgba(10, 22, 36, 0.9);
+  border: 1px solid rgba(118, 130, 142, 0.18);
   border-radius: var(--radius-full);
   overflow: hidden;
 }
 
 .cv-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #F5A524 0%, #FFB84D 100%);
-  box-shadow: 0 0 10px rgba(245, 165, 36, 0.5);
+  background: linear-gradient(90deg, #DB5227 0%, #E8683F 100%);
+  box-shadow: 0 0 10px rgba(219, 82, 39, 0.5);
   border-radius: var(--radius-full);
   transition: width var(--duration-normal) var(--ease-default);
 }
 
 .cv-onboarding-milestone-text {
   font-size: 0.72rem;
-  color: #B8C3D6;
+  color: #B9C2CB;
 }
 
 .cv-onboarding-task-list {
@@ -267,8 +267,8 @@
 }
 
 .cv-task-row:hover {
-  background-color: rgba(31, 111, 235, 0.12);
-  border-color: rgba(76, 154, 255, 0.18);
+  background-color: rgba(2, 54, 97, 0.12);
+  border-color: rgba(118, 130, 142, 0.18);
 }
 
 .cv-task-row__status {
@@ -288,14 +288,14 @@
 }
 
 .cv-task-row--in-progress .cv-task-row__status {
-  background-color: rgba(245, 165, 36, 0.15);
-  color: #F5A524;
+  background-color: rgba(219, 82, 39, 0.15);
+  color: #DB5227;
 }
 
 .cv-task-row--pending .cv-task-row__status {
-  background-color: rgba(11, 26, 51, 0.8);
-  color: #9AA7BD;
-  border: 1px solid rgba(76, 154, 255, 0.2);
+  background-color: rgba(14, 32, 52, 0.8);
+  color: #A9B4BF;
+  border: 1px solid rgba(118, 130, 142, 0.2);
 }
 
 .cv-task-row__body {
@@ -311,7 +311,7 @@
 
 .cv-task-row--completed .cv-task-row__title {
   text-decoration: line-through;
-  color: #9AA7BD;
+  color: #A9B4BF;
 }
 
 .cv-task-row__meta {
@@ -323,7 +323,7 @@
 
 .cv-task-row__category {
   font-size: 0.68rem;
-  color: #9AA7BD;
+  color: #A9B4BF;
 }
 
 .cv-diff-chip {
@@ -342,9 +342,9 @@
 }
 
 .cv-diff-chip--medium {
-  background-color: rgba(245, 165, 36, 0.14);
-  color: #F5A524;
-  border: 1px solid rgba(245, 165, 36, 0.3);
+  background-color: rgba(219, 82, 39, 0.14);
+  color: #DB5227;
+  border: 1px solid rgba(219, 82, 39, 0.3);
 }
 
 .cv-diff-chip--hard {
@@ -355,8 +355,8 @@
 
 .cv-onboarding-tip {
   font-size: 0.72rem;
-  color: #9AA7BD;
-  border-top: 1px solid rgba(76, 154, 255, 0.14);
+  color: #A9B4BF;
+  border-top: 1px solid rgba(118, 130, 142, 0.14);
   padding-top: 10px;
   line-height: 1.4;
 }

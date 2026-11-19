@@ -4,8 +4,8 @@ import './CosmicBackground.css';
 /**
  * Dark Aurora Ambient Lighting Backdrop
  *
- * Provides deep-space black (#02060F) with layered, diffused
- * electric-blue (#1F6FEB), midnight-blue (#0E2E66), and warm amber (#F5A524)
+ * Provides deep-space black (#0A0C12) with layered, diffused
+ * electric-blue (#76828E), midnight-blue (#023661), and warm amber (#DB5227)
  * ambient illumination spreading through the dark environment.
  *
  * @param {'full'|'medium'|'subtle'} intensity

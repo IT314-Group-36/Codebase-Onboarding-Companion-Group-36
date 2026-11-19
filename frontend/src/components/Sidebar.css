@@ -1,9 +1,9 @@
 /* ===================================================
    CODEVERSE — Sidebar Component (Dark Aurora UI)
-   - Background: rgba(7, 18, 38, 0.85)
-   - Subtle Blue Border: rgba(76, 154, 255, 0.18)
-   - Active Illumination: rgba(31, 111, 235, 0.22)
-   - Accent: Warm Amber #F5A524
+   - Background: rgba(10, 22, 36, 0.85)
+   - Subtle Blue Border: rgba(118, 130, 142, 0.18)
+   - Active Illumination: rgba(2, 54, 97, 0.22)
+   - Accent: Warm Amber #DB5227
    =================================================== */
 
 .cv-sidebar {
@@ -12,16 +12,16 @@
   left: 0;
   bottom: 0;
   width: var(--sidebar-width);
-  background-color: rgba(7, 18, 38, 0.85);
+  background-color: rgba(10, 22, 36, 0.85);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  border-right: 1px solid rgba(76, 154, 255, 0.18);
+  border-right: 1px solid rgba(118, 130, 142, 0.18);
   display: flex;
   flex-direction: column;
   z-index: 100;
   transition: width var(--duration-normal) var(--ease-default),
               transform var(--duration-normal) var(--ease-default);
-  box-shadow: 4px 0 24px rgba(2, 6, 15, 0.7);
+  box-shadow: 4px 0 24px rgba(10, 12, 18, 0.7);
 }
 
 .cv-sidebar--collapsed {
@@ -34,8 +34,8 @@
   padding: 0 16px;
   display: flex;
   align-items: center;
-  border-bottom: 1px solid rgba(76, 154, 255, 0.15);
-  background: linear-gradient(180deg, rgba(14, 46, 102, 0.15) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(118, 130, 142, 0.15);
+  background: linear-gradient(180deg, rgba(2, 54, 97, 0.15) 0%, transparent 100%);
 }
 
 .cv-sidebar__brand-btn {
@@ -58,14 +58,14 @@
   width: 30px;
   height: 30px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #0E2E66 0%, #071226 100%);
-  border: 1px solid rgba(76, 154, 255, 0.35);
+  background: linear-gradient(135deg, #023661 0%, #0A1624 100%);
+  border: 1px solid rgba(118, 130, 142, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #F5A524;
+  color: #DB5227;
   flex-shrink: 0;
-  box-shadow: 0 0 12px rgba(31, 111, 235, 0.35);
+  box-shadow: 0 0 12px rgba(2, 54, 97, 0.35);
 }
 
 .cv-sidebar__brand-text {
@@ -83,7 +83,7 @@
 
 .cv-sidebar__brand-tag {
   font-size: 0.68rem;
-  color: #9AA7BD;
+  color: #A9B4BF;
   font-weight: 400;
 }
 
@@ -101,7 +101,7 @@
   font-size: 0.66rem;
   font-weight: 600;
   text-transform: uppercase;
-  color: #B8C3D6;
+  color: #B9C2CB;
   letter-spacing: 0.06em;
   padding: 8px 10px 4px;
   font-family: var(--font-mono);
@@ -113,7 +113,7 @@
   gap: 10px;
   padding: 8px 11px;
   border-radius: var(--radius-sm);
-  color: #9AA7BD;
+  color: #A9B4BF;
   font-size: 0.85rem;
   font-weight: 500;
   text-decoration: none;
@@ -125,17 +125,17 @@
 
 .cv-sidebar__link:hover {
   color: #FFFFFF;
-  background-color: rgba(31, 111, 235, 0.12);
-  border-color: rgba(76, 154, 255, 0.15);
+  background-color: rgba(2, 54, 97, 0.12);
+  border-color: rgba(118, 130, 142, 0.15);
 }
 
 /* Active navigation item: Subtle blue ambient illumination + warm amber left bar */
 .cv-sidebar__link--active {
   color: #FFFFFF !important;
-  background: linear-gradient(90deg, rgba(31, 111, 235, 0.22) 0%, rgba(14, 46, 102, 0.10) 100%) !important;
-  border-color: rgba(76, 154, 255, 0.25) !important;
+  background: linear-gradient(90deg, rgba(2, 54, 97, 0.22) 0%, rgba(2, 54, 97, 0.10) 100%) !important;
+  border-color: rgba(118, 130, 142, 0.25) !important;
   font-weight: 600;
-  box-shadow: inset 0 0 14px rgba(31, 111, 235, 0.15);
+  box-shadow: inset 0 0 14px rgba(2, 54, 97, 0.15);
 }
 
 .cv-sidebar__link--active::before {
@@ -145,13 +145,13 @@
   top: 7px;
   bottom: 7px;
   width: 3px;
-  background-color: #F5A524;
+  background-color: #DB5227;
   border-radius: 2px;
-  box-shadow: 0 0 8px rgba(245, 165, 36, 0.6);
+  box-shadow: 0 0 8px rgba(219, 82, 39, 0.6);
 }
 
 .cv-sidebar__link--active .cv-sidebar__icon {
-  color: #4C9AFF;
+  color: #9AA9B8;
 }
 
 .cv-sidebar__icon {
@@ -160,7 +160,7 @@
   justify-content: center;
   flex-shrink: 0;
   width: 18px;
-  color: #9AA7BD;
+  color: #A9B4BF;
   transition: color var(--duration-fast) var(--ease-default);
 }
 
@@ -186,17 +186,17 @@
 /* Footer Section: Active Repo & User Session */
 .cv-sidebar__footer {
   padding: 12px 10px;
-  border-top: 1px solid rgba(76, 154, 255, 0.15);
+  border-top: 1px solid rgba(118, 130, 142, 0.15);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: linear-gradient(0deg, rgba(14, 46, 102, 0.15) 0%, transparent 100%);
+  background: linear-gradient(0deg, rgba(2, 54, 97, 0.15) 0%, transparent 100%);
 }
 
 .cv-sidebar__repo-chip {
   padding: 8px 10px;
-  background-color: rgba(11, 26, 51, 0.85);
-  border: 1px solid rgba(76, 154, 255, 0.20);
+  background-color: rgba(14, 32, 52, 0.85);
+  border: 1px solid rgba(118, 130, 142, 0.20);
   border-radius: var(--radius-sm);
   display: flex;
   flex-direction: column;
@@ -209,11 +209,11 @@
   justify-content: space-between;
   font-size: 0.66rem;
   font-family: var(--font-mono);
-  color: #B8C3D6;
+  color: #B9C2CB;
 }
 
 .cv-sidebar__repo-branch {
-  color: #4C9AFF;
+  color: #9AA9B8;
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -246,14 +246,14 @@
   width: 26px;
   height: 26px;
   border-radius: var(--radius-full);
-  background: linear-gradient(135deg, #0E2E66 0%, #1F6FEB 100%);
+  background: linear-gradient(135deg, #023661 0%, #76828E 100%);
   color: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.72rem;
   font-weight: 700;
-  border: 1px solid rgba(76, 154, 255, 0.3);
+  border: 1px solid rgba(118, 130, 142, 0.3);
   flex-shrink: 0;
 }
 
@@ -273,20 +273,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #9AA7BD;
+  color: #A9B4BF;
   transition: all var(--duration-fast) var(--ease-default);
 }
 
 .cv-sidebar__action-btn:hover {
-  color: #F5A524;
-  background-color: rgba(245, 165, 36, 0.15);
+  color: #DB5227;
+  background-color: rgba(219, 82, 39, 0.15);
 }
 
 /* Mobile backdrop */
 .cv-sidebar-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(2, 6, 15, 0.75);
+  background-color: rgba(10, 12, 18, 0.75);
   backdrop-filter: blur(8px);
   z-index: 99;
 }
@@ -309,8 +309,8 @@
 
 .cv-sidebar__shortcut-card {
   padding: 10px 12px;
-  background-color: rgba(11, 26, 51, 0.85);
-  border: 1px solid rgba(76, 154, 255, 0.20);
+  background-color: rgba(14, 32, 52, 0.85);
+  border: 1px solid rgba(118, 130, 142, 0.20);
   border-radius: var(--radius-sm);
   display: flex;
   flex-direction: column;
@@ -323,7 +323,7 @@
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: #F5A524;
+  color: #DB5227;
 }
 
 .cv-sidebar__shortcut-name {
@@ -344,7 +344,7 @@
   padding: 0;
   margin-top: 2px;
   font-size: 0.75rem;
-  color: #4C9AFF;
+  color: #9AA9B8;
   cursor: pointer;
   transition: color var(--duration-fast) var(--ease-default);
 }
@@ -378,7 +378,7 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
-  color: #9AA7BD;
+  color: #A9B4BF;
   cursor: pointer;
   border: 1px solid transparent;
   transition: all var(--duration-fast) var(--ease-default);
@@ -386,6 +386,6 @@
 
 .cv-sidebar__collapse-btn:hover {
   color: #FFFFFF;
-  background-color: rgba(31, 111, 235, 0.12);
-  border-color: rgba(76, 154, 255, 0.15);
+  background-color: rgba(2, 54, 97, 0.12);
+  border-color: rgba(118, 130, 142, 0.15);
 }

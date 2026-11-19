@@ -3,10 +3,10 @@
    =================================================== */
 
 .cv-repo-card {
-  background: linear-gradient(180deg, rgba(11, 26, 51, 0.70) 0%, rgba(7, 18, 38, 0.88) 100%);
+  background: linear-gradient(180deg, rgba(14, 32, 52, 0.70) 0%, rgba(10, 22, 36, 0.88) 100%);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(76, 154, 255, 0.20);
+  border: 1px solid rgba(118, 130, 142, 0.20);
   border-radius: var(--radius-md);
   padding: 18px 20px;
   display: flex;
@@ -17,13 +17,13 @@
   transition: all var(--duration-fast) var(--ease-default);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 18px rgba(2, 6, 15, 0.6);
+  box-shadow: 0 4px 18px rgba(10, 12, 18, 0.6);
 }
 
 .cv-repo-card:hover {
   background: linear-gradient(180deg, rgba(20, 32, 50, 0.80) 0%, rgba(12, 20, 34, 0.92) 100%);
-  border-color: rgba(31, 111, 235, 0.55);
-  box-shadow: 0 8px 26px rgba(2, 6, 15, 0.8), 0 0 18px rgba(31, 111, 235, 0.24);
+  border-color: rgba(2, 54, 97, 0.55);
+  box-shadow: 0 8px 26px rgba(10, 12, 18, 0.8), 0 0 18px rgba(2, 54, 97, 0.24);
   transform: translateY(-1.5px);
 }
 
@@ -46,7 +46,7 @@
 
 .cv-repo-card__owner {
   font-size: 0.74rem;
-  color: #9AA7BD;
+  color: #A9B4BF;
   font-family: var(--font-mono);
 }
 
@@ -60,7 +60,7 @@
 
 .cv-repo-card__desc {
   font-size: 0.82rem;
-  color: #9AA7BD;
+  color: #A9B4BF;
   line-height: 1.45;
   margin: 0;
   display: -webkit-box;
@@ -74,9 +74,9 @@
   align-items: center;
   justify-content: space-between;
   padding-top: 10px;
-  border-top: 1px solid rgba(76, 154, 255, 0.14);
+  border-top: 1px solid rgba(118, 130, 142, 0.14);
   font-size: 0.74rem;
-  color: #B8C3D6;
+  color: #B9C2CB;
 }
 
 .cv-repo-card__lang {
@@ -106,7 +106,7 @@
 }
 
 .cv-repo-card__arrow {
-  color: #F5A524;
+  color: #DB5227;
   opacity: 0.8;
   transition: all var(--duration-fast) var(--ease-default);
 }

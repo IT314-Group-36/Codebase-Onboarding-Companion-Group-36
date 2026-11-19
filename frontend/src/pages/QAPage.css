@@ -7,7 +7,7 @@
   display: flex;
   flex-direction: column;
   height: calc(100vh - var(--topbar-height));
-  background: #02060F;
+  background: #0A0C12;
   overflow: hidden;
 }
 
@@ -17,10 +17,10 @@
   align-items: center;
   justify-content: space-between;
   padding: 1.1rem 2rem;
-  background: rgba(7, 18, 38, 0.85);
+  background: rgba(10, 22, 36, 0.85);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(76, 154, 255, 0.16);
+  border-bottom: 1px solid rgba(118, 130, 142, 0.16);
   gap: 1.5rem;
   flex-shrink: 0;
   position: relative;
@@ -33,7 +33,7 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, rgba(31, 111, 235, 0.45) 0%, rgba(76, 154, 255, 0.2) 50%, rgba(245, 165, 36, 0.3) 100%);
+  background: linear-gradient(90deg, rgba(2, 54, 97, 0.45) 0%, rgba(118, 130, 142, 0.2) 50%, rgba(219, 82, 39, 0.3) 100%);
   pointer-events: none;
 }
 
@@ -50,17 +50,17 @@
   width: 34px;
   height: 34px;
   border-radius: var(--radius-sm);
-  background: rgba(11, 26, 51, 0.7);
-  border: 1px solid rgba(76, 154, 255, 0.22);
-  color: #4C9AFF;
+  background: rgba(14, 32, 52, 0.7);
+  border: 1px solid rgba(118, 130, 142, 0.22);
+  color: #9AA9B8;
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-default);
 }
 
 .cv-qa-back-btn:hover {
-  background: rgba(245, 165, 36, 0.14);
-  border-color: #F5A524;
-  color: #F5A524;
+  background: rgba(219, 82, 39, 0.14);
+  border-color: #DB5227;
+  color: #DB5227;
 }
 
 .cv-qa-title-row {
@@ -90,9 +90,9 @@
   gap: 0.3rem;
   font-family: var(--font-mono);
   font-size: 0.74rem;
-  color: #4C9AFF;
-  background: rgba(14, 46, 102, 0.3);
-  border: 1px solid rgba(31, 111, 235, 0.3);
+  color: #9AA9B8;
+  background: rgba(2, 54, 97, 0.3);
+  border: 1px solid rgba(2, 54, 97, 0.3);
   padding: 0.15rem 0.55rem;
   border-radius: var(--radius-xs);
 }
@@ -138,14 +138,14 @@
   gap: 0.4rem;
   font-size: 0.74rem;
   font-weight: 600;
-  color: #4C9AFF;
+  color: #9AA9B8;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-family: var(--font-mono);
 }
 
 .cv-qa-suggestions__title svg {
-  color: #F5A524;
+  color: #DB5227;
 }
 
 .cv-qa-suggestions__chips {
@@ -155,8 +155,8 @@
 }
 
 .cv-qa-chip {
-  background: rgba(7, 18, 38, 0.7);
-  border: 1px solid rgba(76, 154, 255, 0.18);
+  background: rgba(10, 22, 36, 0.7);
+  border: 1px solid rgba(118, 130, 142, 0.18);
   border-radius: var(--radius-full);
   padding: 0.28rem 0.8rem;
   font-size: 0.76rem;
@@ -166,8 +166,8 @@
 }
 
 .cv-qa-chip:hover:not(:disabled) {
-  background: rgba(14, 46, 102, 0.35);
-  border-color: rgba(31, 111, 235, 0.45);
+  background: rgba(2, 54, 97, 0.35);
+  border-color: rgba(2, 54, 97, 0.45);
   color: #FFFFFF;
 }
 
@@ -211,16 +211,16 @@
 }
 
 .cv-qa-msg--user .cv-qa-msg__avatar {
-  background: rgba(245, 165, 36, 0.18);
-  border: 1px solid rgba(245, 165, 36, 0.35);
-  color: #F5A524;
+  background: rgba(219, 82, 39, 0.18);
+  border: 1px solid rgba(219, 82, 39, 0.35);
+  color: #DB5227;
 }
 
 .cv-qa-msg--assistant .cv-qa-msg__avatar {
-  background: rgba(14, 46, 102, 0.35);
-  border: 1px solid rgba(31, 111, 235, 0.4);
-  color: #4C9AFF;
-  box-shadow: 0 0 12px rgba(31, 111, 235, 0.25);
+  background: rgba(2, 54, 97, 0.35);
+  border: 1px solid rgba(2, 54, 97, 0.4);
+  color: #9AA9B8;
+  box-shadow: 0 0 12px rgba(2, 54, 97, 0.25);
 }
 
 .cv-qa-msg__content {
@@ -234,19 +234,19 @@
 }
 
 .cv-qa-msg__bubble {
-  background: rgba(7, 18, 38, 0.82);
+  background: rgba(10, 22, 36, 0.82);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(76, 154, 255, 0.18);
+  border: 1px solid rgba(118, 130, 142, 0.18);
   border-radius: var(--radius-md);
   padding: 1.1rem 1.35rem;
-  box-shadow: 0 8px 24px -8px rgba(2, 6, 15, 0.6);
+  box-shadow: 0 8px 24px -8px rgba(10, 12, 18, 0.6);
 }
 
 .cv-qa-msg--user .cv-qa-msg__bubble {
-  background: rgba(31, 111, 235, 0.22);
-  border: 1px solid rgba(31, 111, 235, 0.5);
-  box-shadow: 0 8px 24px -8px rgba(2, 6, 15, 0.6), 0 0 16px rgba(31, 111, 235, 0.18);
+  background: rgba(2, 54, 97, 0.22);
+  border: 1px solid rgba(2, 54, 97, 0.5);
+  box-shadow: 0 8px 24px -8px rgba(10, 12, 18, 0.6), 0 0 16px rgba(2, 54, 97, 0.18);
 }
 
 .cv-qa-msg__text {
@@ -260,7 +260,7 @@
 .cv-qa-msg__files {
   margin-top: 0.9rem;
   padding-top: 0.8rem;
-  border-top: 1px solid rgba(76, 154, 255, 0.14);
+  border-top: 1px solid rgba(118, 130, 142, 0.14);
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -286,18 +286,18 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.25rem 0.65rem;
-  background: rgba(11, 26, 51, 0.75);
-  border: 1px solid rgba(76, 154, 255, 0.2);
+  background: rgba(14, 32, 52, 0.75);
+  border: 1px solid rgba(118, 130, 142, 0.2);
   border-radius: var(--radius-xs);
-  color: #F5A524;
+  color: #DB5227;
   font-size: 0.76rem;
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-default);
 }
 
 .cv-qa-file-chip:hover {
-  background: rgba(14, 46, 102, 0.4);
-  border-color: rgba(31, 111, 235, 0.5);
+  background: rgba(2, 54, 97, 0.4);
+  border-color: rgba(2, 54, 97, 0.5);
   color: #FFFFFF;
 }
 
@@ -324,7 +324,7 @@
   align-items: center;
   gap: 0.3rem;
   font-size: 0.7rem;
-  color: #4C9AFF;
+  color: #9AA9B8;
   font-family: var(--font-mono);
 }
 
@@ -340,8 +340,8 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #F5A524;
-  box-shadow: 0 0 6px rgba(245, 165, 36, 0.6);
+  background: #DB5227;
+  box-shadow: 0 0 6px rgba(219, 82, 39, 0.6);
   animation: cv-typing 1.4s infinite ease-in-out both;
 }
 
@@ -362,19 +362,19 @@
 .cv-qa-input-box {
   display: flex;
   gap: 0.75rem;
-  background: rgba(7, 18, 38, 0.85);
+  background: rgba(10, 22, 36, 0.85);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(76, 154, 255, 0.2);
+  border: 1px solid rgba(118, 130, 142, 0.2);
   border-radius: var(--radius-md);
   padding: 0.5rem 0.5rem 0.5rem 1.1rem;
-  box-shadow: 0 8px 24px -8px rgba(2, 6, 15, 0.7);
+  box-shadow: 0 8px 24px -8px rgba(10, 12, 18, 0.7);
   transition: all var(--duration-fast) var(--ease-default);
 }
 
 .cv-qa-input-box:focus-within {
-  border-color: rgba(31, 111, 235, 0.6);
-  box-shadow: 0 0 16px rgba(31, 111, 235, 0.25);
+  border-color: rgba(2, 54, 97, 0.6);
+  box-shadow: 0 0 16px rgba(2, 54, 97, 0.25);
 }
 
 .cv-qa-input-field {
@@ -398,5 +398,5 @@
 }
 
 .cv-qa-input-footer strong {
-  color: #4C9AFF;
+  color: #9AA9B8;
 }
