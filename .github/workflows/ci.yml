@@ -60,7 +60,7 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -139,7 +139,7 @@ jobs:
         run: uv export --project backend --locked --no-emit-project --format requirements-txt --output-file /tmp/backend-requirements.txt
       - name: Audit backend dependencies
         run: uvx --python 3.12 pip-audit -r /tmp/backend-requirements.txt --disable-pip --no-deps
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Audit frontend lockfile (no frontend tests)
