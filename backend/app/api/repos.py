@@ -176,7 +176,7 @@ async def ask_stream(
     llm=Depends(get_llm_dep),
     _user: User = Depends(limit_llm),
 ):
-    """Stream grounded answers and persist conversation history."""
+    """Stream grounded answers using only this owned conversation's saved history."""
     cfg = get_settings()
     conversation, user_message, assistant_message, previous = await reserve_turn(
         session, repo, body.question, body.conversation_id,

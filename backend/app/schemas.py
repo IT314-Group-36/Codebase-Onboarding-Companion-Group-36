@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class RepoCreate(BaseModel):
@@ -62,14 +62,20 @@ class AskIn(BaseModel):
     depth: int | None = Field(default=None, ge=1, le=6, description="How many call/import steps to follow (default 3)")
 
 
-class ConversationTurn(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=4000)
-
-
 class AskStreamIn(AskIn):
     conversation_id: int | None = Field(default=None, gt=0)
-    history: list[ConversationTurn] = Field(default_factory=list, max_length=12)
+    history: Any = Field(
+        default=None, exclude=True, repr=False, deprecated=True,
+        description="Deprecated compatibility field. Any supplied value is discarded; context comes only from "
+                    "the authenticated conversation's saved messages.",
+    )
+
+    @field_validator("history", mode="before")
+    @classmethod
+    def discard_legacy_history(cls, _value: Any) -> None:
+        # Old tabs can send long/invalid turns. Do not validate, retain or replay
+        # them: otherwise unused browser state can still reject a valid question.
+        return None
 
 class ConversationCreate(BaseModel):
     title: str = Field(default="New conversation", min_length=1, max_length=200)

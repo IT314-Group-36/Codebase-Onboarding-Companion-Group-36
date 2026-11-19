@@ -88,6 +88,8 @@ Run from `frontend/`.
 | `npm run preview` | Preview the production build |
 
 There is no frontend test suite yet; `npm run lint` and `npm run build` are the checks.
+Frontend test implementation belongs to the testing team. Deferred Q&A history coverage and future
+review/reporting steps are tracked in [TESTING_FOLLOWUPS.md](TESTING_FOLLOWUPS.md).
 
 ### Chat storage controls
 
@@ -95,8 +97,9 @@ There is no frontend test suite yet; `npm run lint` and `npm run build` are the 
 **Delete chat** asks for confirmation, then permanently deletes the current conversation and its
 messages on the server. Quota errors are displayed as notifications; deletion is not reported as
 failed merely because the server cannot allocate a replacement chat. Older oversized saved messages
-are shown as marked bounded excerpts. Recent browser history is bounded before sending, while the
-backend uses its own bounded saved context. See `backend/README.md` for chat/progress caps and pagination.
+are shown as marked bounded excerpts. The browser sends only the new question, conversation ID and
+supported target hints; it does not construct or send earlier turns. The backend loads its own bounded
+saved context. See `backend/README.md` for chat/progress caps and pagination.
 
 ## Backend connection
 

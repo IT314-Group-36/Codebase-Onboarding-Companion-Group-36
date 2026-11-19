@@ -64,6 +64,18 @@ Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv 
 | DELETE | `/repos/{id}/conversations/{conversation_id}` | explicitly delete an owned chat and its messages; `409` while an answer is pending |
 | GET | `/repos/{id}/impact?symbol=\|file=&depth=&explain=` | "what breaks if I change this" (reverse traversal); same report the Ask box shows, with a call chain and a reason per item |
 
+Streaming Q&A clients send the new `question`, `conversation_id` and optional `symbol`/`file`/`depth`
+hints, not earlier messages. The database is the only source of prior conversation context, after
+repository and conversation ownership checks. The bounded recent-history selection and 4,000-character
+per-context-message limit remain in place; these do not shorten the saved answer or its browser display.
+
+For older browser tabs, `AskStreamIn.history` remains a deprecated compatibility field. Any supplied
+value is discarded before turn validation, never persisted or sent to the AI, and excluded from model
+serialization. Old clients replaying answers longer than 4,000 characters therefore do not invalidate
+an otherwise valid follow-up. This is not an HTTP request-body size limit: JSON still has to be parsed.
+After client rollout and testing-team confirmation, remove the deprecated field and its discard validator;
+new clients must not depend on it. Backend regressions are in `tests/test_qa_history.py`.
+
 Every `/repos` and `/github` route needs the session cookie (401 otherwise), and a user only ever sees their own
 repositories: someone else's repo answers 404, the same as a missing one. Poll `GET /repos/{id}` for progress; the
 other repo endpoints return 409 until `status == "ready"`.

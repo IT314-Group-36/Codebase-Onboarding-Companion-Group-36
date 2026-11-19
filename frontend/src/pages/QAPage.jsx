@@ -206,13 +206,10 @@ export default function QAPage() {
       setIsAsking(true);
 
       try {
-        const history = messages.filter((m) => m.sender === 'user' || m.sender === 'assistant')
-          .filter((m) => m.text && !m.isError).map((m) => ({ role: m.sender, content: m.text }));
         await askCodebaseQuestionStream(
             repoId,
             q,
             hints || {},
-            history,
             (event) => {
           if (event.type === 'conversation') {
   setConversationId(event.conversation_id);
@@ -237,9 +234,9 @@ export default function QAPage() {
               caveat: res.caveat || '', question: q,
             } : m));
           }
-        }
-      ,conversationId
-    );
+        },
+        conversationId
+      );
       } catch (err) {
         const isLlmUnconfigured = err.message && err.message.includes('LLM is not configured');
         const errorText = isLlmUnconfigured
@@ -253,14 +250,13 @@ export default function QAPage() {
       }
     },
     [
-  inputQuery,
-  isAsking,
-  repoId,
-  mode,
-  messages,
-  conversationId,
-  loadingConversation,
-]
+      inputQuery,
+      isAsking,
+      repoId,
+      mode,
+      conversationId,
+      loadingConversation,
+    ]
   );
 
   const handleKeyDown = (e) => {
