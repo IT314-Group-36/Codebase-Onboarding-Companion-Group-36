@@ -36,7 +36,7 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked --python 3.12
       - run: uv run --locked ruff check .
@@ -59,7 +59,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Build production Dockerfile
         run: docker build -t onboarding-backend:ci backend
       - name: Start disposable database and production entrypoint
@@ -133,7 +133,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
       - name: Export locked backend dependencies
         run: uv export --project backend --locked --no-emit-project --format requirements-txt --output-file /tmp/backend-requirements.txt
