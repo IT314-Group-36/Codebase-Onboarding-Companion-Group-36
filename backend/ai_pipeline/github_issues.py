@@ -26,6 +26,10 @@ _CANONICAL_URL = re.compile(r"^https://github\.com/([\w.\-]+)/([\w.\-]+)$")     
 class GitHubError(RuntimeError):
     """The issues could not be fetched. The message is safe to show to the user."""
 
+    def __init__(self, message: str, kind: str = "error"):
+        super().__init__(message)
+        self.kind = kind
+
 
 class IssuesDisabled(GitHubError):
     """The repository has the Issues tab turned off (HTTP 410)."""
@@ -53,9 +57,9 @@ def _translate(err: urllib.error.HTTPError, token: str | None) -> GitHubError:
     if code == 410:
         return IssuesDisabled("Issues are turned off for this repository, so there is nothing to fetch.")
     if code == 401:
-        return GitHubError("GitHub rejected the access token (401). Check that it is valid and has not expired.")
+        return GitHubError("GitHub rejected the access token (401). Check that it is valid and has not expired.", "reauth")
     if code == 404:
-        return GitHubError("Repository not found on GitHub. If it is private, pass an access_token that can read it.")
+        return GitHubError("Repository not found on GitHub. If it is private, pass an access_token that can read it.", "not_found")
     limited = code == 429 or (code == 403 and (err.headers.get("X-RateLimit-Remaining") == "0" or "rate limit" in detail.lower()))
     if limited:
         reset = err.headers.get("X-RateLimit-Reset", "")
@@ -63,9 +67,9 @@ def _translate(err: urllib.error.HTTPError, token: str | None) -> GitHubError:
         if reset.isdigit():
             when = f" It resets at {datetime.fromtimestamp(int(reset), timezone.utc):%H:%M} UTC."
         return GitHubError("GitHub API rate limit reached." + when +
-                           " Pass an access_token (or set GITHUB_TOKEN on the server) for a much higher limit.")
+                           " Pass an access_token (or set GITHUB_TOKEN on the server) for a much higher limit.", "rate_limit")
     if code == 403:
-        return GitHubError(f"GitHub refused access (403). {detail}".strip())
+        return GitHubError(f"GitHub refused access (403). {detail}".strip(), "forbidden")
     return GitHubError(f"GitHub returned HTTP {code}. {detail}".strip())
 
 
