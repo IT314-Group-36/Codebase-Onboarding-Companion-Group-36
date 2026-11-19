@@ -17,7 +17,8 @@ Push `ci/deployment-readiness-checks`, open a PR to `main`, and wait for:
 
 Review any security findings rather than bypassing them. Backend audits reject all reported
 vulnerabilities; frontend audits reject high/critical findings. Registry/audit-service outages can
-also fail this check. Dependabot opens weekly dependency-update PRs; it does not auto-merge them.
+also fail this check. Automated dependency-update PRs are intentionally disabled; CI audits
+report vulnerabilities without changing package versions or opening update PRs.
 These checks are not a complete SAST, secret, or container-OS vulnerability scan.
 
 ## 2. Protect `main` in GitHub
@@ -88,14 +89,20 @@ Optional local equivalent:
 python backend/scripts/verify_deployment.py --url https://onboarding-companion.onrender.com --revision <FULL_SHA>
 ```
 
-## 5. Enable GitHub security features
+## 5. Security checks without automated update PRs
 
 Under **Settings → Advanced Security** (sometimes **Code security** or **Code security and analysis**):
 
-1. Enable **Dependency graph**, **Dependabot alerts**, and **Dependabot security updates**, where available.
-2. Enable **Secret scanning** and **Push protection**, where your plan supports them.
-3. Confirm the **Dependabot** tab can read `uv.lock`, `package-lock.json`, Dockerfile and Actions updates.
-4. Review Dependabot PRs normally; all CI checks and review requirements still apply.
+1. Keep **Dependabot security updates** disabled. This dashboard setting can open update PRs
+   independently of the removed `.github/dependabot.yml` configuration.
+2. **Dependency graph** and **Dependabot alerts** are optional read-only information/alerts;
+   they do not themselves open update PRs.
+3. Enable **Secret scanning** and **Push protection**, where your plan supports them.
+4. Close previously opened Dependabot PRs without merging them if you do not want those updates.
+   Removing the configuration does not undo existing PRs or clear workflow history.
+
+Backend tests, frontend lint/build, Docker smoke checks, CI dependency audits and manual
+deployment verification remain enabled. No dependency-update bot configuration is included.
 
 Do not place Neon credentials in test workflows. All CI databases are disposable pgvector Postgres.
 Do not run backend pytest against Neon: fixtures downgrade/truncate the test database.
