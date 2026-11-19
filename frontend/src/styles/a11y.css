@@ -24,7 +24,7 @@ html[data-motion='reduce'] *::after {
 
 /* A stopped spinner would look frozen, so show a clear static ring instead. */
 html[data-motion='reduce'] .cv-loading__spinner {
-  border-color: rgba(76, 154, 255, 0.5);
+  border-color: rgba(118, 130, 142, 0.5);
   border-top-color: var(--cv-warm-amber);
 }
 

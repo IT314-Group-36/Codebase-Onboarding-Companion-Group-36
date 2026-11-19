@@ -1,0 +1,143 @@
+/* EMBER LOOK: glass cards, pill shapes, warm glow + navy gradient (loaded after the base styles).
+   Palette: #0A0C12 black, #023661 navy, #3F3A42 warm grey, #76828E slate, #DB5227 orange.
+   Selectors start with "html" so they win over page styles that load later. */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
+
+:root {
+  --font-sans: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  --sidebar-width: 232px;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 28px;
+  --ember-glass: rgba(22, 40, 62, 0.62);
+  --ember-glass-line: rgba(255, 255, 255, 0.13);
+}
+
+/* Page: near-black top, warm glow top-left, navy bottom */
+html body .cv-app-shell {
+  background:
+    radial-gradient(900px 620px at 0% 0%, rgba(219, 82, 39, 0.34) 0%, rgba(219, 82, 39, 0) 62%),
+    linear-gradient(180deg, #0A0C12 0%, #0A1B30 46%, #023661 100%);
+  background-attachment: fixed;
+}
+html body .cv-app-shell__content { padding: 0 32px 56px; }
+
+/* The animated backdrop sits on top of the shell, so the gradient lives here */
+html .cv-aurora-backdrop {
+  background:
+    radial-gradient(900px 620px at 0% 0%, rgba(219, 82, 39, 0.34) 0%, rgba(219, 82, 39, 0) 62%),
+    linear-gradient(180deg, #0A0C12 0%, #0A1B30 46%, #023661 100%);
+}
+html .cv-aurora-base, html .cv-aurora-overlay { display: none; }
+html .cv-aurora-light { opacity: 0.35; }
+
+/* Sidebar */
+html .cv-sidebar {
+  background: linear-gradient(180deg, rgba(219, 82, 39, 0.34) 0%, rgba(130, 76, 62, 0.24) 30%, rgba(2, 54, 97, 0.28) 72%, rgba(130, 180, 225, 0.34) 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+html .cv-sidebar__brand-box { height: auto; padding: 26px 18px 12px; border-bottom: 0; background: none; }
+html .cv-sidebar__logo-icon { background: linear-gradient(135deg, #DB5227 0%, #023661 100%); border: 0; border-radius: 14px; color: #fff; }
+html .cv-sidebar__nav { padding: 10px 12px; gap: 6px; }
+html .cv-sidebar__section-title { color: #B9C2CB; letter-spacing: 0.14em; padding: 10px 14px 6px; }
+html .cv-sidebar__link { padding: 12px 16px; border-radius: 999px; font-size: 0.95rem; color: #C3CBD3; }
+html .cv-sidebar__link:hover { color: #fff; background: rgba(255, 255, 255, 0.09); border-color: transparent; }
+html .cv-sidebar__link--active {
+  background: rgba(255, 255, 255, 0.17) !important;
+  border-color: rgba(219, 82, 39, 0.75) !important;
+  box-shadow: 0 0 18px rgba(219, 82, 39, 0.38) !important;
+}
+html .cv-sidebar__link--active::before { display: none; }
+html .cv-sidebar__link--active .cv-sidebar__icon { color: #fff; }
+html .cv-sidebar__footer { border-top: 0; padding: 0 12px 12px; }
+html .cv-sidebar__shortcut-card, html .cv-sidebar__repo-chip {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 24px;
+}
+
+/* Top bar: a floating pill */
+html .cv-topbar {
+  position: sticky; top: 14px; z-index: 60;
+  margin: 14px 32px 24px;
+  height: 56px;
+  padding: 0 8px 0 24px;
+  border: 1px solid var(--ember-glass-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: none;
+}
+html .cv-topbar__profile-btn, html .cv-topbar__user-btn {
+  background: rgba(255, 255, 255, 0.08); border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Status chips: calm slate pills */
+html .cv-badge { border-radius: 999px; padding: 6px 14px; font-family: var(--font-sans); font-size: 0.78rem; }
+html .cv-badge--analyzed { background: rgba(2, 54, 97, 0.7); color: #B9C2CB; border-color: rgba(255, 255, 255, 0.1); }
+html .cv-badge--analyzed .cv-badge__dot { background: #A9B4BF; }
+
+/* Buttons are pills */
+html .cv-btn { border-radius: 999px; }
+html .cv-btn--primary { background: #DB5227; color: #fff; border: 0; box-shadow: none; }
+html .cv-btn--primary:hover { background: #E8683F; box-shadow: 0 0 26px rgba(219, 82, 39, 0.55); }
+html .cv-btn--secondary, html .cv-btn--outline { background: rgba(255, 255, 255, 0.07); border: 1px solid var(--ember-glass-line); }
+
+/* Dashboard */
+html .cv-dashboard { gap: 34px; }
+html .cv-dashboard-title { font-size: 3rem; font-weight: 700; letter-spacing: -0.025em; line-height: 1.05; }
+html .cv-dashboard-user-pill { border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.28); background: transparent; padding: 6px 16px; }
+html .cv-dashboard-subtitle { font-size: 1.08rem; color: #B9C2CB; max-width: 760px; }
+html .cv-dashboard-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+html .cv-stat-card {
+  border-radius: 28px; padding: 22px 24px;
+  background: var(--ember-glass); border: 1px solid var(--ember-glass-line);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: none;
+}
+html .cv-stat-card:hover { border-color: rgba(219, 82, 39, 0.55); box-shadow: 0 14px 38px rgba(2, 54, 97, 0.55); }
+html .cv-stat-card__icon { width: 48px; height: 48px; border-radius: 16px; background: rgba(63, 58, 66, 0.85); border: 0; color: #fff; }
+html .cv-dashboard-stats > :nth-child(4) .cv-stat-card__icon { background: rgba(219, 82, 39, 0.6); }
+html .cv-stat-card__value { font-size: 2.2rem; font-weight: 700; }
+html .cv-stat-card__label { color: #fff; font-size: 1rem; }
+html .cv-stat-card__sublabel { color: #A9B4BF; }
+
+html .cv-dashboard-layout { grid-template-columns: 1fr; gap: 36px; }
+html .cv-dashboard-section-head h2, html .cv-dashboard-section-head h3 { font-size: 1.55rem; font-weight: 700; }
+html .cv-dashboard-section-head { flex-direction: column; align-items: stretch; gap: 16px; }
+html .cv-dashboard-controls { display: flex; gap: 12px; width: 100%; }
+html .cv-dashboard-search-box { flex: 1; max-width: none; }
+html .cv-dashboard-search-box input, html .cv-dashboard-filter-select select {
+  border-radius: 999px; height: 48px; background: var(--ember-glass); border: 1px solid var(--ember-glass-line);
+}
+html .cv-dashboard-filter-select select { padding-left: 38px; padding-right: 32px; }
+
+html .cv-repo-card {
+  border-radius: 28px; padding: 26px 28px;
+  background: linear-gradient(180deg, rgba(20, 48, 77, 0.78) 0%, rgba(14, 40, 68, 0.78) 100%);
+  border: 1px solid var(--ember-glass-line); box-shadow: none;
+}
+html .cv-repo-card:hover { border-color: rgba(219, 82, 39, 0.55); box-shadow: 0 14px 38px rgba(2, 54, 97, 0.55); transform: translateY(-3px); }
+html .cv-repo-card__name { font-size: 1.35rem; }
+
+html .cv-onboarding-card {
+  border-radius: 28px; padding: 26px 28px;
+  background: linear-gradient(180deg, rgba(20, 48, 77, 0.78) 0%, rgba(14, 40, 68, 0.78) 100%);
+  border: 1px solid var(--ember-glass-line); box-shadow: none;
+}
+html .cv-progress-track { height: 10px; background: rgba(255, 255, 255, 0.14); border: 0; }
+html .cv-progress-fill { background: linear-gradient(90deg, #DB5227, #E8683F); box-shadow: none; }
+html .cv-task-row { border-radius: 18px; background: rgba(255, 255, 255, 0.07); border: 1px solid transparent; padding: 14px 18px; }
+
+@media (max-width: 1000px) {
+  html .cv-dashboard-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  html body .cv-app-shell__content { padding: 0 16px 36px; }
+  html .cv-topbar { margin: 10px 16px 18px; }
+  html .cv-dashboard-title { font-size: 2.2rem; }
+}

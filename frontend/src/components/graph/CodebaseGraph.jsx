@@ -136,7 +136,7 @@ const FlowInner = forwardRef(function FlowInner(
     }
   }, [searchQuery, nodes, setCenter]);
 
-  // Transform edges dynamically with Dark Aurora (Warm Amber #F5A524 / Soft Blue #4C9AFF)
+  // Transform edges dynamically with Dark Aurora (Warm Amber #DB5227 / Soft Blue #9AA9B8)
   const styledEdges = useMemo(() => {
     return edges.map((edge) => {
       const isOutgoing = edge.source === selectedNodeId;
@@ -153,7 +153,7 @@ const FlowInner = forwardRef(function FlowInner(
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: isActive ? (isOutgoing ? '#F5A524' : '#4C9AFF') : 'rgba(76, 154, 255, 0.25)',
+          color: isActive ? (isOutgoing ? '#DB5227' : '#9AA9B8') : 'rgba(118, 130, 142, 0.25)',
           width: isActive ? 15 : 12,
           height: isActive ? 15 : 12,
         },
@@ -181,10 +181,10 @@ const FlowInner = forwardRef(function FlowInner(
   // MiniMap node color generator (Dark Aurora palette)
   const getMiniMapNodeColor = useCallback(
     (node) => {
-      if (node.id === selectedNodeId) return '#F5A524';
-      if (node.data?.isSearchMatch) return '#F5A524';
-      if (node.data?.type === 'entrypoint' || node.data?.isRoot) return '#1F6FEB';
-      return '#0B1A33';
+      if (node.id === selectedNodeId) return '#DB5227';
+      if (node.data?.isSearchMatch) return '#DB5227';
+      if (node.data?.type === 'entrypoint' || node.data?.isRoot) return '#76828E';
+      return '#0E2034';
     },
     [selectedNodeId]
   );
@@ -210,12 +210,12 @@ const FlowInner = forwardRef(function FlowInner(
       proOptions={{ hideAttribution: true }}
       className="cv-reactflow-instance"
     >
-      {/* Subtle Dark Aurora grid pattern on Deep Background (#02060F) */}
+      {/* Subtle Dark Aurora grid pattern on Deep Background (#0A0C12) */}
       <Background
         variant="lines"
         gap={32}
         size={1}
-        color="rgba(31, 111, 235, 0.16)"
+        color="rgba(2, 54, 97, 0.16)"
         className="cv-graph-grid-bg"
       />
 
@@ -223,7 +223,7 @@ const FlowInner = forwardRef(function FlowInner(
       <MiniMap
         nodeColor={getMiniMapNodeColor}
         nodeStrokeWidth={1}
-        maskColor="rgba(2, 6, 15, 0.78)"
+        maskColor="rgba(10, 12, 18, 0.78)"
         className="cv-graph-minimap"
         pannable
         zoomable
