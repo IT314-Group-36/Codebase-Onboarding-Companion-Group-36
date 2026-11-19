@@ -204,6 +204,9 @@ cd backend && uv run pytest        # needs Postgres with pgvector; skipped other
 cd frontend && npm run lint && npm run build
 ```
 
+Frontend automated tests are assigned to the testing team. Deferred Q&A coverage and the checklist
+for reporting newly added test files are recorded in [frontend/TESTING_FOLLOWUPS.md](frontend/TESTING_FOLLOWUPS.md).
+
 ## Troubleshooting
 
 | Symptom | Likely cause and fix |
