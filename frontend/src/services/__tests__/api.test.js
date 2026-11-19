@@ -385,3 +385,19 @@ describe('searchCode and getImpactAnalysis', () => {
   });
 });
 
+// ============================================
+// checkHealth() — Health Check Integration
+// ============================================
+describe('checkHealth', () => {
+  it('calls GET /health and returns backend health status', async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(200, { status: 'ok', db: 'connected' })
+    );
+    const res = await checkHealth();
+    expect(res).toEqual({ status: 'ok', db: 'connected' });
+
+    const [url] = mockFetch.mock.calls[0];
+    expect(url).toContain('/health');
+  });
+});
+
