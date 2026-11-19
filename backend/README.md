@@ -106,6 +106,15 @@ saved at sign-in. The token is decrypted only inside the indexing job for that c
 logs or API responses. Pasting a token as `access_token` on `POST /repos` or `/reindex` still works and takes
 priority; that one is passed through the queue for the job and never stored.
 
+Issue sync (both automatic after indexing and manually requested) uses an explicitly supplied
+`access_token` first, then the repository owner's saved OAuth credential, then the server's
+`GITHUB_TOKEN` only when no user credential exists; otherwise it can fetch public issues anonymously.
+Saved credentials are loaded/decrypted inside the sync job, not copied into its queue arguments.
+Unreadable or rejected saved credentials do not silently fall back to the server's identity:
+the sync reports a sign-in/access-permissions hint and keeps previously cached issues. Rate limits
+and network failures also preserve the cache. Re-sign in to refresh a revoked token, or check
+repository access and organization OAuth app approval for permission failures.
+
 A failed clone says which problem it is: "sign in with GitHub again" (token rejected), or "your account cannot access it"
 (wrong URL, no permission, or an organization that has not approved this OAuth app).
 
