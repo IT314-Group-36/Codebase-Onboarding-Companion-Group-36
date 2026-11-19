@@ -36,7 +36,8 @@ Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv 
 
 | Method | Path | What |
 |---|---|---|
-| GET | `/health` | liveness check (used by the Docker healthcheck) |
+| GET | `/health` | liveness only; does not contact the database |
+| GET | `/ready` | database readiness (`SELECT 1`, three-second timeout): 200 `ready` or sanitized 503 `unavailable`; uncached; includes a validated full `RENDER_GIT_COMMIT` as `revision` when available |
 | GET | `/auth/config` | `{github_login_enabled}`: whether GitHub sign-in is set up on this server |
 | GET | `/auth/github/login` | start sign-in: redirects to GitHub (sets a short-lived `oauth_state` cookie) |
 | GET | `/auth/github/callback` | GitHub returns here; creates/updates the user, saves the token encrypted, sets the session cookie, redirects to the frontend |

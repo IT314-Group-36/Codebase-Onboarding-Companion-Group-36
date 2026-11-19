@@ -13,6 +13,7 @@ jobs:
   backend:
     name: Backend checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
@@ -53,6 +54,7 @@ jobs:
   frontend:
     name: Frontend checks
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend
@@ -66,3 +68,80 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+
+  docker:
+    name: Backend Docker smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build production Dockerfile
+        run: docker build -t onboarding-backend:ci backend
+      - name: Start disposable database and production entrypoint
+        env:
+          REVISION: ${{ github.sha }}
+        run: |
+          docker network create onboarding-ci
+          docker run -d --name ci-postgres --network onboarding-ci \
+            -e POSTGRES_USER=onboard -e POSTGRES_PASSWORD=ci-only \
+            -e POSTGRES_DB=onboard_test pgvector/pgvector:pg16
+          for _ in $(seq 1 30); do
+            if docker exec ci-postgres pg_isready -U onboard -d onboard_test; then break; fi
+            sleep 2
+          done
+          docker exec ci-postgres pg_isready -U onboard -d onboard_test
+          docker run -d --name ci-backend --network onboarding-ci -p 8000:8000 \
+            -e DATABASE_URL=postgresql+psycopg://onboard:ci-only@ci-postgres:5432/onboard_test \
+            -e EMBED_BACKEND=hash -e RENDER_GIT_COMMIT="$REVISION" onboarding-backend:ci
+      - name: Verify startup, migrations, readiness and revision
+        env:
+          REVISION: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json, os, time, urllib.request
+          for attempt in range(60):
+              try:
+                  with urllib.request.urlopen("http://localhost:8000/ready", timeout=4) as response:
+                      assert response.status == 200
+                      assert response.headers["Cache-Control"] == "no-store"
+                      assert json.load(response) == {"status": "ready", "revision": os.environ["REVISION"]}
+                  break
+              except Exception:
+                  time.sleep(2)
+          else:
+              raise SystemExit("Production container did not become ready")
+          PY
+          docker exec ci-backend alembic check
+      - name: Verify readiness fails when database is unavailable
+        run: |
+          docker stop ci-postgres
+          test "$(curl --silent --max-time 8 -o /tmp/ready.json -w '%{http_code}' http://localhost:8000/ready)" = 503
+          test "$(curl --silent --max-time 8 -o /dev/null -w '%{http_code}' http://localhost:8000/health)" = 200
+      - name: Container diagnostics
+        if: failure()
+        run: |
+          docker logs ci-backend || true
+          docker logs ci-postgres || true
+      - name: Clean up disposable resources
+        if: always()
+        run: |
+          docker rm -f -v ci-backend ci-postgres || true
+          docker network rm onboarding-ci || true
+
+  security:
+    name: Dependency security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+      - name: Export locked backend dependencies
+        run: uv export --project backend --locked --no-emit-project --format requirements-txt --output-file /tmp/backend-requirements.txt
+      - name: Audit backend dependencies
+        run: uvx --python 3.12 pip-audit -r /tmp/backend-requirements.txt --disable-pip --no-deps
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Audit frontend lockfile (no frontend tests)
+        working-directory: frontend
+        run: npm audit --audit-level=high

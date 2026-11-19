@@ -1,8 +1,13 @@
+import asyncio
 import logging
+import os
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from app.api.auth import router as auth_router
 from app.api.github import router as github_router
@@ -10,6 +15,7 @@ from app.api.history import router as history_router
 from app.api.repos import router as repos_router
 from app.api.tasks import router as tasks_router
 from app.core.config import get_settings
+from app.db.session import engine
 from app.services.jobs import InProcessQueue, recover_interrupted_jobs
 
 logging.basicConfig(level=logging.INFO)
@@ -42,3 +48,21 @@ app.include_router(tasks_router)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/ready")
+async def ready():
+    """Bounded database readiness probe; never expose connection errors or credentials."""
+    headers = {"Cache-Control": "no-store"}
+    try:
+        # Includes pool checkout, reconnect/pre-ping, query and connection cleanup.
+        async with asyncio.timeout(3):
+            async with engine.connect() as connection:
+                await connection.execute(text("SELECT 1"))
+    except Exception:
+        return JSONResponse({"status": "unavailable"}, status_code=503, headers=headers)
+    body = {"status": "ready"}
+    revision = os.environ.get("RENDER_GIT_COMMIT", "")
+    if re.fullmatch(r"[0-9a-f]{40}", revision):
+        body["revision"] = revision
+    return JSONResponse(body, headers=headers)
