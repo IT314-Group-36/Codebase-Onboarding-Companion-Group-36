@@ -199,6 +199,10 @@ Never commit `.env` files; only `.env.example` files are tracked.
 
 ## Tests and checks
 
+CI also builds and smoke-checks the production backend container and audits locked dependencies.
+See [.github/CICD_SETUP.md](.github/CICD_SETUP.md) for required merge checks, Render CI gating,
+and manual exact-revision production readiness verification.
+
 ```bash
 cd backend && uv run pytest        # needs Postgres with pgvector; skipped otherwise
 cd frontend && npm run lint && npm run build

@@ -9,6 +9,10 @@ browser ──> Vercel (React app)  ──/api/*──>  Render (FastAPI + backg
 
 Background indexing runs inside the Render web service (no Redis, no worker). One repository is indexed at a time.
 
+For required GitHub checks, Render CI gating, dependency scanning and exact-revision post-deploy
+verification, follow [.github/CICD_SETUP.md](.github/CICD_SETUP.md). Existing services should deploy
+the new code before changing their health check from `/health` to `/ready`.
+
 ## Current deployment
 
 | Part | Where | URL |
@@ -54,13 +58,15 @@ recreated, update that host and the three Render variables that mention the Verc
 2. Settings: **Language: Docker**, **Branch: `main`**, **Region** next to your Neon region,
    **Root Directory: leave blank**, **Dockerfile Path: `backend/Dockerfile`**,
    **Instance type: Free** (make sure the $0 plan is selected, not $7).
-3. Under **Advanced**: **Docker Build Context Directory: `./backend`**, **Health Check Path: `/health`**,
-   **Auto-Deploy: On Commit**. Leave **Docker Command** and **Pre-Deploy Command** empty (the Dockerfile already
+3. Under **Advanced**: **Docker Build Context Directory: `./backend`**, **Health Check Path: `/ready`**,
+   **Auto-Deploy: After CI Checks Pass**. Leave **Docker Command** and **Pre-Deploy Command** empty (the Dockerfile already
    runs the migrations).
 4. Add the environment variables below (**Add from .env** pastes them all at once; no quotes around values),
    then deploy. The container runs `alembic upgrade head` and then starts the API on Render's `$PORT`.
    Migrations print nothing to the log: a healthy start ends with `Uvicorn running on http://0.0.0.0:10000`.
-5. Open `https://<service>.onrender.com/health`; it should answer `{"status":"ok"}`. Note the URL.
+5. Open `https://<service>.onrender.com/ready`; it should answer `{"status":"ready","revision":"<full commit SHA>"}`.
+   Render supplies `RENDER_GIT_COMMIT` automatically; do not manually set it. `/health` remains a liveness-only check.
+   Readiness runs a bounded database probe and returns a generic 503 if it fails. Note the URL.
 
 | Variable | Value |
 |---|---|
