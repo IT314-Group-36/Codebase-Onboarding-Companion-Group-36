@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import {
   Sparkles,
@@ -15,8 +15,6 @@ import GithubIcon from '../components/GithubIcon';
 import { useAuth } from '../context/useAuth';
 import { getAuthConfig } from '../services/api';
 import './LoginPage.css';
-
-const LiquidChromeOrb = lazy(() => import('../components/3d/LiquidChromeOrb'));
 
 /**
  * Page 1: Sign in with GitHub (OAuth).
@@ -51,26 +49,19 @@ export default function LoginPage() {
       <CosmicBackground intensity="full" />
 
       <div className="cv-login-container">
-        {/* Left Column: Product Narrative, 3 Key Benefits & Dark Aurora AST Spec */}
+        {/* Left Column: welcome and three plain steps */}
         <div className="cv-login-narrative">
-          <div className="cv-login-brand-tag">
-            <span className="cv-login-brand-tag__dot" />
-            <span>Developer Preview · Dark Aurora</span>
-          </div>
-
           <div className="cv-login-brand-header">
             <span className="cv-login-brand-name">CODEVERSE</span>
             <span className="cv-login-brand-sep">·</span>
-            <span className="cv-login-brand-tagline">Explore Your Codebase</span>
+            <span className="cv-login-brand-tagline">Understand any codebase</span>
           </div>
 
-          <h1 className="cv-login-headline">
-            Understand unfamiliar codebases in minutes.
-          </h1>
+          <h1 className="cv-login-headline">Welcome to CODEVERSE</h1>
 
           <p className="cv-login-summary">
-            CODEVERSE parses directory hierarchies, maps module dependencies, and generates
-            actionable onboarding tasks so engineers become productive on unfamiliar repositories immediately.
+            Understand any project in minutes. Connect it from GitHub and get simple explanations,
+            a picture of how it fits together, and a short plan for your first week.
           </p>
 
           {/* 3 Explicit Benefit Points */}
@@ -80,9 +71,9 @@ export default function LoginPage() {
                 <FolderTree size={16} />
               </div>
               <div className="cv-login-benefit-text">
-                <strong className="cv-login-benefit-title">1. Map project structure</strong>
+                <strong className="cv-login-benefit-title">1. Connect your project</strong>
                 <p className="cv-login-benefit-desc">
-                  Inspect comprehensive AST trees and nested directory hierarchies with zero local cloning.
+                  Pick a project from GitHub. Nothing to download or install.
                 </p>
               </div>
             </div>
@@ -92,9 +83,9 @@ export default function LoginPage() {
                 <Boxes size={16} />
               </div>
               <div className="cv-login-benefit-text">
-                <strong className="cv-login-benefit-title">2. Understand key modules</strong>
+                <strong className="cv-login-benefit-title">2. Understand it</strong>
                 <p className="cv-login-benefit-desc">
-                  Trace caller/callee relationship flows, exported interfaces, and architectural entry points.
+                  Read any file with a plain-English explanation and see how the parts connect.
                 </p>
               </div>
             </div>
@@ -104,70 +95,20 @@ export default function LoginPage() {
                 <CheckSquare size={16} />
               </div>
               <div className="cv-login-benefit-text">
-                <strong className="cv-login-benefit-title">3. Complete onboarding tasks</strong>
+                <strong className="cv-login-benefit-title">3. Ask questions</strong>
                 <p className="cv-login-benefit-desc">
-                  Follow step-by-step onboarding quests designed to accelerate codebase familiarity.
+                  Ask in plain English and get answers that point to the exact code.
                 </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Abstract Dark Aurora Architecture Graphic */}
-          <div className="cv-chrome-graphic-card" aria-hidden="true">
-            <div className="cv-chrome-graphic-card__head">
-              <div className="cv-chrome-graphic-card__dots">
-                <span className="cv-chrome-graphic-card__dot" />
-                <span className="cv-chrome-graphic-card__dot" />
-                <span className="cv-chrome-graphic-card__dot" />
-              </div>
-              <span className="cv-chrome-graphic-card__title">ast-relationship.spec</span>
-              <span className="cv-chrome-graphic-card__badge">Live Graph</span>
-            </div>
-
-            <div className="cv-chrome-graphic-card__diagram">
-              {/* 3D Liquid Chrome Orb with Dark Aurora reflections */}
-              <div className="cv-chrome-graphic-card__orb-wrap">
-                <Suspense fallback={<div style={{ width: 72, height: 72 }} />}>
-                  <LiquidChromeOrb size={72} label="CODEVERSE AST Core" />
-                </Suspense>
-                <span className="cv-chrome-graphic-card__orb-label">AST Core</span>
-              </div>
-
-              {/* Connector line */}
-              <div className="cv-metal-arrow">
-                <span className="cv-metal-arrow__line" />
-                <span className="cv-metal-arrow__label">analysis</span>
-              </div>
-
-              <div className="cv-metal-node cv-metal-node--entry">
-                <code>App.jsx</code>
-                <span className="cv-metal-node__type">Entrypoint</span>
-              </div>
-              <div className="cv-metal-arrow">
-                <span className="cv-metal-arrow__line" />
-                <span className="cv-metal-arrow__label">mounts</span>
-              </div>
-              <div className="cv-metal-node cv-metal-node--core">
-                <code>useAuth.js</code>
-                <span className="cv-metal-node__type">Context Hook</span>
-              </div>
-              <div className="cv-metal-arrow">
-                <span className="cv-metal-arrow__line" />
-                <span className="cv-metal-arrow__label">invokes</span>
-              </div>
-              <div className="cv-metal-node cv-metal-node--leaf">
-                <code>api.js</code>
-                <span className="cv-metal-node__type">HTTP Client</span>
               </div>
             </div>
           </div>
 
           <div className="cv-login-meta-pills">
             <span className="cv-login-meta-pill">
-              <ShieldCheck size={14} /> Read-only AST parsing
+              <ShieldCheck size={14} /> We only read your code
             </span>
             <span className="cv-login-meta-pill">
-              <GitBranch size={14} /> GitHub API integration
+              <GitBranch size={14} /> Sign in with your GitHub account
             </span>
           </div>
         </div>
@@ -180,22 +121,21 @@ export default function LoginPage() {
                 <Sparkles size={22} />
               </div>
               <h2 className="cv-auth-box__title">CODEVERSE</h2>
-              <p className="cv-auth-box__tagline">Explore Your Codebase</p>
+              <p className="cv-auth-box__tagline">Sign in to get started</p>
             </div>
 
             <div className="cv-auth-box__body">
               <p className="cv-auth-box__instruction">
-                Sign in with GitHub to connect repositories, including private ones your account can access,
-                and track onboarding roadmaps.
+                Sign in with your GitHub account to connect a project, including private ones you have access to.
               </p>
 
               {githubEnabled === false && (
                 <div className="cv-auth-demo-banner" role="alert">
                   <AlertCircle size={15} className="cv-auth-demo-banner__icon" />
                   <div>
-                    <strong>GitHub sign-in is not set up</strong>
+                    <strong>Sign-in is not available yet</strong>
                     <p>
-                      The server needs the GitHub OAuth settings in backend/.env. See the project README.
+                      GitHub sign-in has not been set up for this app. Please ask the person who runs it to finish the setup.
                     </p>
                   </div>
                 </div>
@@ -216,8 +156,7 @@ export default function LoginPage() {
               </div>
 
               <p className="cv-auth-box__terms">
-                We ask GitHub for read access to your repositories so we can clone the ones you choose.
-                Your GitHub token is stored encrypted on the server and never sent to your browser.
+                We only read the projects you choose. Your GitHub sign-in is stored securely and never shown in the browser.
               </p>
             </div>
           </div>

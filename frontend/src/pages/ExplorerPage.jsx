@@ -16,7 +16,8 @@ import {
   Share2,
   ShieldAlert,
   Zap,
-  Palette,
+
+  Sparkles,
 } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import Button from '../components/Button';
@@ -67,6 +68,20 @@ function highlightLine(line) {
  * Professional IDE-style layout with tree browser, source editor viewport,
  * and secondary architectural insights inspector connected to real backend AST.
  */
+// Config, docs and test folders are tucked away at the top level so new users start from the real code
+const HIDDEN_ROOT_FOLDERS = /^(\.|docs?$|website$|examples?$|scripts?$|tests?$|__tests__$|node_modules$|dist$|build$|coverage$)/i;
+const HIDDEN_ROOT_FILES = /\.(md|json|ya?ml|lock|txt|toml|ini|cfg)$|^(license|licence|codeowners|dockerfile|makefile)/i;
+function isNoiseRoot(node) {
+  if (node.type === 'folder') return HIDDEN_ROOT_FOLDERS.test(node.name);
+  return node.name.startsWith('.') || HIDDEN_ROOT_FILES.test(node.name);
+}
+
+const IMPORTANCE_TEXT = {
+  critical: 'Very important · many parts depend on it',
+  high: 'Important · several parts depend on it',
+};
+const COMPLEXITY_TEXT = { high: 'Complex · take your time', medium: 'Moderate · some effort' };
+
 export default function ExplorerPage() {
   const { repoId } = useParams();
   const navigate = useNavigate();
@@ -82,7 +97,8 @@ export default function ExplorerPage() {
   const [selectedFileId, setSelectedFileId] = useState('');
   const [expandedFolders, setExpandedFolders] = useState(new Set());
   const [treeSearch, setTreeSearch] = useState('');
-  const [detailsPanelOpen, setDetailsPanelOpen] = useState(true);
+  const [detailsPanelOpen, setDetailsPanelOpen] = useState(false);
+  const [showHiddenFiles, setShowHiddenFiles] = useState(false);
   const [mobileTreeOpen, setMobileTreeOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editorTheme, setEditorTheme] = useState(() => localStorage.getItem('codeverse_editor_theme') || 'dark-plus');
@@ -273,11 +289,14 @@ export default function ExplorerPage() {
       return flat;
     };
 
-    const flat = flattenTree(tree);
+    const roots = showHiddenFiles || treeSearch.trim() ? tree : tree.filter((n) => !isNoiseRoot(n));
+    const flat = flattenTree(roots);
     if (!treeSearch.trim()) return flat;
     const query = treeSearch.toLowerCase();
     return flat.filter((n) => n.name.toLowerCase().includes(query));
-  }, [tree, expandedFolders, treeSearch]);
+  }, [tree, expandedFolders, treeSearch, showHiddenFiles]);
+
+  const hiddenRootCount = useMemo(() => tree.filter(isNoiseRoot).length, [tree]);
 
   const handleCopyCode = () => {
     navigator.clipboard?.writeText(currentFileContent);
@@ -309,6 +328,8 @@ export default function ExplorerPage() {
   };
 
   const codeLines = (currentFileContent || '').split('\n');
+  const importanceText = IMPORTANCE_TEXT[currentFileDetails?.importance] || 'Supporting file';
+  const complexityText = COMPLEXITY_TEXT[currentFileDetails?.complexity] || 'Easy to read';
 
   return (
     <div className="cv-explorer">
@@ -339,7 +360,7 @@ export default function ExplorerPage() {
             onClick={handleRunImpact}
             loading={analyzingImpact}
             disabled={!selectedFileId || analyzingImpact}
-            title="Perform reverse dependency blast radius impact analysis"
+            title="See what could break if you change this file"
           >
             Impact Analysis
           </Button>
@@ -354,12 +375,12 @@ export default function ExplorerPage() {
           </Button>
 
           <Button
-            variant={detailsPanelOpen ? 'primary' : 'secondary'}
+            variant="secondary"
             size="sm"
             icon={<Info size={13} />}
             onClick={() => setDetailsPanelOpen(!detailsPanelOpen)}
           >
-            {detailsPanelOpen ? 'Hide Details' : 'View Details'}
+            {detailsPanelOpen ? 'Hide technical details' : 'Show technical details'}
           </Button>
         </div>
       </div>
@@ -447,11 +468,34 @@ export default function ExplorerPage() {
                 No files found matching filter.
               </p>
             )}
+            {hiddenRootCount > 0 && !treeSearch.trim() && (
+              <button type="button" className="cv-tree-hidden-toggle" onClick={() => setShowHiddenFiles((v) => !v)} aria-pressed={showHiddenFiles}>
+                {showHiddenFiles ? 'Hide docs and config' : `Docs and config (${hiddenRootCount}) · Show hidden files`}
+              </button>
+            )}
           </div>
         </aside>
 
         {/* Pane 2: Code Viewer (Center) */}
-        <main className="cv-explorer-code-pane" data-editor-theme={editorTheme} aria-label="Source Code Viewer">
+        <main className="cv-explorer-code-pane" data-editor-theme={editorTheme} aria-label="Code viewer">
+          {selectedFileId && currentFileDetails && (
+            <section className="cv-file-intro" aria-label="What is this file?">
+              <div className="cv-file-intro__top">
+                <div>
+                  <span className="cv-file-intro__kicker">What is this file?</span>
+                  <p className="cv-file-intro__text">{currentFileDetails.purpose}</p>
+                </div>
+                <Button variant="primary" size="sm" icon={<Sparkles size={13} />} onClick={() => setDetailsPanelOpen(true)}>
+                  Explain this file
+                </Button>
+              </div>
+              <div className="cv-file-intro__chips">
+                <span className="cv-file-chip">{importanceText}</span>
+                <span className="cv-file-chip">{complexityText}</span>
+                <span className="cv-file-chip">Based on static analysis</span>
+              </div>
+            </section>
+          )}
           <div className="cv-code-head">
             <div className="cv-code-head__meta">
               {getFileIcon(selectedFileId)}
@@ -459,21 +503,21 @@ export default function ExplorerPage() {
               <span className="cv-code-head__lines">{codeLines.length} lines</span>
               <span className="cv-code-spatial-pill">
                 <span className="cv-code-spatial-dot" />
-                Indexed source
+                Read from GitHub
               </span>
-              {targetLine && <span className="cv-code-spatial-pill" title="Citation location in the indexed source">
+              {targetLine && <span className="cv-code-spatial-pill" title="Where the cited code is in this file">
                 Citation: lines {targetLine}{targetEndLine && targetEndLine !== targetLine ? `-${targetEndLine}` : ''}
               </span>}
             </div>
 
             <div className="cv-code-head__actions">
-              <label className="cv-editor-theme-control" title="Choose code editor theme">
-                <Palette size={14} aria-hidden="true" />
-                <select aria-label="Code editor theme" value={editorTheme} onChange={(e) => setEditorTheme(e.target.value)}>
-                  <option value="dark-plus">VS Code Dark+</option>
+              <label className="cv-editor-theme-control" title="Choose the colours used to show the code">
+                <span className="cv-editor-theme-control__label">Theme</span>
+                <select aria-label="Theme" value={editorTheme} onChange={(e) => setEditorTheme(e.target.value)}>
+                  <option value="dark-plus">Dark (default)</option>
                   <option value="monokai">Monokai</option>
                   <option value="dracula">Dracula</option>
-                  <option value="github-light">GitHub Light</option>
+                  <option value="github-light">Light</option>
                 </select>
               </label>
               <button
@@ -508,8 +552,7 @@ export default function ExplorerPage() {
 
           <div className="cv-code-footer-banner">
             <span>
-              Source is fetched on demand from the indexed GitHub revision; the backend retains AST excerpts and metadata.
-              {fileContentLoading ? 'Retrieving source at indexed commit…' : fileContentError ? 'Source retrieval failed' : 'Source retrieved from the exact indexed GitHub commit'}
+              {fileContentLoading ? 'Loading the code…' : fileContentError ? 'Could not load the code.' : 'This is the code exactly as it was when we analyzed your project.'}
             </span>
           </div>
         </main>
