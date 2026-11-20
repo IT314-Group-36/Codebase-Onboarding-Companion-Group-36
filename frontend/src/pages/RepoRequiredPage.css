@@ -1,0 +1,18 @@
+.cv-need-repo {
+  max-width: 520px;
+  margin: 8vh auto 0;
+  padding: 40px 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  border-radius: 28px;
+  background: var(--ember-glass);
+  border: 1px solid var(--ember-glass-line);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.cv-need-repo__icon { width: 60px; height: 60px; border-radius: 20px; display: grid; place-items: center; background: rgba(63, 58, 66, 0.85); }
+.cv-need-repo__title { margin: 4px 0 0; font-size: 1.7rem; }
+.cv-need-repo__text { margin: 0 0 8px; color: var(--text-muted); line-height: 1.6; }

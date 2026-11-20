@@ -1,3 +1,4 @@
+import { NAV, SECTION_LABEL } from '../utils/navLabels';
 import { useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import {
@@ -25,27 +26,17 @@ export default function Topbar({ onToggleMobileMenu, onLogoutRequest }) {
 
   const getBreadcrumbs = () => {
     const path = location.pathname;
-    const crumbs = [{ label: 'Dashboard', to: '/dashboard' }];
+    const crumbs = [{ label: NAV.home, to: '/dashboard' }];
+    const section = path.split('/')[1];
 
     if (path === '/connect') {
-      crumbs.push({ label: 'Connect Repository', to: '/connect' });
-    } else if (path.startsWith('/repository/')) {
-      crumbs.push({ label: 'Repositories', to: '/dashboard' });
-      crumbs.push({ label: 'Overview', to: path });
-    } else if (path.startsWith('/explorer/')) {
-      crumbs.push({ label: 'Repositories', to: '/dashboard' });
-      crumbs.push({ label: 'Codebase Explorer', to: path });
-    } else if (path.startsWith('/dependencies/')) {
-      crumbs.push({ label: 'Repositories', to: '/dashboard' });
-      crumbs.push({ label: 'Dependency Map', to: path });
-    } else if (path.startsWith('/onboarding/')) {
-      crumbs.push({ label: 'Repositories', to: '/dashboard' });
-      crumbs.push({ label: 'Onboarding Journey', to: path });
-    } else if (path.startsWith('/qa/')) {
-      crumbs.push({ label: 'Repositories', to: '/dashboard' });
-      crumbs.push({ label: 'Codebase Q&A', to: path });
+      crumbs.push({ label: NAV.connect, to: '/connect' });
     } else if (path === '/settings') {
-      crumbs.push({ label: 'Account & Settings', to: '/settings' });
+      crumbs.push({ label: NAV.settings, to: '/settings' });
+    } else if (SECTION_LABEL[section]) {
+      // Same names as the sidebar. With a repository id the page sits under "Repositories".
+      if (path.split('/').filter(Boolean).length > 1) crumbs.push({ label: 'Repositories', to: '/dashboard' });
+      crumbs.push({ label: SECTION_LABEL[section], to: path });
     }
 
     return crumbs;
@@ -128,7 +119,7 @@ export default function Topbar({ onToggleMobileMenu, onLogoutRequest }) {
                 onClick={() => { setProfileMenuOpen(false); navigate('/connect'); }}
               >
                 <Sparkles size={16} />
-                <span>Connect Repository</span>
+                <span>{NAV.connect}</span>
               </button>
               <div className="cv-topbar__dropdown-divider" />
               <button
