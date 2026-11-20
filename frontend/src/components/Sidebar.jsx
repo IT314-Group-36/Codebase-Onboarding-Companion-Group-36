@@ -14,8 +14,10 @@ import {
   Sparkles,
   ExternalLink,
   History,
+  Compass,
 } from 'lucide-react';
 import { getRepositories } from '../services/api';
+import { NAV } from '../utils/navLabels';
 import './Sidebar.css';
 
 /**
@@ -67,18 +69,19 @@ export default function Sidebar({
     }
   }, [activeRepoId]);
 
-  // With no repository yet, the repo links lead to the connect page instead of a broken /explorer/1.
-  const repoLink = (section) => (activeRepoId ? `/${section}/${activeRepoId}` : '/connect');
+  // With no repository yet, each link opens its own "connect a repository first" page (so only the clicked item is highlighted).
+  const repoLink = (section) => (activeRepoId ? `/${section}/${activeRepoId}` : `/${section}`);
 
   const navItems = [
-    { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} strokeWidth={1.8} /> },
-    { to: '/connect', label: 'Connect Repo', icon: <GitBranch size={18} strokeWidth={1.8} /> },
-    { to: repoLink('explorer'), label: 'Code Explorer', icon: <FolderTree size={18} strokeWidth={1.8} /> },
-    { to: repoLink('dependencies'), label: 'Module Map', icon: <Boxes size={18} strokeWidth={1.8} /> },
-    { to: repoLink('onboarding'), label: 'Onboarding', icon: <CheckSquare size={18} strokeWidth={1.8} /> },
-    { to: repoLink('qa'), label: 'Codebase Q&A', icon: <MessageSquare size={18} strokeWidth={1.8} /> },
-    { to: repoLink('history'), label: 'Git History', icon: <History size={18} strokeWidth={1.8} /> },
-    { to: '/settings', label: 'Settings', icon: <Settings size={18} strokeWidth={1.8} /> },
+    { to: '/dashboard', label: NAV.home, icon: <LayoutDashboard size={18} strokeWidth={1.8} /> },
+    { to: '/connect', label: NAV.connect, icon: <GitBranch size={18} strokeWidth={1.8} /> },
+    { to: repoLink('repository'), label: NAV.overview, icon: <Compass size={18} strokeWidth={1.8} /> },
+    { to: repoLink('explorer'), label: NAV.explore, icon: <FolderTree size={18} strokeWidth={1.8} /> },
+    { to: repoLink('dependencies'), label: NAV.deps, icon: <Boxes size={18} strokeWidth={1.8} /> },
+    { to: repoLink('qa'), label: NAV.ask, icon: <MessageSquare size={18} strokeWidth={1.8} /> },
+    { to: repoLink('onboarding'), label: NAV.tasks, icon: <CheckSquare size={18} strokeWidth={1.8} /> },
+    { to: repoLink('history'), label: NAV.history, icon: <History size={18} strokeWidth={1.8} /> },
+    { to: '/settings', label: NAV.settings, icon: <Settings size={18} strokeWidth={1.8} /> },
   ];
 
   const handleNavClick = () => {

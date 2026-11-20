@@ -353,7 +353,9 @@ export function adaptFileDetails(raw, filePath, moduleMap = null) {
   const importedBy = raw.imported_by || [];
 
   // Match module purpose if path falls within a mapped module
-  let purpose = `Source file ${filePath} with ${symbols.length} detected symbols.`;
+  let purpose = symbols.length
+    ? `This file has ${symbols.length} ${symbols.length === 1 ? 'function or class' : 'functions and classes'}.`
+    : 'No functions or classes were found in this file. Open it to read it directly.';
   if (moduleMap?.modules) {
     const match = moduleMap.modules.find(
       (m) => filePath === m.path || filePath.startsWith(`${m.path}/`)
