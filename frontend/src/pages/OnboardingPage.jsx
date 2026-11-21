@@ -4,8 +4,6 @@ import {
   CheckCircle2,
   Circle,
   Clock,
-  ArrowLeft,
-  GitBranch,
   FolderTree,
   RefreshCw,
   FileCode,
@@ -42,8 +40,8 @@ const NEXT_LABEL = {
 
 const SOURCE_FILTERS = [
   { id: 'ALL', label: 'All' },
-  { id: 'issue', label: 'GitHub issues' },
-  { id: 'generated', label: 'Orientation' },
+  { id: 'issue', label: 'From GitHub issues' },
+  { id: 'generated', label: 'Starter tasks' },
 ];
 
 /** What went wrong with the issue sync, and what the person can do about it. */
@@ -216,29 +214,28 @@ function OnboardingJourney({ repoId }) {
   const tips = troubleshootingFor(sync, hasIssueTasks);
   const howToRun = repo?.summary?.how_to_run && repo.summary.how_to_run !== 'n/a' ? repo.summary.how_to_run : null;
   const syncBusy = syncing || ['queued', 'syncing'].includes(sync.status);
+  const syncText =
+    sync.status === 'ok' && sync.syncedAt
+      ? `Last checked ${new Date(sync.syncedAt).toLocaleDateString()}`
+      : sync.status === 'failed'
+      ? 'The last check did not work. Try again.'
+      : sync.status === 'never'
+      ? 'Not checked yet'
+      : 'Checking GitHub…';
+  const notes = !loadError ? plan?.notes || [] : [];
 
   return (
     <div className="cv-onboarding-page">
       {/* Page Header */}
       <header className="cv-onboarding-header">
         <div className="cv-onboarding-header__main">
-          <button
-            type="button"
-            className="cv-onboarding-back-btn"
-            onClick={() => navigate(`/repository/${repoId}`)}
-            title="Back to Repository Overview"
-          >
-            <ArrowLeft size={16} />
-          </button>
           <div>
-            <div className="cv-onboarding-title-row">
-              <span className="cv-onboarding-owner">{effectiveRepo.owner} /</span>
-              <h1 className="cv-onboarding-name">{effectiveRepo.name}</h1>
-              <span className="cv-onboarding-branch-chip">
-                <GitBranch size={12} /> {effectiveRepo.branch}
-              </span>
-            </div>
-            <p className="cv-onboarding-subtitle">Your first-week plan for this repository</p>
+            <h1 className="cv-onboarding-name">First-week tasks</h1>
+            <p className="cv-onboarding-subtitle">
+              A short list of tasks to help you get comfortable with this project. Start with the easy ones and tick
+              them off as you go.
+            </p>
+            <span className="cv-onboarding-repo-chip">{effectiveRepo.owner} / {effectiveRepo.name}</span>
           </div>
         </div>
 
@@ -249,17 +246,7 @@ function OnboardingJourney({ repoId }) {
             icon={<FolderTree size={15} />}
             onClick={() => navigate(`/explorer/${repoId}`)}
           >
-            Code Explorer
-          </Button>
-
-          <Button
-            variant="primary"
-            size="md"
-            icon={<RefreshCw size={15} />}
-            onClick={handleSync}
-            disabled={syncBusy}
-          >
-            {syncBusy ? 'Syncing issues...' : 'Sync issues'}
+            Explore code
           </Button>
         </div>
       </header>
@@ -278,32 +265,19 @@ function OnboardingJourney({ repoId }) {
         </div>
       )}
 
-      {/* Messages from the backend (sync state, fallback explanation) */}
-      {!loadError &&
-        (plan?.notes || []).map((note) => (
-          <div
-            key={note}
-            className={`cv-onboarding-notice ${note.toLowerCase().includes('failed') ? 'cv-onboarding-notice--warn' : ''}`}
-            role="status"
-          >
-            <Info size={16} />
-            <span>{note}</span>
-          </div>
-        ))}
-
       {/* Progress & Milestone Overview Banner */}
       <section className="cv-onboarding-summary-strip">
         <div className="cv-onboarding-progress-card">
           <div className="cv-onboarding-progress-header">
             <div className="cv-onboarding-progress-info">
-              <span className="cv-onboarding-progress-label">FIRST-WEEK PROGRESS</span>
+              <span className="cv-onboarding-progress-label">Your progress</span>
               <h3 className="cv-onboarding-progress-headline">
-                {completedCount} of {totalTasks} tasks completed
+                {completedCount} of {totalTasks} tasks done
               </h3>
               <p className="cv-onboarding-progress-sub">
                 {hasIssueTasks
-                  ? 'Real beginner-friendly issues from GitHub, easiest first. Your progress is saved to your account.'
-                  : 'Orientation tasks built from this repository. Your progress is saved to your account.'}
+                  ? 'These are real beginner-friendly issues from GitHub, easiest first. Your progress is saved to your account.'
+                  : 'These are starter tasks made from this project. Your progress is saved to your account.'}
               </p>
             </div>
             <div className="cv-onboarding-progress-3d-wrap">
@@ -333,31 +307,36 @@ function OnboardingJourney({ repoId }) {
           <div className="cv-onboarding-stat-pills">
             <span className="cv-onboarding-pill">
               <CheckCheck size={14} style={{ color: 'var(--status-success)' }} />
-              <span>{completedCount} Completed</span>
+              <span>{completedCount} Done</span>
             </span>
             <span className="cv-onboarding-pill">
               <Clock size={14} style={{ color: 'var(--status-warning)' }} />
-              <span>{inProgressCount} In Progress</span>
+              <span>{inProgressCount} In progress</span>
             </span>
             <span className="cv-onboarding-pill">
               <Circle size={14} style={{ color: 'var(--text-muted)' }} />
               <span>{pendingCount} Not started</span>
             </span>
-            <span className="cv-onboarding-pill cv-onboarding-pill--time">
-              <CircleDot size={14} />
-              <span>
-                {sync.status === 'ok' && sync.syncedAt
-                  ? `Issues synced ${new Date(sync.syncedAt).toLocaleDateString()}`
-                  : sync.status === 'failed'
-                  ? 'Last issue sync failed'
-                  : sync.status === 'never'
-                  ? 'Issues not synced yet'
-                  : 'Syncing issues...'}
-              </span>
-            </span>
           </div>
         </div>
       </section>
+
+      {notes.length > 0 && (
+        <section
+          className={`cv-onboarding-about ${notes.some((n) => n.toLowerCase().includes('failed')) ? 'cv-onboarding-about--warn' : ''}`}
+          aria-label="About these tasks"
+        >
+          <Info size={18} aria-hidden="true" />
+          <div>
+            <strong>About these tasks</strong>
+            <ul>
+              {notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
 
       {/* Setup & troubleshooting */}
       <section className="cv-onboarding-help">
@@ -368,7 +347,7 @@ function OnboardingJourney({ repoId }) {
           aria-expanded={helpOpen}
         >
           <LifeBuoy size={16} />
-          <span>Setup &amp; troubleshooting</span>
+          <span>Need help getting set up?</span>
           {tips.length > 0 && <span className="cv-onboarding-help__badge">{tips.length}</span>}
           <ChevronDown
             size={16}
@@ -387,7 +366,7 @@ function OnboardingJourney({ repoId }) {
               ) : (
                 <li>Read the README for the install and run steps (this repository has no run summary yet).</li>
               )}
-              <li>Pick a task below. Open its related files in the Code Explorer to see where to start.</li>
+              <li>Pick a task below. Open its files in Explore code to see where to start.</li>
               <li>
                 Create a branch for your change (<code>git checkout -b my-first-change</code>), push it, and open a pull
                 request. Never push straight to the main branch.
@@ -411,6 +390,28 @@ function OnboardingJourney({ repoId }) {
         )}
       </section>
 
+      <section className="cv-onboarding-tasks-head">
+        <div>
+          <h2 className="cv-onboarding-section-title">Your tasks</h2>
+          <p className="cv-onboarding-section-help">
+            Click the circle on the left to mark a task as started, then done. Click a task to see how to do it.
+          </p>
+        </div>
+        <div className="cv-onboarding-sync">
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<RefreshCw size={14} />}
+            onClick={handleSync}
+            disabled={syncBusy}
+            title="Looks for beginner-friendly issues on GitHub and adds them to your list"
+          >
+            {syncBusy ? 'Checking GitHub…' : 'Check GitHub for new tasks'}
+          </Button>
+          <span className="cv-onboarding-sync__status">{syncText}</span>
+        </div>
+      </section>
+
       {/* Filter and Tab Bar */}
       <section className="cv-onboarding-controls">
         <div className="cv-onboarding-status-tabs" role="group" aria-label="Filter tasks by status">
@@ -420,7 +421,7 @@ function OnboardingJourney({ repoId }) {
             aria-pressed={statusFilter === 'ALL'}
             onClick={() => setStatusFilter('ALL')}
           >
-            All Tasks ({totalTasks})
+            All tasks ({totalTasks})
           </button>
           <button
             type="button"
@@ -436,7 +437,7 @@ function OnboardingJourney({ repoId }) {
             aria-pressed={statusFilter === 'COMPLETED'}
             onClick={() => setStatusFilter('COMPLETED')}
           >
-            Completed ({completedCount})
+            Done ({completedCount})
           </button>
         </div>
 
@@ -462,11 +463,10 @@ function OnboardingJourney({ repoId }) {
             <CircleDot size={36} />
             <h3>No tasks yet</h3>
             <p>
-              Sync this repository&apos;s GitHub issues to find beginner-friendly ones. If it has none, you will get
-              orientation tasks instead.
+              Check GitHub for beginner-friendly issues. If there are none, you will get starter tasks instead.
             </p>
             <Button variant="primary" size="sm" onClick={handleSync} disabled={syncBusy}>
-              {syncBusy ? 'Syncing issues...' : 'Sync issues'}
+              {syncBusy ? 'Checking GitHub…' : 'Check GitHub for new tasks'}
             </Button>
           </div>
         ) : filteredTasks.length === 0 ? (
@@ -511,7 +511,7 @@ function OnboardingJourney({ repoId }) {
                     <div className="cv-onboarding-card__tags">
                       <span className={`cv-onboarding-diff cv-onboarding-diff--${task.difficulty}`}>{task.difficulty}</span>
                       <span className="cv-onboarding-cat-tag">
-                        {task.source === 'issue' ? `GitHub issue #${task.number}` : 'Orientation'}
+                        {task.source === 'issue' ? `GitHub issue #${task.number}` : 'Starter task'}
                       </span>
                       {isInProgress && <span className="cv-onboarding-cat-tag">In progress</span>}
                       <span className="cv-onboarding-time-tag">Day {task.suggestedDay}</span>
@@ -550,7 +550,7 @@ function OnboardingJourney({ repoId }) {
 
                 {task.targetFiles.length > 0 && (
                   <div className="cv-onboarding-card__files">
-                    <span className="cv-onboarding-files-label">Relevant Files:</span>
+                    <span className="cv-onboarding-files-label">Files to look at:</span>
                     <div className="cv-onboarding-files-list">
                       {task.targetFiles.map((file) => (
                         <button
@@ -558,7 +558,7 @@ function OnboardingJourney({ repoId }) {
                           type="button"
                           className="cv-onboarding-file-btn"
                           onClick={() => navigate(`/explorer/${repoId}?file=${encodeURIComponent(file)}`)}
-                          title={`Open ${file} in Code Explorer`}
+                          title={`Open ${file} in Explore code`}
                         >
                           <FileCode size={13} />
                           <code>{file}</code>
