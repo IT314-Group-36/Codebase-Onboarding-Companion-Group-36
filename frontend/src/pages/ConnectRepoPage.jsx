@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  GitBranch,
   Link2,
   CheckCircle2,
   AlertCircle,
@@ -17,28 +16,26 @@ import {
   Lock,
   Search,
 } from 'lucide-react';
-import GithubIcon from '../components/GithubIcon';
 import Button from '../components/Button';
 import {
   connectRepository,
   getRepositoryById,
   reindexRepository,
   listGitHubRepos,
-  listGitHubBranches,
   loginWithGitHub,
 } from '../services/api';
 import { parseIndexingError } from '../services/adapters';
-import { parseGitHubUrl, isValidBranch } from '../utils/github';
+import { parseGitHubUrl } from '../utils/github';
 import { useAuth } from '../context/useAuth';
 import { showToast } from '../utils/toast';
 import './ConnectRepoPage.css';
 
 const INDEXING_STEPS = [
-  { id: 'cloning', label: 'Cloning repository tree & metadata' },
-  { id: 'analyzing', label: 'Parsing AST, syntax nodes & import edges' },
-  { id: 'embedding', label: 'Generating code chunk vector embeddings' },
-  { id: 'saving', label: 'Committing atomic index transaction' },
-  { id: 'describing', label: 'Synthesizing module map & architecture summary' },
+  { id: 'cloning', label: 'Downloading your project' },
+  { id: 'analyzing', label: 'Reading the code and finding how files connect' },
+  { id: 'embedding', label: 'Getting the code ready for your questions' },
+  { id: 'saving', label: 'Saving everything' },
+  { id: 'describing', label: 'Writing a short summary of how the project is organized' },
 ];
 
 const STAGE_ORDER = ['cloning', 'analyzing', 'embedding', 'saving', 'describing'];
@@ -53,7 +50,6 @@ export default function ConnectRepoPage() {
   const { user } = useAuth();
   const [source, setSource] = useState('picker'); // 'picker' (my GitHub repos) | 'url' (paste a URL)
   const [repoUrl, setRepoUrl] = useState('');
-  const [selectedBranch, setSelectedBranch] = useState(''); // '' = the repository's default branch
   const [accessToken, setAccessToken] = useState('');
   const [showTokenField, setShowTokenField] = useState(false);
   const [urlError, setUrlError] = useState('');
@@ -75,15 +71,10 @@ export default function ConnectRepoPage() {
   const [ghError, setGhError] = useState(null); // { message, reauth }
   const [ghFilter, setGhFilter] = useState('');
 
-  // Real branches of the chosen repository
-  const [branchInfo, setBranchInfo] = useState(null); // { fullName, defaultBranch, branches, truncated } | { fullName, failed, reauth }
-
   const pollIntervalRef = useRef(null);
 
   const parsedRepo = parseGitHubUrl(repoUrl);
   const fullName = parsedRepo ? parsedRepo.fullName : null;
-  const branchesReady = branchInfo && branchInfo.fullName === fullName;       // result belongs to the current repo
-  const branchesLoading = Boolean(fullName) && !branchesReady;
 
   const toGhError = (err) => ({
     message: err.message || 'Could not load your GitHub repositories.',
@@ -124,29 +115,8 @@ export default function ConnectRepoPage() {
   };
   const ghLoading = (source === 'picker' && ghPage === 0 && !ghError) || ghLoadingMore;
 
-  // Branch list for the chosen repository (a pasted URL waits a moment until typing stops)
-  useEffect(() => {
-    if (!fullName) return undefined;
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      try {
-        const res = await listGitHubBranches(fullName);
-        if (!cancelled) setBranchInfo({ fullName, ...res });
-      } catch (err) {
-        if (!cancelled) {
-          setBranchInfo({ fullName, failed: true, reauth: err.code === 'github_reauth_required' });
-        }
-      }
-    }, 350);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [fullName]);
-
   const chooseRepo = (repo) => {
     setRepoUrl(repo.url);
-    setSelectedBranch('');
     setUrlError('');
   };
 
@@ -226,14 +196,14 @@ export default function ConnectRepoPage() {
             stopPolling();
             setCompletedSteps([0, 1, 2, 3, 4]);
             setPhase('success');
-            showToast('Repository successfully indexed and AST ready.', 'success');
+            showToast('Your project is ready to explore.', 'success');
           } else if (current.rawStatus === 'failed') {
             stopPolling();
             setPhase('error');
             const parsed = current.parsedError || parseIndexingError(current.error);
             setFailedDetails(parsed);
-            setErrorMessage(current.error || 'Indexing failed in backend worker.');
-            showToast('Indexing encountered an error.', 'error');
+            setErrorMessage(current.error || 'The analysis did not finish. Please try again.');
+            showToast('Something went wrong while analyzing your project.', 'error');
           }
         } catch (pollErr) {
           console.warn('Polling error during indexing:', pollErr.message);
@@ -263,10 +233,6 @@ export default function ConnectRepoPage() {
       setUrlError(error);
       return;
     }
-    if (!isValidBranch(selectedBranch)) {
-      setUrlError('That branch name is not supported. Leave it empty to use the default branch.');
-      return;
-    }
     setUrlError('');
     setErrorMessage('');
     setFailedDetails(null);
@@ -280,7 +246,7 @@ export default function ConnectRepoPage() {
     const token = accessToken.trim() || null;
 
     try {
-      const res = await connectRepository(cleanUrl, selectedBranch, token);
+      const res = await connectRepository(cleanUrl, '', token);
 
       if (!res.success || !res.repository) {
         throw new Error(res.error || 'Failed to register repository with backend.');
@@ -303,8 +269,8 @@ export default function ConnectRepoPage() {
         setPhase('error');
         const parsed = repo.parsedError || parseIndexingError(repo.error);
         setFailedDetails(parsed);
-        setErrorMessage(repo.error || 'Repository indexing previously failed.');
-        showToast('Repository indexing previously failed.', 'error');
+        setErrorMessage(repo.error || 'The last analysis of this project did not finish.');
+        showToast('The last analysis of this project did not finish.', 'error');
         return;
       }
 
@@ -355,32 +321,36 @@ export default function ConnectRepoPage() {
 
   return (
     <div className="cv-connect-page">
-      <div className="cv-connect-header">
-        <h1 className="cv-connect-title">Connect Repository</h1>
-        <p className="cv-connect-desc">
-          Pick one of your GitHub repositories (private ones included) or paste a URL to index its structure, dependencies and onboarding tasks.
-        </p>
-      </div>
-
-      {/* GitHub account */}
-      <div className="cv-connect-status-box">
-        <div className="cv-connect-status-box__icon">
-          <GithubIcon size={18} />
-        </div>
-        <div className="cv-connect-status-box__body">
-          <div className="cv-connect-status-box__title-row">
-            <span>{user?.githubUsername ? `Signed in as @${user.githubUsername}` : 'GitHub account'}</span>
-            {user?.githubConnected ? (
-              <span className="cv-status-pill cv-status-pill--ready">Private repos enabled</span>
-            ) : (
-              <span className="cv-status-pill">Sign in again</span>
-            )}
-          </div>
-          <p className="cv-connect-status-box__note">
-            Repositories your GitHub account can read are cloned with your sign-in. Your token is stored encrypted and is never shown in the browser.
+      <div className="cv-connect-header cv-connect-header--row">
+        <div>
+          <h1 className="cv-connect-title">Connect a repository</h1>
+          <p className="cv-connect-desc">
+            Choose the project you want to understand. We only read the code.
           </p>
         </div>
+        <span className="cv-connect-account-chip">
+          {user?.githubUsername ? `Signed in as @${user.githubUsername}` : 'GitHub account'}
+          {user?.githubConnected ? ' · private repos on' : ' · sign in again for private repos'}
+        </span>
       </div>
+
+      {(phase === 'form' || phase === 'analyzing') && (
+        <ol className="cv-connect-steps" aria-label="Steps">
+          {['Choose a repository', 'Analyze'].map((label, i) => {
+            const current = phase === 'analyzing' ? 2 : 1;
+            return (
+              <li
+                key={label}
+                className={`cv-connect-steps__item ${current === i + 1 ? 'is-current' : ''} ${current > i + 1 ? 'is-done' : ''}`}
+                aria-current={current === i + 1 ? 'step' : undefined}
+              >
+                <span className="cv-connect-steps__num">{current > i + 1 ? '✓' : i + 1}</span>
+                {label}
+              </li>
+            );
+          })}
+        </ol>
+      )}
 
       {/* PHASE 1: Form Input */}
       {phase === 'form' && (
@@ -455,15 +425,15 @@ export default function ConnectRepoPage() {
                       className={`cv-connect-picker__item ${repoUrl === r.url ? 'cv-connect-picker__item--selected' : ''}`}
                       onClick={() => chooseRepo(r)}
                     >
-                      <span className="cv-connect-picker__name">
-                        {r.private && <Lock size={12} aria-label="Private" />}
-                        {r.full_name}
+                      <span className="cv-connect-picker__head">
+                        <span className="cv-connect-picker__name">
+                          {r.private && <Lock size={12} aria-label="Private" />}
+                          {r.full_name}
+                        </span>
+                        <span className="cv-connect-chip">{r.private ? 'Private' : 'Public'}</span>
                       </span>
                       {r.description && <span className="cv-connect-picker__desc">{r.description}</span>}
-                      <span className="cv-connect-picker__meta">
-                        {r.private ? 'Private' : 'Public'}
-                        {r.language ? ` · ${r.language}` : ''}
-                      </span>
+                      <span className="cv-connect-picker__meta">{r.language || 'Language not detected'}</span>
                     </button>
                   ))}
                   {ghLoading && <p className="cv-connect-hint-text">Loading your repositories...</p>}
@@ -509,7 +479,6 @@ export default function ConnectRepoPage() {
                   value={repoUrl}
                   onChange={(e) => {
                     setRepoUrl(e.target.value);
-                    setSelectedBranch('');
                     setUrlError('');
                   }}
                 />
@@ -533,78 +502,6 @@ export default function ConnectRepoPage() {
               Selected: <code>{parsedRepo.fullName}</code>
             </p>
           )}
-
-          <div className="cv-connect-field">
-            <label htmlFor="branch-select" className="cv-connect-label">
-              <span>Target Branch</span>
-            </label>
-            {branchesReady && branchInfo.failed ? (
-              <>
-                <div className="cv-connect-input-wrap">
-                  <GitBranch size={16} className="cv-connect-input-icon" />
-                  <input
-                    id="branch-select"
-                    type="text"
-                    className="cv-connect-input"
-                    placeholder="Default branch (leave empty)"
-                    value={selectedBranch}
-                    onChange={(e) => setSelectedBranch(e.target.value)}
-                    autoComplete="off"
-                  />
-                </div>
-                {branchInfo.reauth ? (
-                  <div className="cv-connect-notice cv-connect-notice--error" role="alert">
-                    <AlertCircle size={15} />
-                    <div>
-                      <p>Your GitHub sign-in has expired, so branches cannot be listed.</p>
-                      <div className="cv-connect-notice__actions">
-                        <Button variant="primary" size="sm" onClick={loginWithGitHub}>
-                          Sign in with GitHub again
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="cv-connect-hint-text">
-                    Branches could not be listed for this repository. Leave this empty to use its default branch.
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="cv-connect-input-wrap">
-                  <GitBranch size={16} className="cv-connect-input-icon" />
-                  <select
-                    id="branch-select"
-                    className="cv-connect-select"
-                    value={selectedBranch}
-                    onChange={(e) => setSelectedBranch(e.target.value)}
-                    disabled={!fullName || branchesLoading}
-                  >
-                    <option value="">
-                      {!fullName
-                        ? 'Choose a repository first'
-                        : branchesLoading
-                        ? 'Loading branches...'
-                        : `Default branch${branchInfo?.defaultBranch ? ` (${branchInfo.defaultBranch})` : ''}`}
-                    </option>
-                    {branchesReady &&
-                      branchInfo.branches
-                        .filter((b) => isValidBranch(b))
-                        .map((b) => (
-                          <option key={b} value={b}>
-                            {b}
-                            {b === branchInfo.defaultBranch ? ' (default)' : ''}
-                          </option>
-                        ))}
-                  </select>
-                </div>
-                {branchesReady && branchInfo.truncated && (
-                  <p className="cv-connect-hint-text">Only the first 100 branches are listed.</p>
-                )}
-              </>
-            )}
-          </div>
 
           {/* Optional personal access token (fallback) */}
           <div className="cv-connect-field">
@@ -640,15 +537,19 @@ export default function ConnectRepoPage() {
           </div>
 
           <div className="cv-connect-actions">
+            <span className="cv-connect-selected">
+              {fullName ? <>Selected: <b>{fullName}</b></> : 'Choose a repository above'}
+            </span>
             <Button
               variant="primary"
               size="md"
               icon={<ArrowRight size={16} />}
               onClick={handleStartAnalysis}
             >
-              Connect &amp; Analyze
+              Connect &amp; analyze
             </Button>
           </div>
+          <p className="cv-connect-trust">Your GitHub token is stored encrypted and never shown in the browser.</p>
         </div>
       )}
 
@@ -658,11 +559,11 @@ export default function ConnectRepoPage() {
           <div className="cv-connect-progress-head">
             <div className="cv-btn__spinner" />
             <div>
-              <h3>{INDEXING_STEPS[currentStepIndex]?.label || 'Preparing Repository Index'}</h3>
+              <h3>{INDEXING_STEPS[currentStepIndex]?.label || 'Getting your project ready'}</h3>
               <p>
                 {currentStepIndex === STAGE_ORDER.indexOf('embedding') && embeddingProgress?.total
-                  ? `Embedding ${embeddingProgress.total.toLocaleString()} code chunks. This can take a few minutes for large repositories.`
-                  : 'Analyzing AST definitions, imports, and component trees...'}
+                  ? `Getting ${embeddingProgress.total.toLocaleString()} parts of the code ready. This can take a few minutes for large projects.`
+                  : 'Reading your code and working out how the files fit together…'}
               </p>
             </div>
           </div>
@@ -690,8 +591,8 @@ export default function ConnectRepoPage() {
                     {isActive && (
                       <span className="cv-step-status">
                         {step.id === 'embedding' && embeddingProgress?.total
-                          ? `${embeddingProgress.completed.toLocaleString()} / ${embeddingProgress.total.toLocaleString()} chunks (${Math.floor((embeddingProgress.completed / embeddingProgress.total) * 100)}%)`
-                          : 'Processing...'}
+                          ? `${embeddingProgress.completed.toLocaleString()} of ${embeddingProgress.total.toLocaleString()} parts ready (${Math.floor((embeddingProgress.completed / embeddingProgress.total) * 100)}%)`
+                          : 'Working on it…'}
                       </span>
                     )}
                   </div>
@@ -710,9 +611,8 @@ export default function ConnectRepoPage() {
           </div>
           <h2>Repository Connected</h2>
           <p className="cv-connect-result-desc">
-            AST indexing is complete for <code>{parsedRepo ? parsedRepo.fullName : repoUrl}</code> on{' '}
-            {selectedBranch ? <>branch <code>{selectedBranch}</code></> : 'its default branch'}.
-            File hierarchy and dependency relations are ready.
+            <code>{parsedRepo ? parsedRepo.fullName : repoUrl}</code> is ready. You can now explore the code,
+            see the Dependency Map and ask questions about it.
           </p>
 
           <div className="cv-connect-result-buttons">
@@ -731,7 +631,7 @@ export default function ConnectRepoPage() {
               icon={<FileCode size={16} />}
               onClick={() => navigate(`/explorer/${connectedRepoId}`)}
             >
-              Codebase Explorer
+              Explore code
             </Button>
 
             <Button
@@ -741,7 +641,6 @@ export default function ConnectRepoPage() {
                 setPhase('form');
                 setCompletedSteps([]);
                 setRepoUrl('');
-                setSelectedBranch('');
                 setAccessToken('');
               }}
             >
@@ -831,7 +730,7 @@ export default function ConnectRepoPage() {
                 setShowTechDetails(false);
               }}
             >
-              Change URL / Branch
+              Choose another repository
             </Button>
 
             <Button

@@ -76,7 +76,7 @@ export default function HistoryPage() {
     <main className="cv-history-page">
       <header className="cv-history-header">
         <button type="button" className="cv-history-back" onClick={() => navigate(`/repository/${repoId}`)} aria-label="Back to repository"><ArrowLeft size={18} /></button>
-        <div><p className="cv-history-eyebrow">REPOSITORY INSIGHTS</p><h1>Git history</h1>
+        <div><p className="cv-history-eyebrow">PROJECT HISTORY</p><h1>Git History</h1>
           <p className="cv-history-subtitle">{repo?.fullName || repo?.name || history?.repository || 'Recent commits and contributor activity'}</p>
         </div>
         <button type="button" className="cv-history-refresh" onClick={retry} disabled={loading}><RefreshCw size={15} /> Refresh</button>
@@ -102,8 +102,8 @@ export default function HistoryPage() {
       {history && <div style={loading ? { opacity: 0.6 } : undefined}>
         <div className="cv-history-grid">
           <section className="cv-history-card cv-history-contributors">
-            <div className="cv-history-card-heading"><div><Users size={17} /><h2>Knowledge concentration</h2></div><span>{history.sample_size} commits sampled</span></div>
-            <p className="cv-history-note">Contribution activity in the latest sampled commits. This is a historical activity signal, not a measure of current expertise.</p>
+            <div className="cv-history-card-heading"><div><Users size={17} /><h2>Who contributes most</h2></div><span>{history.sample_size} recent commits checked</span></div>
+            <p className="cv-history-note">Based on the most recent changes. This shows past activity, not who knows the code best.</p>
             {history.contributors.length ? <ol className="cv-contributor-list">
               {history.contributors.map((person) => <li key={`${person.login || ''}|${person.name}`}>
                 <div className="cv-contributor-person">
@@ -116,7 +116,7 @@ export default function HistoryPage() {
           </section>
 
           <section className="cv-history-card cv-history-timeline">
-            <div className="cv-history-card-heading"><div><GitCommit size={17} /><h2>Code evolution</h2></div><span>Latest commits</span></div>
+            <div className="cv-history-card-heading"><div><GitCommit size={17} /><h2>Recent changes</h2></div><span>Latest changes</span></div>
             {history.commits.length ? <ol className="cv-commit-list">
               {history.commits.map((commit) => <li key={commit.sha}>
                 <span className="cv-commit-dot" />

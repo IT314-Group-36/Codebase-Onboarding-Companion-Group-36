@@ -271,7 +271,7 @@ export default function DependencyMapPage() {
               </span>
             </div>
             <p className="cv-depmap-subtitle">
-              Interactive Animated Codebase Dependency Graph & AST Call Pathways
+              A picture of how the parts of this project connect to each other. Click a part to see details.
             </p>
             <StaticAnalysisBadge kind="graph" />
           </div>
@@ -279,23 +279,23 @@ export default function DependencyMapPage() {
 
         {/* Graph Telemetry Stats */}
         <div className="cv-depmap-header__stats">
-          <div className="cv-depmap-stat-pill" title="Total Analyzed Modules">
+          <div className="cv-depmap-stat-pill" title="How many parts of the project we found">
             <span className="cv-depmap-stat-num">{graphModel.stats.totalNodes}</span>
-            <span className="cv-depmap-stat-label">Modules</span>
+            <span className="cv-depmap-stat-label">Parts</span>
           </div>
-          <div className="cv-depmap-stat-pill" title="Total Dependency Edges">
+          <div className="cv-depmap-stat-pill" title="How many links connect those parts">
             <span className="cv-depmap-stat-num">{graphModel.stats.totalEdges}</span>
-            <span className="cv-depmap-stat-label">Edges</span>
+            <span className="cv-depmap-stat-label">Links</span>
           </div>
-          <div className="cv-depmap-stat-pill" title="Circular Dependencies Detected">
+          <div className="cv-depmap-stat-pill" title="Parts that depend on each other in a loop">
             <span className="cv-depmap-stat-num cv-depmap-stat-num--cycles">
               {graphModel.stats.circularDependencies}
             </span>
-            <span className="cv-depmap-stat-label">Cycles</span>
+            <span className="cv-depmap-stat-label">Loops</span>
           </div>
           <div className="cv-depmap-stat-pill" title="Maximum Hierarchy Depth">
             <span className="cv-depmap-stat-num">{graphModel.stats.maxDepth}</span>
-            <span className="cv-depmap-stat-label">Max Depth</span>
+            <span className="cv-depmap-stat-label">Levels</span>
           </div>
 
           <Button
@@ -305,7 +305,7 @@ export default function DependencyMapPage() {
             onClick={() => navigate(`/explorer/${repoId}`)}
             className="cv-depmap-explorer-nav-btn"
           >
-            Code Explorer
+            Explore code
           </Button>
 
           {isFullscreen && (
@@ -330,10 +330,10 @@ export default function DependencyMapPage() {
           <input
             type="text"
             className="cv-depmap-search-input"
-            placeholder="Search module or symbol..."
+            placeholder="Search for a part of the project..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Search module or symbol"
+            aria-label="Search for a part of the project"
           />
           {searchQuery && (
             <button
@@ -348,48 +348,48 @@ export default function DependencyMapPage() {
         </div>
 
         {/* Architectural Layer Filter Chips */}
-        <div className="cv-depmap-filters" role="tablist" aria-label="Module Layer Filter">
+        <div className="cv-depmap-filters" role="tablist" aria-label="Filter by type of part">
           <button
             type="button"
             className={`cv-depmap-filter-chip ${selectedLayer === 'ALL' ? 'cv-depmap-filter-chip--active' : ''}`}
             onClick={() => setSelectedLayer('ALL')}
           >
-            All Modules
+            All parts
           </button>
           <button
             type="button"
             className={`cv-depmap-filter-chip ${selectedLayer === 'entrypoint' ? 'cv-depmap-filter-chip--active' : ''}`}
             onClick={() => setSelectedLayer('entrypoint')}
           >
-            Entrypoint
+            Starting points
           </button>
           <button
             type="button"
             className={`cv-depmap-filter-chip ${selectedLayer === 'component' ? 'cv-depmap-filter-chip--active' : ''}`}
             onClick={() => setSelectedLayer('component')}
           >
-            UI Components
+            Screens & pieces
           </button>
           <button
             type="button"
             className={`cv-depmap-filter-chip ${selectedLayer === 'hook' ? 'cv-depmap-filter-chip--active' : ''}`}
             onClick={() => setSelectedLayer('hook')}
           >
-            Hooks & Context
+            Shared logic
           </button>
           <button
             type="button"
             className={`cv-depmap-filter-chip ${selectedLayer === 'api' ? 'cv-depmap-filter-chip--active' : ''}`}
             onClick={() => setSelectedLayer('api')}
           >
-            Networking & API
+            Server & data
           </button>
           <button
             type="button"
             className={`cv-depmap-filter-chip ${selectedLayer === 'util' ? 'cv-depmap-filter-chip--active' : ''}`}
             onClick={() => setSelectedLayer('util')}
           >
-            Utilities
+            Helpers
           </button>
         </div>
 
@@ -399,11 +399,11 @@ export default function DependencyMapPage() {
             type="button"
             className="cv-depmap-tool-btn"
             onClick={handleExpandAll}
-            title="Expand All Module Branches"
+            title="Show every connection"
             aria-label="Expand all module branches"
           >
             <Plus size={15} />
-            <span className="cv-depmap-tool-btn-text">Expand All</span>
+            <span className="cv-depmap-tool-btn-text">Show all</span>
           </button>
 
           <button
@@ -414,7 +414,7 @@ export default function DependencyMapPage() {
             aria-label="Collapse to root seeds"
           >
             <Minus size={15} />
-            <span className="cv-depmap-tool-btn-text">Collapse All</span>
+            <span className="cv-depmap-tool-btn-text">Hide all</span>
           </button>
 
           <div className="cv-depmap-tools-divider" />
@@ -487,18 +487,18 @@ export default function DependencyMapPage() {
           isFullscreen={isFullscreen}
         />
 
-        {/* Quick HUD Legend (Bottom Left) */}
+        {/* Legend (top left, so the details panel never covers it) */}
         <div className="cv-depmap-hud-legend">
           <div className="cv-depmap-hud-item">
             <span className="cv-depmap-hud-dot cv-depmap-hud-dot--active" />
-            <span>Active Dependency Flow (Power Orange)</span>
+            <span>Selected connection</span>
           </div>
           <div className="cv-depmap-hud-item">
             <span className="cv-depmap-hud-dot cv-depmap-hud-dot--inactive" />
-            <span>Static Dependency (Golden Pitch)</span>
+            <span>Other connections</span>
           </div>
           <div className="cv-depmap-hud-item cv-depmap-hud-hint">
-            <span>Click node to inspect · Click [+N] to expand branches</span>
+            <span>Click a part for details · Click +N to show what it uses</span>
           </div>
         </div>
 
@@ -528,21 +528,21 @@ export default function DependencyMapPage() {
               {/* Layer & Complexity Strip */}
               <div className="cv-depmap-inspector__meta-grid">
                 <div className="cv-depmap-inspector__meta-item">
-                  <span className="cv-depmap-inspector__meta-label">Module Layer</span>
+                  <span className="cv-depmap-inspector__meta-label">Type</span>
                   <span className="cv-depmap-inspector__meta-val">{selectedNode.layer}</span>
                 </div>
                 <div className="cv-depmap-inspector__meta-item">
-                  <span className="cv-depmap-inspector__meta-label">Lines of Code</span>
+                  <span className="cv-depmap-inspector__meta-label">Size</span>
                   <span className="cv-depmap-inspector__meta-val">
-                    {selectedNode.lines > 0 ? `${selectedNode.lines} LOC` : 'N/A'}
+                    {selectedNode.lines > 0 ? `${selectedNode.lines} lines` : 'Not known'}
                   </span>
                 </div>
                 <div className="cv-depmap-inspector__meta-item">
-                  <span className="cv-depmap-inspector__meta-label">Dependencies</span>
+                  <span className="cv-depmap-inspector__meta-label">Uses</span>
                   <span className="cv-depmap-inspector__meta-val">{connectedLists.outgoing.length}</span>
                 </div>
                 <div className="cv-depmap-inspector__meta-item">
-                  <span className="cv-depmap-inspector__meta-label">Dependents</span>
+                  <span className="cv-depmap-inspector__meta-label">Used by</span>
                   <span className="cv-depmap-inspector__meta-val">{connectedLists.incoming.length}</span>
                 </div>
               </div>
@@ -556,7 +556,7 @@ export default function DependencyMapPage() {
                   onClick={() => handleOpenInExplorer(selectedNode.path)}
                   className="cv-depmap-open-explorer-btn"
                 >
-                  Open in Code Explorer
+                  Open in Explore code
                 </Button>
               </div>
 
@@ -564,10 +564,10 @@ export default function DependencyMapPage() {
               <div className="cv-depmap-inspector__section">
                 <h4 className="cv-depmap-inspector__section-title">
                   <span className="cv-depmap-section-dot cv-depmap-section-dot--incoming" />
-                  Imported By ({connectedLists.incoming.length})
+                  Used by ({connectedLists.incoming.length})
                 </h4>
                 {connectedLists.incoming.length === 0 ? (
-                  <p className="cv-depmap-empty-hint">None (Root entrypoint or top-level provider)</p>
+                  <p className="cv-depmap-empty-hint">Nothing uses this part. It is a starting point.</p>
                 ) : (
                   <div className="cv-depmap-pill-list">
                     {connectedLists.incoming.map((edge) => (
@@ -591,10 +591,10 @@ export default function DependencyMapPage() {
               <div className="cv-depmap-inspector__section">
                 <h4 className="cv-depmap-inspector__section-title">
                   <span className="cv-depmap-section-dot cv-depmap-section-dot--outgoing" />
-                  Imports / Depends On ({connectedLists.outgoing.length})
+                  Uses ({connectedLists.outgoing.length})
                 </h4>
                 {connectedLists.outgoing.length === 0 ? (
-                  <p className="cv-depmap-empty-hint">None (Leaf module or standalone helper)</p>
+                  <p className="cv-depmap-empty-hint">This part does not use any other part.</p>
                 ) : (
                   <div className="cv-depmap-pill-list">
                     {connectedLists.outgoing.map((edge) => (
@@ -618,23 +618,17 @@ export default function DependencyMapPage() {
               <div className="cv-depmap-inspector__section cv-depmap-inspector__box">
                 <div className="cv-depmap-inspector__box-head">
                   <Compass size={14} className="cv-depmap-compass-icon" />
-                  <span>Architectural Purpose</span>
+                  <span>What it does</span>
                 </div>
                 <p className="cv-depmap-inspector__box-text">
                   {selectedNode.purpose ||
-                    (selectedNode.type === 'entrypoint' &&
-                      'Primary application bootstrap orchestrating routing cascades, context providers, and global layout boundaries.') ||
-                    (selectedNode.type === 'page' &&
-                      'Routed view encapsulating page-level telemetry widgets, data fetch triggers, and interactive tables.') ||
-                    (selectedNode.type === 'component' &&
-                      'Reusable atomic UI presentation module rendered within view parents with parameterized props.') ||
-                    (selectedNode.type === 'hook' &&
-                      'Encapsulated reactive state hook managing asynchronous lifecycles, authentication credentials, and session caches.') ||
-                    (selectedNode.type === 'api' &&
-                      'Low-level networking utility providing normalized HTTP requests, header injection, and network error classification.') ||
-                    (selectedNode.type === 'util' &&
-                      'Specialized algorithm and transformation helper maintaining pure deterministic computations.') ||
-                    'Core codebase module participating in system architecture and execution flow.'}
+                    (selectedNode.type === 'entrypoint' && 'Where the app starts. It sets up the rest of the project.') ||
+                    (selectedNode.type === 'page' && 'A screen or page of the app.') ||
+                    (selectedNode.type === 'component' && 'A reusable piece of a screen.') ||
+                    (selectedNode.type === 'hook' && 'Shared logic that several parts use.') ||
+                    (selectedNode.type === 'api' && 'Talks to the server or other services.') ||
+                    (selectedNode.type === 'util' && 'A small helper used in many places.') ||
+                    'A part of the project.'}
                 </p>
                 {moduleSummary && (
                   <p className="cv-depmap-inspector__box-text" style={{ marginTop: '0.5rem', opacity: 0.85 }}>

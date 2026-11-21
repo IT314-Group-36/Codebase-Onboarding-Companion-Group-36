@@ -16,6 +16,7 @@ const HistoryPage = lazy(() => import('./pages/HistoryPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 import LoadingState from './components/LoadingState';
 import NotFoundPage from './pages/NotFoundPage';
+import RepoRequiredPage from './pages/RepoRequiredPage';
 
 /**
  * CODEVERSE — Codebase Onboarding Companion
@@ -42,6 +43,10 @@ export default function App() {
               <Route path="/onboarding/:repoId" element={<OnboardingPage />} />
               <Route path="/qa/:repoId" element={<QAPage />} />
               <Route path="/history/:repoId" element={<HistoryPage />} />
+              {/* The same pages opened before any repository is connected */}
+              {['repository', 'explorer', 'dependencies', 'onboarding', 'qa', 'history'].map((section) => (
+                <Route key={section} path={`/${section}`} element={<RepoRequiredPage />} />
+              ))}
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>

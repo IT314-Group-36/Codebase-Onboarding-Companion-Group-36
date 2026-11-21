@@ -124,7 +124,7 @@ export default function RepoOverviewPage() {
 
     if (repo.rawStatus === 'ready') {
       items.push({
-        label: `AST index verified (${repo.stats.functions} symbols, ${repo.stats.importEdges || 0} import edges)`,
+        label: `Project analyzed (${repo.stats.functions} functions and classes found)`,
         time: repo.analyzedAt ? new Date(repo.analyzedAt).toLocaleTimeString() : 'Recently',
         icon: <FileCheck size={14} />,
       });
@@ -203,9 +203,9 @@ export default function RepoOverviewPage() {
             icon={<RotateCcw size={14} />}
             onClick={handleReindex}
             loading={reindexing}
-            title="Trigger full re-index in background worker"
+            title="Read the project again to pick up new changes"
           >
-            Reindex
+            Analyze again
           </Button>
 
           <Button
@@ -214,7 +214,7 @@ export default function RepoOverviewPage() {
             icon={<Boxes size={15} />}
             onClick={() => navigate(`/dependencies/${repo.id}`)}
           >
-            Module Map
+            Dependency Map
           </Button>
 
           <Button
@@ -232,7 +232,7 @@ export default function RepoOverviewPage() {
             icon={<MessageSquare size={15} />}
             onClick={() => navigate(`/qa/${repo.id}`)}
           >
-            Codebase Q&A
+            Ask a question
           </Button>
 
           <Button
@@ -241,7 +241,7 @@ export default function RepoOverviewPage() {
             icon={<FolderTree size={15} />}
             onClick={() => navigate(`/explorer/${repo.id}`)}
           >
-            Codebase Explorer
+            Explore code
           </Button>
         </div>
       </section>
@@ -275,11 +275,11 @@ export default function RepoOverviewPage() {
       )}
 
       {/* Compact Metrics Strip */}
-      <section className="cv-ro-metrics-strip" aria-label="AST Metrics">
+      <section className="cv-ro-metrics-strip" aria-label="Project numbers">
         <div className="cv-ro-metric-cell">
           <div className="cv-ro-metric-cell__label">
             <FileText size={14} />
-            <span>Files</span>
+            <span>Files read</span>
           </div>
           <span className="cv-ro-metric-cell__value">{repo.stats.files}</span>
         </div>
@@ -287,7 +287,7 @@ export default function RepoOverviewPage() {
         <div className="cv-ro-metric-cell">
           <div className="cv-ro-metric-cell__label">
             <Box size={14} />
-            <span>Modules</span>
+            <span>Main parts</span>
           </div>
           <span className="cv-ro-metric-cell__value">{repo.stats.modules}</span>
         </div>
@@ -295,7 +295,7 @@ export default function RepoOverviewPage() {
         <div className="cv-ro-metric-cell">
           <div className="cv-ro-metric-cell__label">
             <Code2 size={14} />
-            <span>Symbols</span>
+            <span>Functions &amp; classes</span>
           </div>
           <span className="cv-ro-metric-cell__value">{repo.stats.functions}</span>
         </div>
@@ -303,7 +303,7 @@ export default function RepoOverviewPage() {
         <div className="cv-ro-metric-cell">
           <div className="cv-ro-metric-cell__label">
             <Layers size={14} />
-            <span>Call / Import Edges</span>
+            <span>Links between files</span>
           </div>
           <span className="cv-ro-metric-cell__value">{repo.stats.components}</span>
         </div>
@@ -342,7 +342,7 @@ export default function RepoOverviewPage() {
           </div>
 
           <div className="cv-ro-tech-chips">
-            <span className="cv-ro-tech-label">Detected stack:</span>
+            <span className="cv-ro-tech-label">Technologies found:</span>
             <div className="cv-ro-tech-tags">
               {repo.technologies.map((t) => (
                 <span key={t} className="cv-ro-tech-tag">
@@ -355,7 +355,7 @@ export default function RepoOverviewPage() {
 
         {/* Architecture Digest */}
         <div className="cv-ro-card">
-          <h2 className="cv-ro-card__title">Architecture Summary</h2>
+          <h2 className="cv-ro-card__title">How the project is organized</h2>
           <div className="cv-ro-arch-body">
             {repo.summary?.architecture ? (
               <p className="cv-ro-arch-para">{repo.summary.architecture}</p>
@@ -363,14 +363,14 @@ export default function RepoOverviewPage() {
               <p className="cv-ro-arch-para">{repo.summary.description}</p>
             ) : (
               <p className="cv-ro-arch-para">
-                Codebase structure indexed with {repo.stats.modules} primary modules and {repo.stats.functions} AST syntax symbols.
+                We found {repo.stats.modules} main parts and {repo.stats.functions} functions and classes.
               </p>
             )}
 
             {repo.summary?.how_to_run && repo.summary.how_to_run !== 'n/a' && (
               <div style={{ marginTop: '0.875rem', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--cv-radius-sm)', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--cv-text-muted)', display: 'block', marginBottom: '0.25rem' }}>
-                  Execution Setup:
+                  How to run it:
                 </span>
                 <span style={{ fontSize: '0.875rem', color: 'var(--cv-text-secondary)', fontFamily: 'var(--cv-font-mono)' }}>
                   {repo.summary.how_to_run}
@@ -379,7 +379,7 @@ export default function RepoOverviewPage() {
             )}
 
             <div className="cv-ro-ai-digest-badge" style={{ marginTop: '1rem' }}>
-              <span>Verified AST Architecture · Grounded in static graph facts</span>
+              <span>Based on static analysis of the code</span>
             </div>
           </div>
         </div>
@@ -388,7 +388,7 @@ export default function RepoOverviewPage() {
         <div className="cv-ro-card cv-ro-card--wide">
           <div className="cv-ro-card__head-row">
             <h2 className="cv-ro-card__title">Key Files &amp; Entry Points</h2>
-            <span className="cv-ro-card__sublabel">Click any file to inspect in Codebase Explorer</span>
+            <span className="cv-ro-card__sublabel">Click any file to read it in Explore code</span>
           </div>
 
           <div className="cv-ro-important-files">

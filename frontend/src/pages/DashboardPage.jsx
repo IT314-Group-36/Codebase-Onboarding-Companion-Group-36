@@ -1,25 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  GitBranch,
-  Layers,
-  Box,
-  CheckCircle,
-  Plus,
-  Check,
-  Clock,
-  Circle,
-  Filter,
-  RefreshCw,
-} from 'lucide-react';
-import StatCard from '../components/StatCard';
+import { Filter, RefreshCw } from 'lucide-react';
 import RepositoryCard from '../components/RepositoryCard';
 import SearchInput from '../components/SearchInput';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import LoadingState from '../components/LoadingState';
 import Button from '../components/Button';
-import { getRepositories, getOnboardingTasks, updateOnboardingTask } from '../services/api';
+import { getRepositories, getOnboardingTasks } from '../services/api';
 import { useAuth } from '../context/useAuth';
 import { showToast } from '../utils/toast';
 import './DashboardPage.css';
@@ -104,22 +92,6 @@ export default function DashboardPage() {
     setRefreshTrigger((v) => v + 1);
   };
 
-  // pending -> in progress -> completed -> pending, saved on the server and reverted if the save fails
-  const handleToggleTask = async (taskId) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task || !taskRepo) return;
-    const previous = task.status;
-    const next = previous === 'completed' ? 'pending' : previous === 'in-progress' ? 'completed' : 'in-progress';
-
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: next } : t)));
-    try {
-      await updateOnboardingTask(taskRepo.id, taskId, next);
-    } catch {
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: previous } : t)));
-      showToast('Could not save your progress. Please try again.', 'error');
-    }
-  };
-
   const activeRepos = repos;
 
   const filteredRepos = useMemo(() => {
@@ -133,244 +105,187 @@ export default function DashboardPage() {
     });
   }, [activeRepos, searchQuery, statusFilter]);
 
-  // Aggregate stats dynamically across active repositories
-  const totalFiles = useMemo(() => {
-    return activeRepos.reduce((acc, r) => acc + (r.stats?.files || 0), 0);
-  }, [activeRepos]);
-
-  const totalModules = useMemo(() => {
-    return activeRepos.reduce((acc, r) => acc + (r.stats?.modules || 0), 0);
-  }, [activeRepos]);
-
-  const totalFunctions = useMemo(() => {
-    return activeRepos.reduce((acc, r) => acc + (r.stats?.functions || 0), 0);
-  }, [activeRepos]);
-
   const completedCount = tasks.filter((t) => t.status === 'completed').length;
   const progressPercent =
     tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
 
+  const firstName = (user?.name || '').split(' ')[0];
+  const hasRepo = activeRepos.length > 0;
+  const readyRepo = activeRepos.find((r) => r.rawStatus === 'ready') || null;
+  const project = taskRepo || activeRepos[0] || null;
+
+  // Steps that need a repository explain why they cannot open yet instead of doing nothing
+  const openStep = (section) => () => {
+    if (!hasRepo) {
+      showToast('Connect a repository first. Then this step will open.', 'warning');
+    } else if (!readyRepo) {
+      showToast('Your project is still being analyzed. Try again in a few minutes.', 'info');
+    } else {
+      navigate(`/${section}/${readyRepo.id}`);
+    }
+  };
+
+  const journey = [
+    { id: 'connect', title: 'Connect a repository', text: 'Pick a project from GitHub. We read the code and get it ready in a few minutes.', cta: 'Connect a repository', onClick: () => navigate('/connect') },
+    { id: 'overview', title: 'See the overview', text: 'A quick summary of what the project is, the languages it uses and how it is organized.', cta: 'Open the overview', onClick: openStep('repository') },
+    { id: 'explore', title: 'Explore the code', text: 'Browse the files. Click any file to read it with a plain-English explanation.', cta: 'Explore the code', onClick: openStep('explorer') },
+    { id: 'deps', title: 'See the Dependency Map', text: 'A picture of how the parts of the project connect to each other.', cta: 'Open the map', onClick: openStep('dependencies') },
+    { id: 'ask', title: 'Ask a question', text: 'Ask in plain English, for example "How does login work?", and get an answer with the exact code.', cta: 'Ask a question', onClick: openStep('qa') },
+    { id: 'tasks', title: 'Follow the first-week plan', text: 'A short list of tasks to get comfortable with the project. Your progress is saved.', cta: 'Open the plan', onClick: openStep('onboarding') },
+    { id: 'history', title: 'Check the Git History', text: 'See who changed what and when, and which files change the most.', cta: 'Open Git History', onClick: openStep('history') },
+  ];
+
+  let projectStatus = 'Queued';
+  if (project?.rawStatus === 'ready') projectStatus = 'Ready';
+  else if (project?.status === 'analyzing') projectStatus = 'Analyzing…';
+  const known = (v) => v && String(v).toLowerCase() !== 'unknown';
+  const projectLine = project?.rawStatus === 'ready'
+    ? ['Ready to explore', project.stats?.files ? `${project.stats.files} files read` : null, known(project.language) ? project.language : null].filter(Boolean).join(' · ')
+    : 'Reading the code. This takes a few minutes.';
+
   if (loading) {
-    return <LoadingState message="Loading dashboard..." fullPage />;
+    return <LoadingState message="Loading your home page..." fullPage />;
   }
 
   return (
-    <div className="cv-dashboard">
-      {/* Top Header & Primary Action */}
-      <section className="cv-dashboard-header">
-        <div className="cv-dashboard-header__left">
-          <div className="cv-dashboard-header__copy">
-            <div className="cv-dashboard-header__title-row">
-              <h1 className="cv-dashboard-title">Dashboard</h1>
-              <span className="cv-dashboard-user-pill">
-                {user?.name}{user?.githubUsername ? ` · @${user.githubUsername}` : ''}
-              </span>
-            </div>
-            <p className="cv-dashboard-subtitle">
-              Overview of connected repositories, AST analysis status, and onboarding milestones.
-            </p>
-          </div>
+    <div className="cv-dashboard cv-home">
+      <section className="cv-home-header">
+        <div>
+          <h1 className="cv-dashboard-title">{firstName ? `Welcome, ${firstName}` : 'Welcome'}</h1>
+          <p className="cv-dashboard-subtitle">
+            Follow these steps to understand any codebase. It takes about five minutes.
+          </p>
         </div>
-
-        <div className="cv-dashboard-header__actions">
-          <Button
-            variant="secondary"
-            size="md"
-            icon={<RefreshCw size={14} className={isRefreshing ? 'cv-icon-spin' : ''} />}
-            onClick={handleManualRefresh}
-            title="Reload your repositories"
-          >
-            Refresh
-          </Button>
-
-          <Button
-            variant="primary"
-            size="md"
-            icon={<Plus size={16} />}
-            onClick={() => navigate('/connect')}
-          >
-            Connect Repository
-          </Button>
-        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<RefreshCw size={14} className={isRefreshing ? 'cv-icon-spin' : ''} />}
+          onClick={handleManualRefresh}
+          title="Reload your repositories"
+        >
+          Refresh
+        </Button>
       </section>
 
-      {/* Metric Cards Ribbon */}
-      <section className="cv-dashboard-stats" aria-label="Summary Statistics">
-        <StatCard
-          icon={<GitBranch size={18} />}
-          label="Connected Repositories"
-          value={activeRepos.length}
-          sublabel={`${activeRepos.filter((r) => r.status === 'analyzed').length} fully analyzed`}
+      {loadError && !hasRepo ? (
+        <ErrorState
+          title="Couldn't load your repositories"
+          message={loadError}
+          onAction={() => { setLoadError(null); setLoading(true); setRefreshTrigger((t) => t + 1); }}
         />
-        <StatCard
-          icon={<Layers size={18} />}
-          label="Mapped Modules"
-          value={totalModules}
-          sublabel="Across active repositories"
-        />
-        <StatCard
-          icon={<Box size={18} />}
-          label="Indexed Symbols"
-          value={totalFunctions || totalFiles}
-          sublabel="AST syntax nodes in database"
-        />
-        <StatCard
-          icon={<CheckCircle size={18} />}
-          label="Onboarding Progress"
-          value={`${progressPercent}%`}
-          sublabel={`${completedCount} of ${tasks.length} tasks ready`}
-        />
-      </section>
-
-      {/* Content Split: Repositories (Left) & Onboarding (Right) */}
-      <div className="cv-dashboard-layout">
-        {/* Left: Repositories */}
-        <section className="cv-dashboard-repos" aria-label="Repository List">
-          <div className="cv-dashboard-section-head">
-            <div>
-              <h2 className="cv-section-title">Repositories</h2>
-              <p className="cv-section-desc">Select a repository to explore structure and dependency paths.</p>
+      ) : (
+        <>
+          {/* Start here: the whole journey, one short step at a time */}
+          <section aria-labelledby="cv-home-start">
+            <div className="cv-home-section-head">
+              <h2 id="cv-home-start" className="cv-section-title">Start here</h2>
+              <span className="cv-home-count">Follow the steps in order, or jump to any step once a repository is connected.</span>
             </div>
-
-            {activeRepos.length > 0 && (
-              <div className="cv-dashboard-controls">
-                <SearchInput
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder="Filter repos..."
-                  className="cv-dashboard-search-box"
-                />
-
-                <div className="cv-dashboard-filter-select">
-                  <Filter size={13} className="cv-dashboard-filter-icon" />
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    aria-label="Filter repositories by status"
-                  >
-                    <option value="all">All</option>
-                    <option value="analyzed">Analyzed</option>
-                    <option value="analyzing">Analyzing</option>
-                    <option value="pending">Queued</option>
-                  </select>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {loadError && activeRepos.length === 0 ? (
-            <ErrorState
-              title="Couldn't load your repositories"
-              message={loadError}
-              onAction={() => { setLoadError(null); setLoading(true); setRefreshTrigger((t) => t + 1); }}
-            />
-          ) : filteredRepos.length === 0 ? (
-            <EmptyState
-              title={activeRepos.length === 0 ? 'No Repositories Connected' : 'No matching repositories'}
-              description={
-                activeRepos.length === 0
-                  ? 'Connect your first GitHub repository to parse directory hierarchies and generate onboarding paths.'
-                  : `No repositories matched "${searchQuery}". Clear your search query to see all repositories.`
-              }
-              actionLabel={activeRepos.length === 0 ? 'Connect Repository' : 'Clear Filter'}
-              onAction={() => (activeRepos.length === 0 ? navigate('/connect') : setSearchQuery(''))}
-            />
-          ) : (
-            <div className="cv-dashboard-repo-cards">
-              {filteredRepos.map((repo) => (
-                <RepositoryCard key={repo.id} repo={repo} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Right: Onboarding Roadmap */}
-        <section className="cv-dashboard-sidebar-panel" aria-label="Onboarding Roadmap">
-          <div className="cv-dashboard-section-head">
-            <div>
-              <h2 className="cv-section-title">Onboarding Journey</h2>
-              <p className="cv-section-desc">Recommended milestones for unfamiliar code.</p>
-            </div>
-          </div>
-
-          <div className="cv-onboarding-card">
-            <div className="cv-onboarding-progress-block">
-              <div className="cv-onboarding-progress-row">
-                <span className="cv-onboarding-progress-label">Completion</span>
-                <span className="cv-onboarding-progress-value">{progressPercent}%</span>
-              </div>
-              <div className="cv-progress-track">
-                <div
-                  className="cv-progress-fill"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-              <span className="cv-onboarding-milestone-text">
-                {completedCount} of {tasks.length} tasks complete
-              </span>
-            </div>
-
-            {tasks.length === 0 && (
-              <p className="cv-section-desc" style={{ padding: '0.75rem 0' }}>
-                {tasksNote || 'Connect a repository to get a first-week onboarding plan for it.'}
-              </p>
-            )}
-
-            <div className="cv-onboarding-task-list">
-              {tasks.map((task) => {
-                const isDone = task.status === 'completed';
-                const isInProg = task.status === 'in-progress';
+            <div className="cv-home-steps">
+              {journey.map((step, i) => {
+                const done = step.id === 'connect' && hasRepo;
+                // Orange = ready to click: only "Connect" before a repository exists, every other step once it is ready
+                const isCurrent = step.id === 'connect' ? !hasRepo : Boolean(readyRepo);
                 return (
-                  <div
-                    key={task.id}
-                    className={`cv-task-row cv-task-row--${task.status}`}
-                    onClick={() => handleToggleTask(task.id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => e.key === 'Enter' && handleToggleTask(task.id)}
-                    title="Click to cycle status"
-                  >
-                    <div className="cv-task-row__status" aria-hidden="true">
-                      {isDone ? (
-                        <Check size={12} />
-                      ) : isInProg ? (
-                        <Clock size={11} />
-                      ) : (
-                        <Circle size={10} />
-                      )}
-                    </div>
-                    <div className="cv-task-row__body">
-                      <span className="cv-task-row__title">{task.title}</span>
-                      <div className="cv-task-row__meta">
-                        <span className="cv-task-row__category">
-                          {task.source === 'issue' ? `Issue #${task.number}` : task.category}
-                        </span>
-                        <span className={`cv-diff-chip cv-diff-chip--${task.difficulty}`}>
-                          {task.difficulty}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                  <article className="cv-home-step" key={step.id}>
+                    <span className={`cv-home-step__num ${done ? 'is-done' : ''}`}>{done ? '✓' : i + 1}</span>
+                    <h3 className="cv-home-step__title">{step.title}</h3>
+                    <p className="cv-home-step__text">{step.text}</p>
+                    {done ? (
+                      <span className="cv-home-chip">Done · {project?.name} connected</span>
+                    ) : (
+                      <Button variant={isCurrent ? 'primary' : 'secondary'} onClick={step.onClick}>
+                        {step.cta}
+                      </Button>
+                    )}
+                  </article>
                 );
               })}
             </div>
+          </section>
 
-            {tasks.length > 0 && (
-              <div className="cv-onboarding-tip">
-                <span>Tip: Click any task to cycle it through in progress and completed. Progress is saved to your account.</span>
-              </div>
-            )}
+          {/* The project being learned */}
+          {project && (
+            <section aria-labelledby="cv-home-project">
+              <h2 id="cv-home-project" className="cv-section-title cv-home-spaced">Your project</h2>
+              <div className="cv-home-project">
+                <div className="cv-home-project__top">
+                  <div>
+                    <span className="cv-home-project__owner">{project.owner}</span>
+                    <h3 className="cv-home-project__name">{project.name}</h3>
+                    <p className="cv-home-project__line">{projectLine}</p>
+                  </div>
+                  <span className="cv-home-chip"><span className="cv-home-chip__dot" aria-hidden="true" /> {projectStatus}</span>
+                </div>
 
-            {taskRepo && taskRepo.rawStatus === 'ready' && (
-              <div className="cv-onboarding-tip">
-                <Button variant="secondary" size="sm" onClick={() => navigate(`/onboarding/${taskRepo.id}`)}>
-                  Open full plan
-                </Button>
+                <div className="cv-home-plan">
+                  <div className="cv-home-plan__row">
+                    <span>First-week plan</span>
+                    <span className="cv-home-count">
+                      {tasks.length > 0 ? `${completedCount} of ${tasks.length} tasks done` : 'Not started'}
+                    </span>
+                  </div>
+                  <div
+                    className="cv-progress-track"
+                    role="progressbar"
+                    aria-label="First-week plan progress"
+                    aria-valuenow={progressPercent}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  >
+                    <div className="cv-progress-fill" style={{ width: `${progressPercent}%` }} />
+                  </div>
+                  {tasks.length === 0 && tasksNote && <p className="cv-home-note">{tasksNote}</p>}
+                </div>
+
+                <div className="cv-home-actions">
+                  <Button variant="secondary" disabled={!readyRepo} onClick={() => navigate(`/qa/${project.id}`)}>Ask a question</Button>
+                  <Button variant="secondary" disabled={!readyRepo} onClick={() => navigate(`/explorer/${project.id}`)}>Explore code</Button>
+                  <Button variant="secondary" disabled={!readyRepo} onClick={() => navigate(`/onboarding/${project.id}`)}>Open first-week plan</Button>
+                </div>
               </div>
-            )}
-          </div>
-        </section>
-      </div>
+            </section>
+          )}
+
+          {/* Only when there is more than one project to choose from */}
+          {activeRepos.length > 1 && (
+            <section className="cv-dashboard-repos" aria-labelledby="cv-home-all">
+              <div className="cv-dashboard-section-head">
+                <div>
+                  <h2 id="cv-home-all" className="cv-section-title">All repositories</h2>
+                  <p className="cv-section-desc">Select a repository to open its overview.</p>
+                </div>
+                <div className="cv-dashboard-controls">
+                  <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Filter repos..." className="cv-dashboard-search-box" />
+                  <div className="cv-dashboard-filter-select">
+                    <Filter size={13} className="cv-dashboard-filter-icon" />
+                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filter repositories by status">
+                      <option value="all">All</option>
+                      <option value="analyzed">Ready</option>
+                      <option value="analyzing">Analyzing</option>
+                      <option value="pending">Queued</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              {filteredRepos.length === 0 ? (
+                <EmptyState
+                  title="No matching repositories"
+                  description={`No repositories matched "${searchQuery}". Clear your search to see all repositories.`}
+                  actionLabel="Clear Filter"
+                  onAction={() => setSearchQuery('')}
+                />
+              ) : (
+                <div className="cv-dashboard-repo-cards">
+                  {filteredRepos.map((repo) => (
+                    <RepositoryCard key={repo.id} repo={repo} />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+        </>
+      )}
     </div>
   );
 }
