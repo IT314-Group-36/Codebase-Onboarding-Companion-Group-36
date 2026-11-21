@@ -641,7 +641,7 @@ export async function getImpactAnalysis(repoId, { symbol, file, depth = 3, expla
 // ============================================
 
 /**
- * The first-week plan: beginner-friendly GitHub issues (easiest first) with the files to open, plus orientation
+ * The legacy onboarding plan: beginner-friendly GitHub issues (easiest first) with the files to open, plus orientation
  * tasks when a repository has too few suitable issues. Each task carries the signed-in user's saved status.
  * GET /repos/{repo_id}/onboarding-tasks
  */
@@ -684,4 +684,23 @@ export async function getRepositoryHistory(repoId, { path = '', limit = 50 } = {
   const params = new URLSearchParams({ limit: String(limit) });
   if (path) params.set('path', path);
   return request(`/repos/${encodeURIComponent(repoId)}/history?${params.toString()}`);
+}
+
+// Persistent task inventory (independent of the legacy five-day plan).
+export async function getManagedTasks(repoId) {
+  return request(`/repos/${encodeURIComponent(repoId)}/tasks`);
+}
+export async function generateManagedTasks(repoId) {
+  return request(`/repos/${encodeURIComponent(repoId)}/tasks/generate`, { method: 'POST' });
+}
+export async function addManagedTask(repoId, data) {
+  return request(`/repos/${encodeURIComponent(repoId)}/tasks`, { method: 'POST', body: JSON.stringify(data) });
+}
+export async function editManagedTask(repoId, key, data) {
+  return request(`/repos/${encodeURIComponent(repoId)}/tasks/${encodeURIComponent(key)}`, {
+    method: 'PATCH', body: JSON.stringify(data),
+  });
+}
+export async function deleteManagedTask(repoId, key) {
+  return request(`/repos/${encodeURIComponent(repoId)}/tasks/${encodeURIComponent(key)}`, { method: 'DELETE' });
 }

@@ -184,6 +184,30 @@ class TaskProgress(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+
+class ManagedTask(Base):
+    """Persistent task inventory. Deleted entries are retained as generation tombstones."""
+    __tablename__ = "managed_tasks"
+    __table_args__ = (UniqueConstraint("user_id", "repo_id", "key", name="uq_managed_task_key"),
+                      Index("ix_managed_task_scope", "user_id", "repo_id"))
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    repo_id: Mapped[int] = mapped_column(ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False)
+    key: Mapped[str] = mapped_column(String(80), nullable=False)
+    source: Mapped[str] = mapped_column(String(12), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    difficulty: Mapped[str] = mapped_column(String(8), nullable=False)
+    related_files: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(String(12), default="pending", nullable=False)
+    deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(250), nullable=False)
+    issue_number: Mapped[int | None] = mapped_column(Integer)
+    issue_url: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
 class Conversation(Base):
     """A persistent Q&A conversation owned by one user for one repository."""
     __tablename__ = "conversations"

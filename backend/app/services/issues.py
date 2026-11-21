@@ -47,6 +47,9 @@ def sync_in_progress(row: IssueSync | None, now: datetime | None = None) -> bool
 def sync_view(row: IssueSync | None) -> dict:
     if row is None:
         return {"status": "never", "message": None, "fetched": 0, "synced_at": None}
+    if row.status in ("queued", "syncing") and not sync_in_progress(row):
+        return {"status": "failed", "message": "The issue sync timed out. Please retry.",
+                "fetched": row.fetched, "synced_at": row.synced_at}
     return {"status": row.status, "message": row.message, "fetched": row.fetched, "synced_at": row.synced_at}
 
 

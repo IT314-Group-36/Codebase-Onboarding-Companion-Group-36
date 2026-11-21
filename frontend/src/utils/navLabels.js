@@ -7,7 +7,7 @@ export const NAV = {
   explore: 'Explore code',
   deps: 'Dependency Map',
   ask: 'Ask a question',
-  tasks: 'First-week tasks',
+  tasks: 'Tasks',
   history: 'Git History',
   settings: 'Settings',
 };

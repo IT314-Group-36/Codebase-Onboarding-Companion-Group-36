@@ -61,7 +61,7 @@ export default function LoginPage() {
 
           <p className="cv-login-summary">
             Understand any project in minutes. Connect it from GitHub and get simple explanations,
-            a picture of how it fits together, and a short plan for your first week.
+            a picture of how it fits together, and ongoing tasks to guide your contributions.
           </p>
 
           {/* 3 Explicit Benefit Points */}

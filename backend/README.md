@@ -85,7 +85,20 @@ Errors worth handling in a client: `403` with `detail.code == "github_reauth_req
 revoked or can no longer be read: sign in with GitHub again), `429` (GitHub rate limit), `404` (not found or not
 accessible with this GitHub account).
 
-### First-week tasks and saved progress
+### Tasks and saved progress
+
+The Tasks page supports ongoing per-user, per-repository task management. Tasks are persisted in PostgreSQL and support pending, in-progress, and completed statuses; sources include AI-generated, manually added, and synchronized GitHub issues.
+
+| Managed tasks endpoint | Purpose |
+|---|---|
+| `GET /repos/{id}/tasks` | List persisted tasks and synchronization status |
+| `POST /repos/{id}/tasks` | Create a manual task |
+| `POST /repos/{id}/tasks/generate` | Generate additional repository-aware AI tasks |
+| `PATCH /repos/{id}/tasks/{task_key}` | Update a task or its status |
+| `DELETE /repos/{id}/tasks/{task_key}` | Delete a task while retaining its generation history |
+
+The following original onboarding endpoints are retained for backward compatibility:
+
 
 | Endpoint | Purpose |
 |---|---|

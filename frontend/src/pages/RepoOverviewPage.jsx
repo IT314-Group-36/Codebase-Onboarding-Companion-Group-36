@@ -223,7 +223,7 @@ export default function RepoOverviewPage() {
             icon={<CheckCircle2 size={15} />}
             onClick={() => navigate(`/onboarding/${repo.id}`)}
           >
-            Onboarding
+            Tasks
           </Button>
 
           <Button

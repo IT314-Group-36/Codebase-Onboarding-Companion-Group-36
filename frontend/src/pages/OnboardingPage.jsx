@@ -4,6 +4,8 @@ import {
   CheckCircle2,
   Circle,
   Clock,
+  ArrowLeft,
+  GitBranch,
   FolderTree,
   RefreshCw,
   FileCode,
@@ -14,10 +16,16 @@ import {
   Info,
   AlertTriangle,
   LifeBuoy,
+  Plus,
+  Sparkles,
 } from 'lucide-react';
 import {
   getOnboardingTasks,
-  updateOnboardingTask,
+  getManagedTasks,
+  generateManagedTasks,
+  addManagedTask,
+  editManagedTask,
+  deleteManagedTask,
   getRepositoryById,
   syncRepositoryIssues,
   getIssueSyncStatus,
@@ -30,6 +38,16 @@ import './OnboardingPage.css';
 
 const SYNC_POLL_MS = 2000;
 const SYNC_POLL_MAX = 45; // about 90 seconds
+const EMPTY_TASK = { title: '', description: '', difficulty: 'easy', related_files: '' };
+
+function presentTask(task) {
+  return { ...task, id: task.key, description: task.summary || '',
+    targetFiles: (task.related_files || []).map((file) => typeof file === 'string' ? file : file.path),
+    labels: task.labels || [], reasons: task.reasons?.length ? task.reasons :
+      task.source === 'generated' ? ['Repository-specific learning task generated from available project context.'] : [],
+    suggestedDay: task.suggested_day, };
+}
+
 
 const NEXT_STATUS = { pending: 'in-progress', 'in-progress': 'completed', completed: 'pending' };
 const NEXT_LABEL = {
@@ -40,8 +58,9 @@ const NEXT_LABEL = {
 
 const SOURCE_FILTERS = [
   { id: 'ALL', label: 'All' },
-  { id: 'issue', label: 'From GitHub issues' },
-  { id: 'generated', label: 'Starter tasks' },
+  { id: 'issue', label: 'GitHub issues' },
+  { id: 'generated', label: 'AI / Orientation' },
+  { id: 'manual', label: 'Manual' },
 ];
 
 /** What went wrong with the issue sync, and what the person can do about it. */
@@ -58,14 +77,14 @@ function troubleshootingFor(sync, hasIssueTasks) {
     tips.push('Issues have not been fetched yet. Press "Sync issues" to look for beginner-friendly ones.');
   } else if (sync.status === 'ok' && !hasIssueTasks) {
     tips.push(
-      'No open issue suits a newcomer (they are assigned, locked or marked hard, or none carries a beginner label such as "good first issue"). The orientation tasks below are your starting point. Ask the maintainers to label a few easy issues.'
+      'No eligible beginner issues were found. Use Generate AI Tasks or Add Task to continue.'
     );
   }
   return tips;
 }
 
 /**
- * Page: your first-week plan. Beginner-friendly GitHub issues for this repository (easiest first) plus orientation
+ * Page: your ongoing Tasks list. Beginner-friendly GitHub issues for this repository (easiest first) plus orientation
  * tasks built from the repository's own analysis, with progress saved on the server.
  */
 function OnboardingJourney({ repoId }) {
@@ -83,6 +102,11 @@ function OnboardingJourney({ repoId }) {
   const [syncing, setSyncing] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [guiding, setGuiding] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(EMPTY_TASK);
+  const [difficultyFilter, setDifficultyFilter] = useState('ALL');
   const savingRef = useRef(new Set()); // task ids with a save in flight (ignore double clicks)
   const aliveRef = useRef(true);
 
@@ -97,14 +121,31 @@ function OnboardingJourney({ repoId }) {
     let isMounted = true;
     async function loadData() {
       try {
-        const [repoRes, planRes] = await Promise.all([getRepositoryById(repoId), getOnboardingTasks(repoId)]);
+        const [repoRes, managed, legacyResult] = await Promise.all([
+          getRepositoryById(repoId), getManagedTasks(repoId),
+          getOnboardingTasks(repoId).catch(() => null),
+        ]);
         if (!isMounted) return;
         if (repoRes.success) setRepo(repoRes.repository);
-        setPlan(planRes);
-        setTasks(planRes.tasks);
+        setPlan({ sync: managed.sync || { status: 'never', fetched: 0 }, notes: legacyResult?.notes || [] });
+        // Preserve all original issue-ranking reasons, labels and relevant files when
+        // there is a matching legacy plan entry. The durable managed-task records
+        // remain authoritative for identities and progress.
+        const oldByKey = new Map((legacyResult?.tasks || []).map((t) => [
+          t.source === 'issue' ? `issue-${t.number}` : t.title.toLowerCase().trim(), t,
+        ]));
+        setTasks((managed.tasks || []).map((task) => {
+          const old = oldByKey.get(task.source === 'issue' ? task.key : task.title.toLowerCase().trim());
+          const current = presentTask(task);
+          if (!old) return current;
+          return { ...current, reasons: old.reasons || [], labels: old.labels || [],
+            guide: old.guide || null,
+            targetFiles: current.targetFiles.length ? current.targetFiles : old.targetFiles || [],
+          };
+        }));
         setLoadError(null);
       } catch (err) {
-        if (isMounted) setLoadError(err.message || 'Could not load the onboarding plan.');
+        if (isMounted) setLoadError(err.message || 'Could not load tasks.');
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -144,6 +185,44 @@ function OnboardingJourney({ repoId }) {
     }
   };
 
+  const handleGenerate = async () => {
+    if (generating) return;
+    setGenerating(true);
+    try {
+      const result = await generateManagedTasks(repoId);
+      setReloadKey((key) => key + 1);
+      showToast(`${(result.tasks || []).length} new tasks added. Existing progress preserved.`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Could not generate tasks', 'error');
+    } finally { setGenerating(false); }
+  };
+
+  const handleSave = async (event) => {
+    event.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    const values = { title: form.title.trim(), description: form.description.trim(),
+      difficulty: form.difficulty, related_files: form.related_files.split('\n').map((s) => s.trim()).filter(Boolean) };
+    try {
+      if (editing === 'new') await addManagedTask(repoId, values);
+      else await editManagedTask(repoId, editing, values);
+      setEditing(null);
+      setForm(EMPTY_TASK);
+      setReloadKey((key) => key + 1);
+      showToast('Task saved', 'success');
+    } catch (err) { showToast(err.message || 'Unable to save task', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (task) => {
+    if (!window.confirm(`Delete "${task.title}"?`)) return;
+    try {
+      await deleteManagedTask(repoId, task.id);
+      setReloadKey((key) => key + 1);
+      showToast('Task deleted', 'success');
+    } catch (err) { showToast(err.message || 'Unable to delete task', 'error'); }
+  };
+
   // Ask the LLM for a short guide per issue task (the plan itself works without it). Keeps the saved statuses as they are.
   const handleWriteGuides = async () => {
     if (guiding) return;
@@ -176,7 +255,7 @@ function OnboardingJourney({ repoId }) {
     savingRef.current.add(taskId);
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: next } : t)));
     try {
-      await updateOnboardingTask(repoId, taskId, next);
+      await editManagedTask(repoId, taskId, { status: next });
     } catch {
       setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: previous } : t)));
       showToast('Could not save your progress. Please try again.', 'error');
@@ -199,13 +278,13 @@ function OnboardingJourney({ repoId }) {
           (statusFilter === 'COMPLETED' && task.status === 'completed') ||
           (statusFilter === 'PENDING' && task.status !== 'completed');
         const matchesSource = sourceFilter === 'ALL' || task.source === sourceFilter;
-        return matchesStatus && matchesSource;
+        return matchesStatus && matchesSource && (difficultyFilter === 'ALL' || task.difficulty === difficultyFilter);
       }),
-    [tasks, statusFilter, sourceFilter]
+    [tasks, statusFilter, sourceFilter, difficultyFilter]
   );
 
   if (loading) {
-    return <LoadingState message="Building your first-week plan..." fullPage />;
+    return <LoadingState message="Loading your repository tasks..." fullPage />;
   }
 
   const effectiveRepo = repo || { id: repoId, name: `Repository ${repoId}`, owner: 'GitHub', branch: 'main' };
@@ -214,28 +293,29 @@ function OnboardingJourney({ repoId }) {
   const tips = troubleshootingFor(sync, hasIssueTasks);
   const howToRun = repo?.summary?.how_to_run && repo.summary.how_to_run !== 'n/a' ? repo.summary.how_to_run : null;
   const syncBusy = syncing || ['queued', 'syncing'].includes(sync.status);
-  const syncText =
-    sync.status === 'ok' && sync.syncedAt
-      ? `Last checked ${new Date(sync.syncedAt).toLocaleDateString()}`
-      : sync.status === 'failed'
-      ? 'The last check did not work. Try again.'
-      : sync.status === 'never'
-      ? 'Not checked yet'
-      : 'Checking GitHub…';
-  const notes = !loadError ? plan?.notes || [] : [];
 
   return (
     <div className="cv-onboarding-page">
       {/* Page Header */}
       <header className="cv-onboarding-header">
         <div className="cv-onboarding-header__main">
+          <button
+            type="button"
+            className="cv-onboarding-back-btn"
+            onClick={() => navigate(`/repository/${repoId}`)}
+            title="Back to Repository Overview"
+          >
+            <ArrowLeft size={16} />
+          </button>
           <div>
-            <h1 className="cv-onboarding-name">First-week tasks</h1>
-            <p className="cv-onboarding-subtitle">
-              A short list of tasks to help you get comfortable with this project. Start with the easy ones and tick
-              them off as you go.
-            </p>
-            <span className="cv-onboarding-repo-chip">{effectiveRepo.owner} / {effectiveRepo.name}</span>
+            <div className="cv-onboarding-title-row">
+              <span className="cv-onboarding-owner">{effectiveRepo.owner} /</span>
+              <h1 className="cv-onboarding-name">{effectiveRepo.name}</h1>
+              <span className="cv-onboarding-branch-chip">
+                <GitBranch size={12} /> {effectiveRepo.branch}
+              </span>
+            </div>
+            <p className="cv-onboarding-subtitle">Tasks — ongoing learning and contributions for this repository</p>
           </div>
         </div>
 
@@ -246,7 +326,17 @@ function OnboardingJourney({ repoId }) {
             icon={<FolderTree size={15} />}
             onClick={() => navigate(`/explorer/${repoId}`)}
           >
-            Explore code
+            Code Explorer
+          </Button>
+
+          <Button
+            variant="primary"
+            size="md"
+            icon={<RefreshCw size={15} />}
+            onClick={handleSync}
+            disabled={syncBusy}
+          >
+            {syncBusy ? 'Syncing issues...' : 'Sync issues'}
           </Button>
         </div>
       </header>
@@ -255,7 +345,7 @@ function OnboardingJourney({ repoId }) {
         <div className="cv-onboarding-notice cv-onboarding-notice--error" role="alert">
           <AlertTriangle size={16} />
           <div>
-            <strong>Could not load your plan.</strong> {loadError}
+            <strong>Could not load your tasks.</strong> {loadError}
             <div>
               <Button variant="secondary" size="sm" onClick={() => { setLoading(true); setReloadKey((k) => k + 1); }}>
                 Try again
@@ -265,19 +355,32 @@ function OnboardingJourney({ repoId }) {
         </div>
       )}
 
+      {/* Messages from the backend (sync state, fallback explanation) */}
+      {!loadError &&
+        (plan?.notes || []).map((note) => (
+          <div
+            key={note}
+            className={`cv-onboarding-notice ${note.toLowerCase().includes('failed') ? 'cv-onboarding-notice--warn' : ''}`}
+            role="status"
+          >
+            <Info size={16} />
+            <span>{note}</span>
+          </div>
+        ))}
+
       {/* Progress & Milestone Overview Banner */}
       <section className="cv-onboarding-summary-strip">
         <div className="cv-onboarding-progress-card">
           <div className="cv-onboarding-progress-header">
             <div className="cv-onboarding-progress-info">
-              <span className="cv-onboarding-progress-label">Your progress</span>
+              <span className="cv-onboarding-progress-label">TASK PROGRESS</span>
               <h3 className="cv-onboarding-progress-headline">
-                {completedCount} of {totalTasks} tasks done
+                {completedCount} of {totalTasks} tasks completed
               </h3>
               <p className="cv-onboarding-progress-sub">
                 {hasIssueTasks
-                  ? 'These are real beginner-friendly issues from GitHub, easiest first. Your progress is saved to your account.'
-                  : 'These are starter tasks made from this project. Your progress is saved to your account.'}
+                  ? 'Repository tasks and GitHub issues. Your progress is saved to your account.'
+                  : 'Your AI, manual and GitHub tasks are saved to your account.'}
               </p>
             </div>
             <div className="cv-onboarding-progress-3d-wrap">
@@ -297,7 +400,7 @@ function OnboardingJourney({ repoId }) {
               className="cv-onboarding-bar-fill"
               style={{ width: `${progressPercent}%` }}
               role="progressbar"
-              aria-label="First-week progress"
+              aria-label="Task progress"
               aria-valuenow={progressPercent}
               aria-valuemin="0"
               aria-valuemax="100"
@@ -307,36 +410,31 @@ function OnboardingJourney({ repoId }) {
           <div className="cv-onboarding-stat-pills">
             <span className="cv-onboarding-pill">
               <CheckCheck size={14} style={{ color: 'var(--status-success)' }} />
-              <span>{completedCount} Done</span>
+              <span>{completedCount} Completed</span>
             </span>
             <span className="cv-onboarding-pill">
               <Clock size={14} style={{ color: 'var(--status-warning)' }} />
-              <span>{inProgressCount} In progress</span>
+              <span>{inProgressCount} In Progress</span>
             </span>
             <span className="cv-onboarding-pill">
               <Circle size={14} style={{ color: 'var(--text-muted)' }} />
               <span>{pendingCount} Not started</span>
             </span>
+            <span className="cv-onboarding-pill cv-onboarding-pill--time">
+              <CircleDot size={14} />
+              <span>
+                {sync.status === 'ok' && sync.syncedAt
+                  ? `Issues synced ${new Date(sync.syncedAt).toLocaleDateString()}`
+                  : sync.status === 'failed'
+                  ? 'Last issue sync failed'
+                  : sync.status === 'never'
+                  ? 'Issues not synced yet'
+                  : 'Syncing issues...'}
+              </span>
+            </span>
           </div>
         </div>
       </section>
-
-      {notes.length > 0 && (
-        <section
-          className={`cv-onboarding-about ${notes.some((n) => n.toLowerCase().includes('failed')) ? 'cv-onboarding-about--warn' : ''}`}
-          aria-label="About these tasks"
-        >
-          <Info size={18} aria-hidden="true" />
-          <div>
-            <strong>About these tasks</strong>
-            <ul>
-              {notes.map((note) => (
-                <li key={note}>{note}</li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
 
       {/* Setup & troubleshooting */}
       <section className="cv-onboarding-help">
@@ -347,7 +445,7 @@ function OnboardingJourney({ repoId }) {
           aria-expanded={helpOpen}
         >
           <LifeBuoy size={16} />
-          <span>Need help getting set up?</span>
+          <span>Setup &amp; troubleshooting</span>
           {tips.length > 0 && <span className="cv-onboarding-help__badge">{tips.length}</span>}
           <ChevronDown
             size={16}
@@ -366,7 +464,7 @@ function OnboardingJourney({ repoId }) {
               ) : (
                 <li>Read the README for the install and run steps (this repository has no run summary yet).</li>
               )}
-              <li>Pick a task below. Open its files in Explore code to see where to start.</li>
+              <li>Pick a task below. Open its related files in the Code Explorer to see where to start.</li>
               <li>
                 Create a branch for your change (<code>git checkout -b my-first-change</code>), push it, and open a pull
                 request. Never push straight to the main branch.
@@ -383,34 +481,37 @@ function OnboardingJourney({ repoId }) {
               </>
             )}
             <p className="cv-onboarding-help__foot">
-              Task rankings come from issue labels, how clear the description is and how recently it was updated. They
-              are a suggestion, so check an issue with the maintainers before you start.
+              GitHub issue difficulty is based on labels and issue details. AI task difficulty advances based on completed work, not generation clicks.
             </p>
           </div>
         )}
       </section>
 
-      <section className="cv-onboarding-tasks-head">
-        <div>
-          <h2 className="cv-onboarding-section-title">Your tasks</h2>
-          <p className="cv-onboarding-section-help">
-            Click the circle on the left to mark a task as started, then done. Click a task to see how to do it.
-          </p>
-        </div>
-        <div className="cv-onboarding-sync">
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<RefreshCw size={14} />}
-            onClick={handleSync}
-            disabled={syncBusy}
-            title="Looks for beginner-friendly issues on GitHub and adds them to your list"
-          >
-            {syncBusy ? 'Checking GitHub…' : 'Check GitHub for new tasks'}
+      {/* New actions use the persistent Tasks API; original onboarding layout is preserved. */}
+      <div className="cv-task-actions">
+        <div><strong>Generate AI Tasks</strong>
+          <p>Analyze README, files, dependencies and issues. Difficulty advances only when you complete tasks.</p>
+          <Button variant="primary" icon={<Sparkles size={15}/>} onClick={handleGenerate} disabled={generating}>
+            {generating ? 'Generating...' : tasks.length ? 'Generate More Tasks' : 'Generate AI Tasks'}
           </Button>
-          <span className="cv-onboarding-sync__status">{syncText}</span>
         </div>
-      </section>
+        <div><strong>Add Task</strong><p>Create, edit and track your own repository tasks whenever you want.</p>
+          <Button variant="secondary" icon={<Plus size={15}/>} onClick={() => { setForm(EMPTY_TASK); setEditing('new'); }}>Add Task</Button>
+        </div>
+      </div>
+      {editing && <form className="cv-task-form" onSubmit={handleSave}>
+        <h3>{editing === 'new' ? 'Add Task' : 'Edit Task'}</h3>
+        <label>Title<input required minLength={5} maxLength={200} value={form.title} onChange={(e) => setForm((v) => ({...v, title: e.target.value}))}/></label>
+        <label>Description<textarea required rows={3} value={form.description} onChange={(e) => setForm((v) => ({...v, description: e.target.value}))}/></label>
+        <label>Difficulty<select value={form.difficulty} onChange={(e) => setForm((v) => ({...v, difficulty: e.target.value}))}>
+          <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
+        </select></label>
+        <label>Related files (one repository path per line)<textarea rows={3} value={form.related_files} onChange={(e) => setForm((v) => ({...v, related_files: e.target.value}))}/></label>
+        <div className="cv-task-form-actions">
+          <Button variant="primary" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Task'}</Button>
+          <Button variant="secondary" type="button" onClick={() => setEditing(null)}>Cancel</Button>
+        </div>
+      </form>}
 
       {/* Filter and Tab Bar */}
       <section className="cv-onboarding-controls">
@@ -421,7 +522,7 @@ function OnboardingJourney({ repoId }) {
             aria-pressed={statusFilter === 'ALL'}
             onClick={() => setStatusFilter('ALL')}
           >
-            All tasks ({totalTasks})
+            All Tasks ({totalTasks})
           </button>
           <button
             type="button"
@@ -437,10 +538,17 @@ function OnboardingJourney({ repoId }) {
             aria-pressed={statusFilter === 'COMPLETED'}
             onClick={() => setStatusFilter('COMPLETED')}
           >
-            Done ({completedCount})
+            Completed ({completedCount})
           </button>
         </div>
 
+        <div className="cv-task-difficulty-filter">
+          <label htmlFor="cv-task-difficulty">Difficulty</label>
+          <select id="cv-task-difficulty" value={difficultyFilter} onChange={(e) => setDifficultyFilter(e.target.value)}>
+            <option value="ALL">All difficulties</option><option value="easy">Easy</option>
+            <option value="medium">Medium</option><option value="hard">Hard</option>
+          </select>
+        </div>
         <div className="cv-onboarding-category-pills" role="group" aria-label="Filter tasks by source">
           {SOURCE_FILTERS.map((f) => (
             <button
@@ -463,23 +571,24 @@ function OnboardingJourney({ repoId }) {
             <CircleDot size={36} />
             <h3>No tasks yet</h3>
             <p>
-              Check GitHub for beginner-friendly issues. If there are none, you will get starter tasks instead.
+              Generate repository-specific AI tasks, sync GitHub issues, or create a manual task to get started.
             </p>
             <Button variant="primary" size="sm" onClick={handleSync} disabled={syncBusy}>
-              {syncBusy ? 'Checking GitHub…' : 'Check GitHub for new tasks'}
+              {syncBusy ? 'Syncing issues...' : 'Sync issues'}
             </Button>
           </div>
         ) : filteredTasks.length === 0 ? (
           <div className="cv-onboarding-empty">
             <CheckCircle2 size={36} style={{ color: 'var(--status-success)' }} />
             <h3>No tasks match the active filter</h3>
-            <p>Try another filter to see the rest of your plan.</p>
+            <p>Try another filter to see the rest of your tasks.</p>
             <Button
               variant="secondary"
               size="sm"
               onClick={() => {
                 setStatusFilter('ALL');
                 setSourceFilter('ALL');
+                setDifficultyFilter('ALL');
               }}
             >
               Reset Filters
@@ -511,10 +620,10 @@ function OnboardingJourney({ repoId }) {
                     <div className="cv-onboarding-card__tags">
                       <span className={`cv-onboarding-diff cv-onboarding-diff--${task.difficulty}`}>{task.difficulty}</span>
                       <span className="cv-onboarding-cat-tag">
-                        {task.source === 'issue' ? `GitHub issue #${task.number}` : 'Starter task'}
+                        {task.source === 'issue' ? `GitHub issue #${task.number}` : task.source === 'manual' ? 'Manual' : 'AI / Orientation'}
                       </span>
                       {isInProgress && <span className="cv-onboarding-cat-tag">In progress</span>}
-                      <span className="cv-onboarding-time-tag">Day {task.suggestedDay}</span>
+      
                     </div>
 
                     <h2 className={`cv-onboarding-card__title ${isCompleted ? 'cv-onboarding-card__title--done' : ''}`}>
@@ -550,7 +659,7 @@ function OnboardingJourney({ repoId }) {
 
                 {task.targetFiles.length > 0 && (
                   <div className="cv-onboarding-card__files">
-                    <span className="cv-onboarding-files-label">Files to look at:</span>
+                    <span className="cv-onboarding-files-label">Relevant Files:</span>
                     <div className="cv-onboarding-files-list">
                       {task.targetFiles.map((file) => (
                         <button
@@ -558,7 +667,7 @@ function OnboardingJourney({ repoId }) {
                           type="button"
                           className="cv-onboarding-file-btn"
                           onClick={() => navigate(`/explorer/${repoId}?file=${encodeURIComponent(file)}`)}
-                          title={`Open ${file} in Explore code`}
+                          title={`Open ${file} in Code Explorer`}
                         >
                           <FileCode size={13} />
                           <code>{file}</code>
@@ -609,10 +718,15 @@ function OnboardingJourney({ repoId }) {
                         </ul>
                       </>
                     )}
-                    {task.source === 'issue' && !task.guide && (
-                      <Button variant="secondary" size="sm" onClick={handleWriteGuides} disabled={guiding}>
-                        {guiding ? 'Writing guides...' : 'Write a short guide for these issues'}
-                      </Button>
+                    {task.source === 'manual' && (
+                      <div className="cv-task-form-actions">
+                        <Button variant="secondary" size="sm" onClick={() => {
+                          setEditing(task.id);
+                          setForm({ title: task.title, description: task.description,
+                            difficulty: task.difficulty, related_files: task.targetFiles.join('\n') });
+                        }}>Edit</Button>
+                        <Button variant="secondary" size="sm" onClick={() => handleDelete(task)}>Delete</Button>
+                      </div>
                     )}
                     {task.url && (
                       <a className="cv-onboarding-issue-link" href={task.url} target="_blank" rel="noopener noreferrer">

@@ -7,7 +7,7 @@ import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import LoadingState from '../components/LoadingState';
 import Button from '../components/Button';
-import { getRepositories, getOnboardingTasks } from '../services/api';
+import { getRepositories, getManagedTasks } from '../services/api';
 import { useAuth } from '../context/useAuth';
 import { showToast } from '../utils/toast';
 import './DashboardPage.css';
@@ -46,23 +46,23 @@ export default function DashboardPage() {
           const source = list.find((r) => r.rawStatus === 'ready') || list[0] || null;
           setTaskRepo(source);
 
-          // The first-week plan (real GitHub issues or orientation tasks) with the user's saved progress
+          // Ongoing repository tasks with the user's saved progress
           if (!source) {
             setTasks([]);
-            setTasksNote('Connect a repository to get a first-week onboarding plan for it.');
+            setTasksNote('Connect a repository to start managing tasks.');
           } else if (source.rawStatus !== 'ready') {
             setTasks([]);
-            setTasksNote(`${source.name} is still being indexed. Its first-week plan appears when indexing finishes.`);
+            setTasksNote(`${source.name} is still being indexed. Tasks become available when indexing finishes.`);
           } else {
             try {
-              const plan = await getOnboardingTasks(source.id);
+              const plan = await getManagedTasks(source.id);
               if (!isMounted) return;
               setTasks(plan.tasks);
-              setTasksNote(plan.tasks.length ? '' : 'No tasks yet. Open the full plan to sync this repository\'s issues.');
+              setTasksNote(plan.tasks.length ? '' : 'No tasks yet. Open Tasks to generate, add or sync them.');
             } catch (err) {
               if (!isMounted) return;
               setTasks([]);
-              setTasksNote(err.message || 'Could not load the first-week plan.');
+              setTasksNote(err.message || 'Could not load tasks.');
             }
           }
         }
@@ -113,6 +113,7 @@ export default function DashboardPage() {
   const hasRepo = activeRepos.length > 0;
   const readyRepo = activeRepos.find((r) => r.rawStatus === 'ready') || null;
   const project = taskRepo || activeRepos[0] || null;
+  const currentStepId = !hasRepo ? 'connect' : readyRepo ? 'overview' : null;
 
   // Steps that need a repository explain why they cannot open yet instead of doing nothing
   const openStep = (section) => () => {
@@ -131,7 +132,7 @@ export default function DashboardPage() {
     { id: 'explore', title: 'Explore the code', text: 'Browse the files. Click any file to read it with a plain-English explanation.', cta: 'Explore the code', onClick: openStep('explorer') },
     { id: 'deps', title: 'See the Dependency Map', text: 'A picture of how the parts of the project connect to each other.', cta: 'Open the map', onClick: openStep('dependencies') },
     { id: 'ask', title: 'Ask a question', text: 'Ask in plain English, for example "How does login work?", and get an answer with the exact code.', cta: 'Ask a question', onClick: openStep('qa') },
-    { id: 'tasks', title: 'Follow the first-week plan', text: 'A short list of tasks to get comfortable with the project. Your progress is saved.', cta: 'Open the plan', onClick: openStep('onboarding') },
+    { id: 'tasks', title: 'Manage your tasks', text: 'Create, generate and complete repository tasks at your own pace.', cta: 'Open Tasks', onClick: openStep('onboarding') },
     { id: 'history', title: 'Check the Git History', text: 'See who changed what and when, and which files change the most.', cta: 'Open Git History', onClick: openStep('history') },
   ];
 
@@ -184,8 +185,7 @@ export default function DashboardPage() {
             <div className="cv-home-steps">
               {journey.map((step, i) => {
                 const done = step.id === 'connect' && hasRepo;
-                // Orange = ready to click: only "Connect" before a repository exists, every other step once it is ready
-                const isCurrent = step.id === 'connect' ? !hasRepo : Boolean(readyRepo);
+                const isCurrent = step.id === currentStepId;
                 return (
                   <article className="cv-home-step" key={step.id}>
                     <span className={`cv-home-step__num ${done ? 'is-done' : ''}`}>{done ? '✓' : i + 1}</span>
@@ -220,7 +220,7 @@ export default function DashboardPage() {
 
                 <div className="cv-home-plan">
                   <div className="cv-home-plan__row">
-                    <span>First-week plan</span>
+                    <span>Tasks</span>
                     <span className="cv-home-count">
                       {tasks.length > 0 ? `${completedCount} of ${tasks.length} tasks done` : 'Not started'}
                     </span>
@@ -228,7 +228,7 @@ export default function DashboardPage() {
                   <div
                     className="cv-progress-track"
                     role="progressbar"
-                    aria-label="First-week plan progress"
+                    aria-label="Tasks progress"
                     aria-valuenow={progressPercent}
                     aria-valuemin={0}
                     aria-valuemax={100}
@@ -241,7 +241,7 @@ export default function DashboardPage() {
                 <div className="cv-home-actions">
                   <Button variant="secondary" disabled={!readyRepo} onClick={() => navigate(`/qa/${project.id}`)}>Ask a question</Button>
                   <Button variant="secondary" disabled={!readyRepo} onClick={() => navigate(`/explorer/${project.id}`)}>Explore code</Button>
-                  <Button variant="secondary" disabled={!readyRepo} onClick={() => navigate(`/onboarding/${project.id}`)}>Open first-week plan</Button>
+                  <Button variant="secondary" disabled={!readyRepo} onClick={() => navigate(`/onboarding/${project.id}`)}>Open Tasks</Button>
                 </div>
               </div>
             </section>

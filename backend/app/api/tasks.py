@@ -31,7 +31,12 @@ async def sync_issues(body: ReindexIn | None = None, repo: Repository = Depends(
         raise HTTPException(409, "An issue sync is already in progress")
     await mark_sync(session, repo.id, status="queued", message=None)
     await session.commit()
-    await queue.enqueue_job("sync_issues", repo.id, body.access_token if body else None)
+    try:
+        await queue.enqueue_job("sync_issues", repo.id, body.access_token if body else None)
+    except Exception as exc:
+        await mark_sync(session, repo.id, status="failed", message="Could not start the issue sync worker. Retry.")
+        await session.commit()
+        raise HTTPException(503, "Could not start the issue sync worker") from exc
     return sync_view(await session.get(IssueSync, repo.id, populate_existing=True))
 
 

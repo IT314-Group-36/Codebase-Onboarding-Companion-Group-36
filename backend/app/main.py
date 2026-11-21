@@ -14,6 +14,7 @@ from app.api.github import router as github_router
 from app.api.history import router as history_router
 from app.api.repos import router as repos_router
 from app.api.tasks import router as tasks_router
+from app.api.managed_tasks import router as managed_tasks_router
 from app.core.config import get_settings
 from app.db.session import engine
 from app.services.jobs import InProcessQueue, recover_interrupted_jobs
@@ -43,6 +44,7 @@ app.include_router(github_router)
 app.include_router(history_router)
 app.include_router(repos_router)
 app.include_router(tasks_router)
+app.include_router(managed_tasks_router)
 
 
 @app.get("/health")

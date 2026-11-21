@@ -22,7 +22,7 @@ to connect repositories, explore files, view the dependency map, ask questions a
 | `/explorer/:repoId` | File explorer (symbols, imports) | `GET /repos/{id}/files`, `/files/{path}`, `/symbols` |
 | `/dependencies/:repoId` | Dependency map | `GET /repos/{id}/map`, `/impact` |
 | `/qa/:repoId` | Ask questions | `/ask/stream`, `/search`, conversation list/create/messages/delete |
-| `/onboarding/:repoId` | First-week tasks | `GET /repos/{id}/onboarding-tasks`, `PUT /repos/{id}/onboarding-tasks/{key}/progress`, `POST`/`GET /repos/{id}/issues/sync` |
+| `/onboarding/:repoId` | Tasks (ongoing AI, manual and GitHub tasks) | `GET`/`POST /repos/{id}/tasks`, `POST /repos/{id}/tasks/generate`, `PATCH`/`DELETE /repos/{id}/tasks/{task_key}`, `POST`/`GET /repos/{id}/issues/sync` |
 | `/settings` | Settings | `GET /auth/me`, `POST /auth/logout`; hidden repos stored in localStorage |
 
 ## Project structure
@@ -119,7 +119,10 @@ only for using different credentials.
 Known gaps between the UI and the API:
 
 - "Remove repository" only hides it in this browser; the API has no delete endpoint.
-- Onboarding progress is saved on the server per user (`task_progress`). Custom tasks added by hand are not supported; the plan always comes from the repository's issues and analysis.
+- Onboarding progress is saved on the server per user (`task_progress`). 
+- The Tasks page supports continuous task management with AI-generated, manually created, and GitHub issue tasks.
+- Tasks and progress are stored in PostgreSQL per user and repository. Developers can add, edit, delete,
+and update tasks without losing existing progress.
 - The repo picker lists the first pages GitHub returns (30 per page, "Load more" fetches the next) and filters them in the browser; a repo further down can be added with "Paste a URL".
 - Branches are listed from GitHub (first 100). Names the backend would reject (for example containing spaces) are left out of the dropdown.
 

@@ -462,7 +462,7 @@ export function adaptIssueSync(raw) {
   };
 }
 
-/** Maps the whole first-week plan. */
+/** Maps the legacy onboarding plan. */
 export function adaptTaskPlan(raw) {
   return {
     repoId: raw.repo_id,

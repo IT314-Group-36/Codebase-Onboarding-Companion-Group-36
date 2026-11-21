@@ -18,7 +18,7 @@ for search, and (with an LLM key) writes a module map and summary. A React app l
 | "What would break if I change this function?" | Done | `/impact` plus plain-English impact questions in the Ask box |
 | Git history and contribution activity | Done (initial version) | On-demand GitHub history page; commit timeline includes changed files and per-folder contributor shares, based on latest 50 commits |
 | Git history and contribution activity | Done (initial version) | On-demand GitHub history page; latest 50 commits and contributor shares, optionally filtered by any folder or file |
-| First-week task list from beginner-friendly issues | Done | The Onboarding page and the Dashboard use the real plan (`/issues/sync`, `/onboarding-tasks`): GitHub issues plus orientation tasks, with a Sync button, setup and troubleshooting help, and progress saved per user on the server |
+| Continuous Tasks (AI, manual, GitHub issues) | Implemented; integration verification pending | The Tasks page preserves the original detailed cards, setup guidance, and issue context. Users can generate repository-specific AI tasks, add/edit/delete manual tasks, sync GitHub issues, filter tasks, and track progress in PostgreSQL through `/repos/{id}/tasks`. The legacy `/onboarding-tasks` APIs are retained for compatibility. |
 
 Repository deletion removes the
 user's indexed data from the backend; GitHub disconnect forgets the saved credential while retaining the CODEVERSE session.
@@ -123,7 +123,7 @@ The indexing job writes its results as a repository-scoped operation. A reindex 
 - Impact results come from static import and call relationships. Dynamic dispatch, reflection, runtime-loaded dependencies, and some framework conventions may not be detected.
 - Tree-sitter builds detailed code structure for Python, JavaScript, JSX, TypeScript, and TSX. Other file types can be searched as text but do not receive the same symbol and dependency analysis.
 - Git history is fetched on demand and summarizes a sample of the latest 50 commits, rather than a complete long-term contribution record.
-- First-week tasks come from open GitHub issues that carry a beginner label (good first issue, easy, help wanted, docs). A repository with fewer than three suitable issues gets orientation tasks built from its own analysis, so the plan is never empty. Ranking is a heuristic, not a promise that an issue is easy.
+- Tasks are an ongoing per-user, per-repository list, rather than a fixed first-week plan. AI generation requires an LLM configuration and may depend on available repository analysis. GitHub issue suitability/ranking is heuristic; some issues may be unsuitable for beginners. The legacy orientation-task endpoint remains available for compatibility.
 - Source display is limited to indexed, non-sensitive files and a maximum response size of 500 KB.
 
 ## Quick start (Docker, whole stack)
@@ -155,7 +155,7 @@ docker compose up --build
 | API docs (Swagger) | http://localhost:8000/docs |
 
 Without the two `CF_` values, indexing and search fail with a clear error. After editing `backend/.env` while the stack is running, apply it with `docker compose up -d --force-recreate`.
-Without `LLM_API_KEY` everything works except `/ask` and `/impact?explain=true`.
+Without `LLM_API_KEY`, AI task generation and LLM-dependent Q&A and explanations are unavailable. Manual task management remains available.
 
 Stop with `Ctrl+C`. To also delete the database: `docker compose down -v`.
 
