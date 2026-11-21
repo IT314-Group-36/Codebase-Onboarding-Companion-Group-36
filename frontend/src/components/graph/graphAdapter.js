@@ -50,19 +50,19 @@ export function normalizeNodeType(rawType = '', path = '', name = '') {
 export function getNodeLayerTitle(type) {
   switch (type) {
     case 'entrypoint':
-      return 'Entrypoint';
+      return 'Starting point';
     case 'root':
-      return 'Repository Root';
+      return 'Project root';
     case 'page':
-      return 'Page View';
+      return 'Page';
     case 'component':
-      return 'UI Component';
+      return 'Screen piece';
     case 'hook':
-      return 'Hook / Context';
+      return 'Shared logic';
     case 'api':
-      return 'Service / API';
+      return 'Server & data';
     case 'util':
-      return 'Utility / Helper';
+      return 'Helper';
     case 'function':
       return 'Function Symbol';
     case 'module':

@@ -109,7 +109,7 @@ function CodebaseNode({ data, selected }) {
               isExpanded ? 'cv-node-expand-btn--expanded' : 'cv-node-expand-btn--collapsed'
             }`}
             onClick={handleExpandClick}
-            title={isExpanded ? 'Collapse branch dependencies' : `Expand ${childCount} dependencies`}
+            title={isExpanded ? 'Hide what this part uses' : `Show the ${childCount} parts this one uses`}
             aria-label={isExpanded ? 'Collapse branch' : 'Expand branch'}
           >
             {isExpanded ? (
@@ -141,11 +141,11 @@ function CodebaseNode({ data, selected }) {
       <div className="cv-node-card__footer">
         {lines > 0 && (
           <span className="cv-node-card__metric">
-            {lines} LOC
+            {lines} lines
           </span>
         )}
         <span className="cv-node-card__metric">
-          {childCount} deps · {parentCount} in
+          Uses {childCount} · Used by {parentCount}
         </span>
       </div>
     </div>
