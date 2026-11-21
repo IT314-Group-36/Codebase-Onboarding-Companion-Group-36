@@ -616,3 +616,6 @@
 .cv-code-head__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-left: auto; }
 .cv-editor-theme-control { gap: 8px; padding: 5px 12px; }
 .cv-editor-theme-control__label { font: 600 0.72rem var(--font-sans); letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.8; }
+
+/* Page actions now live in the code header (the repeated Home / repo / file line was removed) */
+.cv-code-head__tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
