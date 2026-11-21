@@ -66,8 +66,8 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.64rem;
-  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-family: var(--font-sans);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #9AA9B8;
@@ -94,8 +94,8 @@
   gap: 2px;
   padding: 2px 6px;
   border-radius: var(--radius-xs);
-  font-size: 0.65rem;
-  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-family: var(--font-sans);
   font-weight: 700;
   cursor: pointer;
   border: 1px solid rgba(118, 130, 142, 0.22);
@@ -125,9 +125,9 @@
 
 /* Primary Module Name */
 .cv-node-card__name {
-  font-size: 0.84rem;
+  font-size: 0.98rem;
   font-weight: 600;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   color: #FFFFFF;
   white-space: nowrap;
   overflow: hidden;
@@ -137,8 +137,8 @@
 
 /* File Path */
 .cv-node-card__path {
-  font-size: 0.68rem;
-  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-family: var(--font-sans);
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -151,8 +151,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.64rem;
-  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-family: var(--font-sans);
   color: var(--text-secondary);
   border-top: 1px solid rgba(118, 130, 142, 0.14);
   padding-top: 4px;
