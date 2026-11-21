@@ -594,3 +594,11 @@
 .cv-connect-actions { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 20px; padding: 12px 14px 12px 22px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); border: 1px solid var(--ember-glass-line); position: sticky; bottom: 12px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .cv-connect-selected { font-size: 0.92rem; overflow-wrap: anywhere; }
 .cv-connect-trust { margin: 14px 6px 0; font-size: 0.8rem; color: #A9B4BF; }
+
+/* Wide layout like the Overview page, instead of a narrow phone-sized column */
+.cv-connect-page { max-width: 1280px; width: 100%; margin: 0 auto; }
+.cv-connect-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; max-height: 52vh; }
+.cv-connect-card { max-width: none; }
+@media (max-width: 720px) {
+  .cv-connect-picker { grid-template-columns: 1fr; }
+}

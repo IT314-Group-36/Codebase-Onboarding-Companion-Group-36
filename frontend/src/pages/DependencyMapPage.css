@@ -86,9 +86,9 @@
 }
 
 .cv-depmap-owner {
-  font-size: 0.86rem;
+  font-size: 1.0rem;
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 
 .cv-depmap-repo-name {
@@ -103,8 +103,8 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.72rem;
-  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  font-family: var(--font-sans);
   padding: 2px 7px;
   border-radius: var(--radius-xs);
   background: rgba(2, 54, 97, 0.3);
@@ -113,7 +113,7 @@
 }
 
 .cv-depmap-subtitle {
-  font-size: 0.74rem;
+  font-size: 0.88rem;
   color: var(--text-secondary);
   margin: 0;
 }
@@ -138,7 +138,7 @@
 .cv-depmap-stat-num {
   font-size: 0.9rem;
   font-weight: 700;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   color: #FFFFFF;
 }
 
@@ -147,10 +147,10 @@
 }
 
 .cv-depmap-stat-label {
-  font-size: 0.66rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   letter-spacing: 0.05em;
 }
 
@@ -172,8 +172,8 @@
   background-color: #DB5227;
   color: #FFFFFF;
   font-weight: 600;
-  font-size: 0.76rem;
-  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-family: var(--font-sans);
   border: none;
   border-radius: var(--radius-xs);
   cursor: pointer;
@@ -221,8 +221,8 @@
   border: 1px solid rgba(118, 130, 142, 0.2);
   border-radius: var(--radius-xs);
   padding: 0 28px;
-  font-size: 0.78rem;
-  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  font-family: var(--font-sans);
   color: #FFFFFF;
   transition: border-color var(--duration-fast) var(--ease-default);
 }
@@ -261,8 +261,8 @@
 .cv-depmap-filter-chip {
   padding: 4px 10px;
   border-radius: var(--radius-xs);
-  font-size: 0.7rem;
-  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  font-family: var(--font-sans);
   font-weight: 500;
   background-color: rgba(10, 22, 36, 0.7);
   border: 1px solid rgba(118, 130, 142, 0.18);
@@ -309,8 +309,8 @@
   border: 1px solid rgba(118, 130, 142, 0.2);
   color: #9AA9B8;
   cursor: pointer;
-  font-size: 0.7rem;
-  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  font-family: var(--font-sans);
   font-weight: 500;
   transition: all var(--duration-fast) var(--ease-default);
 }
@@ -328,7 +328,7 @@
 }
 
 .cv-depmap-tool-btn-text {
-  font-size: 0.68rem;
+  font-size: 0.82rem;
 }
 
 /* ---------------------------------------------------
@@ -363,8 +363,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.68rem;
-  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-family: var(--font-sans);
   color: var(--text-secondary);
 }
 
@@ -448,16 +448,16 @@
   font-weight: 700;
   color: #FFFFFF;
   margin: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .cv-depmap-inspector__path {
-  font-size: 0.68rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -509,18 +509,18 @@
 }
 
 .cv-depmap-inspector__meta-label {
-  font-size: 0.62rem;
+  font-size: 0.78rem;
   text-transform: uppercase;
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   letter-spacing: 0.06em;
 }
 
 .cv-depmap-inspector__meta-val {
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: #FFFFFF;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 
 /* Call to action */
@@ -550,10 +550,10 @@
 }
 
 .cv-depmap-inspector__section-title {
-  font-size: 0.74rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: #FFFFFF;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   margin: 0;
   display: flex;
   align-items: center;
@@ -589,8 +589,8 @@
   border: 1px solid rgba(118, 130, 142, 0.16);
   border-radius: var(--radius-xs);
   color: #FFFFFF;
-  font-size: 0.74rem;
-  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  font-family: var(--font-sans);
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-default);
   text-align: left;
@@ -607,12 +607,12 @@
 }
 
 .cv-depmap-rel-chip__rel {
-  font-size: 0.65rem;
+  font-size: 0.8rem;
   color: #9AA9B8;
 }
 
 .cv-depmap-empty-hint {
-  font-size: 0.74rem;
+  font-size: 0.88rem;
   color: var(--text-muted);
   font-style: italic;
   margin: 0;
@@ -630,9 +630,9 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.74rem;
+  font-size: 0.88rem;
   font-weight: 600;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   color: #DB5227;
   margin-bottom: 6px;
 }
@@ -642,7 +642,7 @@
 }
 
 .cv-depmap-inspector__box-text {
-  font-size: 0.76rem;
+  font-size: 0.9rem;
   line-height: 1.5;
   color: var(--text-secondary);
   margin: 0;
@@ -688,7 +688,7 @@
 }
 
 .cv-depmap-error-desc {
-  font-size: 0.84rem;
+  font-size: 0.98rem;
   color: var(--text-secondary);
   line-height: 1.45;
   margin: 0;
@@ -739,3 +739,11 @@
     border-radius: 12px 12px 0 0;
   }
 }
+
+/* Legend sits at the top left of the graph so the details panel on the right never hides it */
+.cv-depmap-hud-legend {
+  top: 16px; left: 16px; right: auto; bottom: auto;
+  flex-direction: column; align-items: flex-start; gap: 8px;
+  padding: 10px 16px; border-radius: 16px; font-size: 0.88rem;
+}
+.cv-depmap-hud-hint { opacity: 0.85; }
