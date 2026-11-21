@@ -113,7 +113,6 @@ export default function DashboardPage() {
   const hasRepo = activeRepos.length > 0;
   const readyRepo = activeRepos.find((r) => r.rawStatus === 'ready') || null;
   const project = taskRepo || activeRepos[0] || null;
-  const currentStepId = !hasRepo ? 'connect' : readyRepo ? 'overview' : null;
 
   // Steps that need a repository explain why they cannot open yet instead of doing nothing
   const openStep = (section) => () => {
@@ -185,7 +184,8 @@ export default function DashboardPage() {
             <div className="cv-home-steps">
               {journey.map((step, i) => {
                 const done = step.id === 'connect' && hasRepo;
-                const isCurrent = step.id === currentStepId;
+                // Orange = ready to click: only "Connect" before a repository exists, every other step once it is ready
+                const isCurrent = step.id === 'connect' ? !hasRepo : Boolean(readyRepo);
                 return (
                   <article className="cv-home-step" key={step.id}>
                     <span className={`cv-home-step__num ${done ? 'is-done' : ''}`}>{done ? '✓' : i + 1}</span>
