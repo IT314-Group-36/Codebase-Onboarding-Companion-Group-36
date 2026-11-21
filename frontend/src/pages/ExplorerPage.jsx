@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import {
   ChevronRight,
   ChevronDown,
   Folder,
   FolderOpen,
-  ArrowLeft,
   Info,
   Copy,
   Check,
@@ -84,7 +83,6 @@ const COMPLEXITY_TEXT = { high: 'Complex Â· take your time', medium: 'Moderate Â
 
 export default function ExplorerPage() {
   const { repoId } = useParams();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const targetLine = Number(searchParams.get('line')) || null;
   const targetEndLine = Number(searchParams.get('end')) || targetLine;
@@ -333,58 +331,6 @@ export default function ExplorerPage() {
 
   return (
     <div className="cv-explorer">
-      {/* Action Header */}
-      <div className="cv-explorer-topbar">
-        <div className="cv-explorer-topbar__left">
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<ArrowLeft size={14} />}
-            onClick={() => navigate(`/repository/${effectiveRepo.id}`)}
-          >
-            Overview
-          </Button>
-
-          <span className="cv-explorer-topbar__sep">/</span>
-          <span className="cv-explorer-topbar__reponame">{effectiveRepo.name}</span>
-
-          <span className="cv-explorer-topbar__sep">/</span>
-          <code className="cv-explorer-topbar__filepath">{selectedFileId || 'Select a file'}</code>
-        </div>
-
-        <div className="cv-explorer-topbar__right">
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Zap size={13} />}
-            onClick={handleRunImpact}
-            loading={analyzingImpact}
-            disabled={!selectedFileId || analyzingImpact}
-            title="See what could break if you change this file"
-          >
-            Impact Analysis
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            className="cv-explorer-mobile-toggle-btn"
-            onClick={() => setMobileTreeOpen(!mobileTreeOpen)}
-          >
-            Files
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Info size={13} />}
-            onClick={() => setDetailsPanelOpen(!detailsPanelOpen)}
-          >
-            {detailsPanelOpen ? 'Hide technical details' : 'Show technical details'}
-          </Button>
-        </div>
-      </div>
-
       {/* 3-Pane Workspace */}
       <div className="cv-explorer-workspace">
         {/* Pane 1: File Tree (Left) */}
@@ -511,6 +457,37 @@ export default function ExplorerPage() {
             </div>
 
             <div className="cv-code-head__actions">
+              <div className="cv-code-head__tools">
+          <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Zap size={13} />}
+                  onClick={handleRunImpact}
+                  loading={analyzingImpact}
+                  disabled={!selectedFileId || analyzingImpact}
+                  title="See what could break if you change this file"
+                >
+                  Impact Analysis
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="cv-explorer-mobile-toggle-btn"
+                  onClick={() => setMobileTreeOpen(!mobileTreeOpen)}
+                >
+                  Files
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Info size={13} />}
+                  onClick={() => setDetailsPanelOpen(!detailsPanelOpen)}
+                >
+                  {detailsPanelOpen ? 'Hide technical details' : 'Show technical details'}
+                </Button>
+              </div>
               <label className="cv-editor-theme-control" title="Choose the colours used to show the code">
                 <span className="cv-editor-theme-control__label">Theme</span>
                 <select aria-label="Theme" value={editorTheme} onChange={(e) => setEditorTheme(e.target.value)}>
