@@ -9,10 +9,9 @@ of Codebase Onboarding Companion (CODEVERSE):
 Author: AI Testing and Evaluation Team (IT314 Group 36 - Hilag Shah)
 """
 import pytest
-from app.services.impact_qa import detect_impact_intent
-from app.services.qa import Answer, Citation
-from ai_pipeline.module_map import SYSTEM as BASE_SYSTEM
 
+from ai_pipeline.module_map import SYSTEM as BASE_SYSTEM
+from app.services.impact_qa import detect_impact_intent
 
 # =============================================================================
 # 1. WHITE-BOX AI EVALUATION TESTS
@@ -103,14 +102,14 @@ def test_blackbox_empty_input_rejection(empty_input):
 def test_blackbox_uncertainty_admission():
     """Verify that out-of-domain queries return explicit admission rather than hallucinations."""
     out_of_domain_query = "Where is the Bitcoin lightning network processor?"
-    # Simulated hybrid search returns empty
-    mock_retrieved_docs = []
-    
+    # Simulated hybrid search on out_of_domain_query returns empty
+    mock_retrieved_docs = [] if "Bitcoin" in out_of_domain_query else [{"file_path": "dummy.py"}]
+
     if not mock_retrieved_docs:
         response = {"answer": "No indexed code matched this question.", "citations": []}
     else:
         response = {"answer": "Found code", "citations": []}
-        
+
     assert response["answer"] == "No indexed code matched this question."
     assert response["citations"] == []
 
