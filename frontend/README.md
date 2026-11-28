@@ -38,6 +38,8 @@ frontend/
 │   ├── styles/       global CSS and design tokens
 │   └── utils/        helpers (toasts, GitHub URL and branch rules shared with the backend)
 ├── public/
+├── tests/            white-box unit tests: services/, utils/, graph/, setup.js
+├── docs/testing/     guidance for testing categories owned by other team members
 ├── Dockerfile        dev stage (Vite) and prod stage (nginx)
 ├── nginx.conf        serves the build and proxies /api to the api container
 ├── vite.config.js
@@ -87,9 +89,28 @@ Run from `frontend/`.
 | `npm run build` | Production build into `dist/` |
 | `npm run preview` | Preview the production build |
 
-There is no frontend test suite yet; `npm run lint` and `npm run build` are the checks.
-Frontend test implementation belongs to the testing team. Deferred Q&A history coverage and future
-review/reporting steps are tracked in [TESTING_FOLLOWUPS.md](TESTING_FOLLOWUPS.md).
+### White-box tests
+
+Install the locked development dependencies with `npm ci` (Node 22).
+
+| Command | Description |
+|---|---|
+| `npm test` | Run source-derived white-box unit tests once |
+| `npm run test:watch` | Rerun tests while editing |
+| `npm run test:coverage` | Generate terminal and HTML coverage reports in `coverage/` |
+
+Vitest runs in Node, without rendering React or launching a browser. The suite inspects branches,
+conditions, loops, transformations, and error handling in the API client, adapters, GitHub validation,
+and dependency-graph algorithms. Network and browser-event dependencies are function stubs.
+No backend, database, credentials, DOM environment, or UI testing packages are required.
+
+Coverage is explicitly scoped to five JavaScript modules listed in `vitest.config.js`; it is not
+whole-frontend coverage. Minimums: 95% statements/lines/functions and 85% branches.
+See [tests/README.md](tests/README.md) for the white-box coverage matrix and commands.
+
+GUI, non-functional, mutation, system/black-box, and acceptance testing are separate assignments.
+Their **guidance only** is in [docs/testing/README.md](docs/testing/README.md); no runners, scripts,
+test implementations, or CI jobs for those categories are included here. PDF reports are unchanged.
 
 ### Chat storage controls
 
@@ -118,7 +139,7 @@ only for using different credentials.
 
 Known gaps between the UI and the API:
 
-- "Remove repository" only hides it in this browser; the API has no delete endpoint.
+- "Remove repository" asks for confirmation, then permanently deletes this user's indexed repository through the API.
 - Onboarding progress is saved on the server per user (`task_progress`). Custom tasks added by hand are not supported; the plan always comes from the repository's issues and analysis.
 - The repo picker lists the first pages GitHub returns (30 per page, "Load more" fetches the next) and filters them in the browser; a repo further down can be added with "Paste a URL".
 - Branches are listed from GitHub (first 100). Names the backend would reject (for example containing spaces) are left out of the dropdown.
@@ -127,10 +148,11 @@ Known gaps between the UI and the API:
 
 ```bash
 npm run lint
+npm test
 npm run build
 ```
 
-Both must pass.
+All must pass.
 
 ---
 
