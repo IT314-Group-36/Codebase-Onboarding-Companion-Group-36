@@ -36,6 +36,8 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(String(500))
     encrypted_access_token: Mapped[str | None] = mapped_column(Text)
     token_scopes: Mapped[str | None] = mapped_column(String(200))
+    # Raised by logout / "log out everywhere": a session cookie is valid only while its version equals this number.
+    session_version: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

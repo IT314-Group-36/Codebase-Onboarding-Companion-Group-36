@@ -3,8 +3,9 @@
 - GitHub access tokens are encrypted before they reach the database and decrypted only when a clone or
   GitHub API call needs them. TOKEN_ENCRYPTION_KEY may hold several comma-separated keys: the first
   encrypts, all of them decrypt, so a key can be rotated without logging everyone out of GitHub.
-- The session cookie holds only the user id, signed and time-limited with SESSION_SECRET. It is
-  not encrypted, so never put anything secret in it.
+- The session cookie holds only the user id and a session version, signed and time-limited with SESSION_SECRET. It is
+  not encrypted, so never put anything secret in it. The version is compared with users.session_version on every
+  request (app/api/deps.py), so raising that number cuts off every cookie issued before (server-side logout).
 
 Generate fresh secrets:  python -m app.core.security
 """
@@ -80,18 +81,31 @@ def _serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(secret, salt="session")
 
 
-def create_session_token(user_id: int) -> str:
-    return _serializer().dumps({"uid": user_id})
+def create_session_token(user_id: int, version: int = 0) -> str:
+    return _serializer().dumps({"uid": user_id, "ver": version})
 
 
-def read_session_token(token: str) -> int | None:
-    """Return the user id, or None if the token is forged, tampered with or expired."""
+def read_session(token: str) -> tuple[int, int] | None:
+    """Return (user id, session version), or None if the token is forged, tampered with or expired.
+
+    Cookies issued before sessions had a version carry none; they count as version 0, so the upgrade logs nobody out.
+    """
     try:
         data = _serializer().loads(token, max_age=get_settings().session_ttl_seconds)
     except BadSignature:                       # includes SignatureExpired
         return None
-    uid = data.get("uid") if isinstance(data, dict) else None
-    return uid if isinstance(uid, int) else None
+    if not isinstance(data, dict):
+        return None
+    uid, version = data.get("uid"), data.get("ver", 0)
+    if not isinstance(uid, int) or isinstance(version, bool) or not isinstance(version, int):
+        return None
+    return uid, version
+
+
+def read_session_token(token: str) -> int | None:
+    """Return the user id, or None if the token is forged, tampered with or expired (the version is not checked here)."""
+    session = read_session(token)
+    return session[0] if session else None
 
 
 if __name__ == "__main__":
