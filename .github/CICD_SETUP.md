@@ -11,7 +11,7 @@ Push `ci/deployment-readiness-checks`, open a PR to `main`, and wait for:
 | Required check | Scope |
 |---|---|
 | Backend checks | Ruff, real migrations and backend pytest on disposable pgvector Postgres |
-| Frontend checks | ESLint and build only; automated tests remain assigned to the testing team |
+| Frontend checks | ESLint, white-box Vitest tests with scope-specific coverage minimums, and production build |
 | Backend Docker smoke | Actual production image, entrypoint/migrations, readiness, revision, database failure |
 | Dependency security | Locked backend dependency audit and frontend high/critical dependency audit |
 
@@ -101,19 +101,20 @@ Under **Settings → Advanced Security** (sometimes **Code security** or **Code 
 4. Close previously opened Dependabot PRs without merging them if you do not want those updates.
    Removing the configuration does not undo existing PRs or clear workflow history.
 
-Backend tests, frontend lint/build, Docker smoke checks, CI dependency audits and manual
+Backend tests, frontend lint/build/white-box tests, Docker smoke checks, CI dependency audits and manual
 deployment verification remain enabled. No dependency-update bot configuration is included.
 
 Do not place Neon credentials in test workflows. All CI databases are disposable pgvector Postgres.
 Do not run backend pytest against Neon: fixtures downgrade/truncate the test database.
 
-## 6. Confirm Vercel and testing-team handoff
+## 6. Confirm Vercel and frontend testing
 
 In Vercel **Project → Settings → Git**, verify production branch `main` and preview deployments for PRs.
 Keep root directory `frontend` and the existing `/api/*` rewrite. Frontend deployments remain managed
 by Vercel; this change does not gate Vercel production deployment on GitHub CI or trigger it from Actions.
 Do not assume a Vercel preview backend is isolated: the current rewrite points to production Render.
 
-No frontend tests were added/run for this change. `frontend/TESTING_FOLLOWUPS.md` remains the source
-of the testing team's deferred coverage; lint/build and dependency audits do not fill that gap.
-Recheck actual test files and assertions in future reviews before calling that coverage complete.
+Frontend white-box coverage is uploaded as `frontend-whitebox-coverage`. These unit tests use function
+stubs and do not contact Render, Neon, GitHub, or AI providers. No GUI, non-functional, mutation,
+system/black-box, or acceptance test execution is configured for this assignment.
+`frontend/docs/testing/` contains guidance only for the owners of those separate assignments.

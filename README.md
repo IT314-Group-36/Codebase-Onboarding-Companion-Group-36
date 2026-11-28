@@ -210,11 +210,14 @@ and manual exact-revision production readiness verification.
 
 ```bash
 cd backend && uv run pytest        # needs Postgres with pgvector; skipped otherwise
-cd frontend && npm run lint && npm run build
+cd frontend && npm run lint && npm test && npm run build
 ```
 
-Frontend automated tests are assigned to the testing team. Deferred Q&A coverage and the checklist
-for reporting newly added test files are recorded in [frontend/TESTING_FOLLOWUPS.md](frontend/TESTING_FOLLOWUPS.md).
+Frontend **white-box unit tests only** are centralized in `frontend/tests/`.
+Run `npm run test:coverage` from `frontend/` for coverage of the explicitly scoped logic modules.
+See [frontend/tests/README.md](frontend/tests/README.md) for setup and scope.
+Other frontend testing assignments have guidance only in
+[frontend/docs/testing/](frontend/docs/testing/README.md); they are not implemented here.
 
 ## Troubleshooting
 

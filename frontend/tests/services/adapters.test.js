@@ -1,12 +1,11 @@
 /**
  * White-box tests for services/adapters.js
  *
- * Full branch and condition coverage for all 8 exported adapter functions:
+ * Backend-to-UI mapping regressions for exported adapter functions:
  *   formatBytes, mapBackendStatus, parseIndexingError, adaptRepository,
  *   buildFileTree, adaptFileDetails, adaptPlanTask, adaptIssueSync, adaptTaskPlan, adaptUser
  *
- * Each function is tested against every internal branch, switch-case,
- * ternary, and fallback path visible in the source code.
+ * Covers normal payloads, status/error presentation, and missing optional fields.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -21,7 +20,7 @@ import {
   adaptIssueSync,
   adaptTaskPlan,
   adaptUser,
-} from '../../services/adapters';
+} from '../../src/services/adapters';
 
 // ============================================================================
 // formatBytes — 4 branches
