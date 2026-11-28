@@ -2,7 +2,7 @@
  * White-box tests for services/api.js
  *
  * Tests the internal error parsing (parseError) and core request() wrapper
- * with mocked fetch. Covers every branch in error extraction:
+ * with mocked fetch. Selected error-extraction paths include:
  *   - detail as string, array (Pydantic), object (with code)
  *   - non-JSON response body fallback to .text()
  *   - status-specific fallback messages (401, 404, 409, 422, 429, 503, 502)
@@ -11,15 +11,13 @@
  *   - network error (fetch throws)
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// We need to mock fetch before importing the module.
-// The api.js module uses `import.meta.env.VITE_API_BASE_URL` — Vitest handles that.
+// No DOM, browser, or real server: inspect branches through controlled fetch results.
 const mockFetch = vi.fn();
-vi.stubGlobal('fetch', mockFetch);
 
 // Mock window.dispatchEvent to track auth:expired
-const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+let dispatchSpy;
 
 // Now import the module under test
 const {
@@ -29,7 +27,7 @@ const {
   connectRepository,
   searchCode,
   getImpactAnalysis,
-} = await import('../../services/api');
+} = await import('../../src/services/api');
 
 function jsonResponse(status, body, headers = {}) {
   return {
@@ -55,11 +53,9 @@ function textResponse(status, text) {
 
 beforeEach(() => {
   mockFetch.mockReset();
-  dispatchSpy.mockClear();
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
+  vi.stubGlobal('fetch', mockFetch);
+  vi.stubGlobal('window', new EventTarget());
+  dispatchSpy = vi.spyOn(window, 'dispatchEvent');
 });
 
 // ============================================================================
@@ -119,12 +115,9 @@ describe('request — error parsing', () => {
   it('extracts message and code from detail object', async () => {
     const body = { detail: { message: 'Token expired', code: 'github_reauth_required' } };
     mockFetch.mockResolvedValueOnce(jsonResponse(403, body));
-    try {
-      await request('/test');
-    } catch (err) {
-      expect(err.message).toBe('Token expired');
-      expect(err.code).toBe('github_reauth_required');
-    }
+    await expect(request('/test')).rejects.toMatchObject({
+      message: 'Token expired', code: 'github_reauth_required', status: 403,
+    });
   });
 
   it('falls back to response.text() when body is not JSON', async () => {
@@ -197,7 +190,7 @@ describe('request — network errors', () => {
 });
 
 // ============================================
-// askCodebaseQuestionStream() — SSE & Security
+// askCodebaseQuestionStream() — event parsing and hint whitelist branches
 // ============================================
 describe('askCodebaseQuestionStream', () => {
   function sseStreamResponse(chunks) {
@@ -386,7 +379,7 @@ describe('searchCode and getImpactAnalysis', () => {
 });
 
 // ============================================
-// checkHealth() — Health Check Integration
+// checkHealth() — request delegation (fetch is stubbed)
 // ============================================
 describe('checkHealth', () => {
   it('calls GET /health and returns backend health status', async () => {
@@ -400,4 +393,3 @@ describe('checkHealth', () => {
     expect(url).toContain('/health');
   });
 });
-

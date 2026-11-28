@@ -67,7 +67,15 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm run test:coverage
       - run: npm run build
+      - name: Upload frontend white-box coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-whitebox-coverage
+          path: frontend/coverage/
+          retention-days: 7
 
   docker:
     name: Backend Docker smoke
@@ -142,6 +150,6 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-      - name: Audit frontend lockfile (no frontend tests)
+      - name: Audit frontend lockfile
         working-directory: frontend
         run: npm audit --audit-level=high

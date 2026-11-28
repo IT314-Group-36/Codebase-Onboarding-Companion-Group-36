@@ -1,8 +1,7 @@
 /**
  * White-box tests for utils/github.js
  *
- * Tests parseGitHubUrl() and isValidBranch() with full branch and condition coverage.
- * These functions mirror the backend validation (ai_pipeline/repo.py) exactly.
+ * Regression cases for GitHub URL normalization and branch validation.
  *
  * Coverage targets:
  * - parseGitHubUrl: null/empty guard, regex match/mismatch, .git stripping, trailing slash
@@ -10,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parseGitHubUrl, isValidBranch } from '../../utils/github';
+import { parseGitHubUrl, isValidBranch } from '../../src/utils/github';
 
 // ============================================================================
 // parseGitHubUrl — Branch & Path Coverage
