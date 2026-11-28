@@ -35,7 +35,13 @@ async def lifespan(app: FastAPI):
         del app.state.queue
 
 
-app = FastAPI(title="Codebase Onboarding Companion", version="0.2.0", lifespan=lifespan)
+def docs_urls(enabled: bool) -> dict:
+    """The interactive API documentation lists the whole API for anyone to study, so it is opt-in (ENABLE_DOCS)."""
+    return {} if enabled else {"docs_url": None, "redoc_url": None, "openapi_url": None}
+
+
+app = FastAPI(title="Codebase Onboarding Companion", version="0.2.0", lifespan=lifespan,
+              **docs_urls(get_settings().enable_docs))
 app.add_middleware(CORSMiddleware, allow_origins=get_settings().cors_origins,
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])   # credentials: the session cookie
 app.include_router(auth_router)

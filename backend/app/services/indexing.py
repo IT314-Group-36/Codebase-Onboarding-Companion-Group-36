@@ -24,6 +24,7 @@ from app.core.config import get_settings
 from app.core.security import SecurityConfigError, TokenDecryptError, decrypt_token
 from app.db.session import SessionLocal
 from app.models import Chunk, Edge, Explanation, File, Repository, Symbol, User
+from app.services.errors import PublicError, new_reference, public_error_message
 from app.services.limits import storage_full_message, total_chunks
 from app.services.retrieval import PgHybridRetriever
 from app.services.storage import check_storage_budget, chunk_reservation_bytes, lock_storage
@@ -145,7 +146,7 @@ async def _save(
         await lock_storage(s)
         used_elsewhere = await total_chunks(s, exclude_repo_id=repo_id)
         if used_elsewhere + len(a.chunks) > get_settings().max_total_chunks:
-            raise RuntimeError(storage_full_message(used_elsewhere, len(a.chunks)))
+            raise PublicError(storage_full_message(used_elsewhere, len(a.chunks)))
         await check_storage_budget(s, sum(chunk_reservation_bytes(c.page_content) for c in a.chunks),
                                    replace_chunk_repo=repo_id)
         for m in (Chunk, Edge, Symbol, File, Explanation):      # cached explanations describe the old code
@@ -178,15 +179,17 @@ async def _describe(repo_id: int, root: Path, a, llm, embedder) -> tuple[dict, d
         try:
             module_map, w = await generate_module_map(llm, root, a.all_files, a.tech_stack, a.file_graph)
             warnings += w
-        except Exception as e:  # noqa: BLE001
-            warnings.append(f"Module-map LLM step failed ({e}); used the deterministic module map.")
+        except Exception:  # noqa: BLE001
+            log.exception("module-map LLM step failed for repo %s", repo_id)      # details stay in the server log
+            warnings.append("The AI module-map step failed; used the deterministic module map.")
         try:
             retriever = PgHybridRetriever(repo_id=repo_id, embeddings=embedder, k=3)
             docs = [d for q in RETRIEVAL_QUERIES for d in await retriever.ainvoke(q)]
             summary, w = await generate_summary(llm, root, a.all_files, a.tech_stack, format_context(docs))
             warnings += w
-        except Exception as e:  # noqa: BLE001
-            warnings.append(f"Summary LLM step failed ({e}).")
+        except Exception:  # noqa: BLE001
+            log.exception("summary LLM step failed for repo %s", repo_id)
+            warnings.append("The AI summary step failed; the summary was skipped.")
     if module_map is None:
         module_map = deterministic_module_map(a.all_files, a.file_graph, a.tech_stack)
     return module_map.model_dump(), (summary.model_dump() if summary else None), warnings
@@ -203,18 +206,20 @@ async def _saved_token(repo_id: int) -> str | None:
     try:
         return decrypt_token(cipher)
     except (TokenDecryptError, SecurityConfigError) as e:
-        raise RuntimeError("Could not clone the repo: your saved GitHub sign-in can no longer be used. "
-                           "Sign in with GitHub again, then retry.") from e
+        raise PublicError("Could not clone the repo: your saved GitHub sign-in can no longer be used. "
+                          "Sign in with GitHub again, then retry.") from e
 
 
 def _explain_failure_with_token(err: str) -> str:
+    """Fixed message for a failed clone with the saved token. The raw Git output goes to the server log only."""
+    log.warning("clone with the saved GitHub token failed: %s", err[:2000])
     low = err.lower()
     if "authentication failed" in low or "invalid username" in low or "bad credentials" in low:
         head = "Could not clone the repo: GitHub rejected your saved sign-in. Sign in with GitHub again, then retry."
     else:
         head = ("Could not clone the repo with your GitHub account. If it is private, check the URL and that your account "
                 "can access it (for an organization's repo, an owner may need to approve this app on GitHub).")
-    return head + "\n" + err.partition("\n")[2]
+    return head
 
 
 async def _clone(repo_id: int, url: str, branch: str, dest: Path, pasted_token: str | None) -> str:
@@ -249,7 +254,7 @@ async def _clone(repo_id: int, url: str, branch: str, dest: Path, pasted_token: 
     except CloneLimitError:
         raise
     except RuntimeError as e:
-        raise RuntimeError(_explain_failure_with_token(str(e))) from e
+        raise PublicError(_explain_failure_with_token(str(e))) from e
 
 
 async def run_indexing(repo_id: int, access_token: str | None, *, llm, embedder) -> None:
@@ -285,7 +290,7 @@ async def run_indexing(repo_id: int, access_token: str | None, *, llm, embedder)
         async with SessionLocal() as s:
             used_elsewhere = await total_chunks(s, exclude_repo_id=repo_id)
             if used_elsewhere + len(a.chunks) > cfg.max_total_chunks:
-                raise RuntimeError(storage_full_message(used_elsewhere, len(a.chunks)))
+                raise PublicError(storage_full_message(used_elsewhere, len(a.chunks)))
             await check_storage_budget(s, sum(chunk_reservation_bytes(c.page_content) for c in a.chunks),
                                        replace_chunk_repo=repo_id)
         await _update(repo_id, stage="embedding")
@@ -355,7 +360,8 @@ async def run_indexing(repo_id: int, access_token: str | None, *, llm, embedder)
                           "timings": timings,
                       })
     except Exception as e:  # noqa: BLE001
-        log.exception("indexing repo %s failed", repo_id)
-        await _update(repo_id, status="failed", stage=None, error=str(e)[:1000])
+        reference = new_reference()
+        log.exception("indexing repo %s failed (reference %s)", repo_id, reference)   # full traceback: server log only
+        await _update(repo_id, status="failed", stage=None, error=public_error_message(e, reference))
     finally:
         await asyncio.to_thread(safe_rmtree, work)                            # DR-03: never keep the clone

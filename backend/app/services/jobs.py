@@ -15,6 +15,7 @@ from sqlalchemy import select, update
 from app.db.session import SessionLocal
 from app.models import ConversationMessage, IssueSync, Repository
 from app.services import runtime
+from app.services.errors import new_reference
 from app.services.indexing import run_indexing
 from app.services.issues import run_issue_sync
 
@@ -79,8 +80,10 @@ class InProcessQueue:
             log.error("job %s%r timed out after %ss", name, args[:1], self._timeout)
             await self._safe_mark_failed(name, args[0], f"Timed out after {int(self._timeout // 60)} minutes.")
         except Exception:  # noqa: BLE001  (the job functions record their own failures; this is the last resort)
-            log.exception("job %s%r crashed", name, args[:1])
-            await self._safe_mark_failed(name, args[0], "Unexpected error in the background job. Please try again.")
+            reference = new_reference()
+            log.exception("job %s%r crashed (reference %s)", name, args[:1], reference)
+            await self._safe_mark_failed(
+                name, args[0], f"Unexpected error in the background job (reference {reference}). Please try again.")
 
     @staticmethod
     async def _safe_mark_failed(name: str, repo_id: int, message: str) -> None:

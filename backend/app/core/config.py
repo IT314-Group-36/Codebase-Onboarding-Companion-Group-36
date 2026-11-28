@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
     work_dir: str = "/tmp/onboarding_work"
     allow_local_repos: bool = False          # tests / local demos only
+    enable_docs: bool = False                # /docs, /redoc and /openapi.json; development only, keep off in production
 
     # LLM via LangChain: "<provider>:<model>". Examples: google_genai:gemini-3.6-flash, openai:gpt-5, anthropic:<model>
     llm_model: str = "google_genai:gemini-3.6-flash"   # check availability on your free tier in AI Studio

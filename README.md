@@ -152,7 +152,12 @@ docker compose up --build
 | What | URL |
 |---|---|
 | Web app | http://localhost:5173 (change the port with `WEB_PORT` in a root `.env`) |
-| API docs (Swagger) | http://localhost:8000/docs |
+| API docs (Swagger) | http://localhost:8000/docs (only with the development override, or `ENABLE_DOCS=true` in `backend/.env`; off by default) |
+
+The compose credentials (`onboard` / `onboard`) and the published database (`127.0.0.1:5432`) and API (`127.0.0.1:8000`) ports are for\
+local development only. They are reachable from your own machine only, not from other devices on your network. Do not reuse them on a server.\
+To change the database password set `POSTGRES_PASSWORD` in a root `.env`; it applies when the database volume is created\
+(for an existing volume run `docker compose down -v`, which deletes local data).
 
 Without the two `CF_` values, indexing and search fail with a clear error. After editing `backend/.env` while the stack is running, apply it with `docker compose up -d --force-recreate`.
 Without `LLM_API_KEY` everything works except `/ask` and `/impact?explain=true`.
