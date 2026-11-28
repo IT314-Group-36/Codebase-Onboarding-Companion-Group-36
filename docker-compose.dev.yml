@@ -4,6 +4,8 @@
 
 services:
   api:
+    environment:
+      ENABLE_DOCS: "true"              # Swagger UI at http://localhost:8000/docs (off by default, never enable in production)
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app --reload-dir /app/ai_pipeline
     volumes:
       - ./backend/app:/app/app

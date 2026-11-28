@@ -120,6 +120,11 @@ jobs:
               raise SystemExit("Production container did not become ready")
           PY
           docker exec ci-backend alembic check
+      - name: Verify the container runs as a non-root user that can still clone and write
+        run: |
+          test "$(docker exec ci-backend id -u)" != 0
+          docker exec ci-backend git --version
+          docker exec ci-backend sh -c 'mkdir -p /tmp/onboarding_work && touch /tmp/onboarding_work/.w && rm /tmp/onboarding_work/.w'
       - name: Verify readiness fails when database is unavailable
         run: |
           docker stop ci-postgres

@@ -90,14 +90,15 @@ async def test_no_access_gives_a_private_repo_hint(db, make_user, git_repo, clon
     _, headers = await make_user(token="gho_stored")
     repo, _ = await register_and_index(headers, git_repo)
     assert repo.status == "failed" and "your GitHub account" in repo.error and "organization" in repo.error
-    assert "Repository not found" in repo.error                 # the real git message is kept for debugging
+    assert "Repository not found" not in repo.error             # raw git output goes to the server log, not to the user
 
 
 async def test_wrong_branch_is_not_retried_with_the_token(db, make_user, git_repo, clone_calls):
     clone_calls.install(lambda token: "fatal: Remote branch nope not found in upstream origin")
     _, headers = await make_user(token="gho_stored")
     repo, _ = await register_and_index(headers, git_repo)
-    assert repo.status == "failed" and "Remote branch nope" in repo.error and clone_calls == [None]
+    assert repo.status == "failed" and "branch was not found" in repo.error and clone_calls == [None]
+    assert "Remote branch nope" not in repo.error
 
 
 async def test_user_without_a_saved_token_fails_after_one_attempt(db, make_user, git_repo, clone_calls):

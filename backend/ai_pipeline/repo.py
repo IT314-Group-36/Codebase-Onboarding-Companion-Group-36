@@ -21,6 +21,30 @@ from .config import MAX_FILES, SENSITIVE_PATTERNS, SKIP_DIRS
 _GITHUB_URL = re.compile(r"^https://github\.com/([\w.\-]+)/([\w.\-]+?)(?:\.git)?/?$")
 _BRANCH = re.compile(r"^[\w][\w./\-]{0,99}$")
 
+# Git (and the parsers/hooks it may start) must not see the server's secrets (SESSION_SECRET, TOKEN_ENCRYPTION_KEY,
+# API keys, DATABASE_URL, ...). The child process gets only these variables, from an allow-list.
+_GIT_ENV_KEEP = (
+    "PATH", "LANG", "LC_ALL", "PYTHONPATH",                                  # PYTHONPATH: the clone worker imports ai_pipeline
+    "SSL_CERT_FILE", "SSL_CERT_DIR", "GIT_SSL_CAINFO",                       # CA bundles, if configured
+    "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY",                    # proxies, only if configured
+    "http_proxy", "https_proxy", "no_proxy", "all_proxy",
+    "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "TEMP", "TMP", "TMPDIR",   # needed to run programs on Windows / find temp
+)
+GITHUB_HEADER_KEY = "http.https://github.com/.extraheader"                   # scoped: never sent to any other host
+
+
+def git_environment(home, token: str | None = None) -> dict:
+    """Environment for the Git child process: allow-listed variables, a HOME inside the job directory, no user or
+    system Git config, and (private repos) the token header scoped to github.com only."""
+    env = {name: os.environ[name] for name in _GIT_ENV_KEEP if name in os.environ}
+    env.update(HOME=str(home), USERPROFILE=str(home), GIT_TERMINAL_PROMPT="0", GIT_LFS_SKIP_SMUDGE="1",
+               GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
+    if token:                               # private repos: header via env, never in argv or .git/config
+        basic = base64.b64encode(f"x-access-token:{token}".encode()).decode()
+        env.update(GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0=GITHUB_HEADER_KEY,
+                   GIT_CONFIG_VALUE_0=f"AUTHORIZATION: basic {basic}")
+    return env
+
 
 def validate_repo_url(url: str, allow_local: bool = False) -> str:
     """Return a canonical https://github.com/<owner>/<repo> URL or raise ValueError.
@@ -120,11 +144,7 @@ def clone_repo(url: str, branch: str, dest, token: str | None = None, timeout: i
     if branch:
         cmd += ["--branch", validate_branch(branch)]
     cmd += ["--", url, str(dest)]           # "--" stops a URL from being parsed as an option
-    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_LFS_SKIP_SMUDGE": "1"}
-    if token:                               # private repos: header via env, never in argv or .git/config
-        basic = base64.b64encode(f"x-access-token:{token}".encode()).decode()
-        env.update(GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="http.extraheader",
-                   GIT_CONFIG_VALUE_0=f"AUTHORIZATION: basic {basic}")
+    env = git_environment(dest.parent, token)       # dest.parent is this job's own directory, removed after the job
     try:
         run_git(cmd, dest, env, deadline, limits)
         tree = run_git([*git, "-C", str(dest), "ls-tree", "-r", "-l", "-z", "HEAD"],
