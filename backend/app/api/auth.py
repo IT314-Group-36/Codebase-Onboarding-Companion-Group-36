@@ -9,19 +9,19 @@ import logging
 import secrets
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_github_client
+from app.api.deps import get_current_user, get_github_client, get_optional_user
 from app.core.config import get_settings
 from app.core.security import SecurityConfigError, config_problem, create_session_token, encrypt_token
 from app.db.session import get_session
 from app.models import User
 from app.schemas import MeOut
-from app.services.github import GitHubClient, GitHubError
+from app.services.github import GitHubClient, GitHubError, user_github_token
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -108,7 +108,7 @@ async def github_callback(request: Request, code: str | None = None, state: str 
     cfg = get_settings()
     resp = _to_frontend()
     resp.delete_cookie(STATE_COOKIE, path="/")
-    resp.set_cookie(cfg.session_cookie_name, create_session_token(user.id), max_age=cfg.session_ttl_seconds,
+    resp.set_cookie(cfg.session_cookie_name, create_session_token(user.id, user.session_version), max_age=cfg.session_ttl_seconds,
                     httponly=True, secure=cfg.cookie_secure, samesite="lax", path="/")
     return resp
 
@@ -120,18 +120,65 @@ async def me(user: User = Depends(get_current_user)):
                  token_scopes=user.token_scopes)
 
 
-@router.post("/logout")
-async def logout():
-    # SameSite=Lax cookies are not sent on cross-site POSTs, so another website cannot trigger this (or any other POST) for you.
+async def _revoke_all_sessions(session: AsyncSession, user_id: int) -> None:
+    """Raise the user's session version: every session cookie issued before now stops working, on every device.
+    One atomic UPDATE, so two simultaneous logouts cannot overwrite each other."""
+    await session.execute(update(User).where(User.id == user_id).values(session_version=User.session_version + 1))
+    await session.commit()
+
+
+def _clear_session_cookie() -> JSONResponse:
     resp = JSONResponse({"ok": True})
     resp.delete_cookie(get_settings().session_cookie_name, path="/")
     return resp
 
 
+@router.post("/logout")
+async def logout(user: User | None = Depends(get_optional_user), session: AsyncSession = Depends(get_session)):
+    """Sign out for real: besides deleting the cookie in this browser, raise the session version so that a copied cookie
+    (malware, a shared computer, a leaked log) stops working too. A session version is per account, so this also signs
+    the account out on other devices. Without a valid session there is nothing to revoke; the cookie is still cleared."""
+    # SameSite=Lax cookies are not sent on cross-site POSTs, so another website cannot trigger this (or any other POST) for you.
+    if user is not None:
+        await _revoke_all_sessions(session, user.id)
+    return _clear_session_cookie()
+
+
+@router.post("/logout-all")
+async def logout_everywhere(user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
+    """Log out everywhere: invalidate every session cookie of this account at once, then clear this browser's cookie."""
+    await _revoke_all_sessions(session, user.id)
+    return _clear_session_cookie()
+
+
 @router.post("/github/disconnect")
-async def disconnect_github(user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
-    """Forget the stored GitHub credential while keeping the local app session active."""
+async def disconnect_github(user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session),
+                            github: GitHubClient = Depends(get_github_client)):
+    """Revoke the stored GitHub token at GitHub, then forget it, while keeping the local app session active.
+
+    If GitHub cannot be reached or refuses, the stored token is kept and the user is told, so they can try again
+    instead of believing access was removed. Two cases cannot be revoked and are cleared locally with a warning:
+    a token this server can no longer decrypt (the copy is useless to anyone holding it without the old key), and a
+    server whose GitHub app credentials are missing."""
+    warning = None
+    if user.encrypted_access_token:
+        try:
+            token = user_github_token(user)
+        except GitHubError:                                    # unreadable: nothing to send to GitHub
+            token = None
+            warning = "The saved GitHub token could not be read, so it was removed here but not revoked at GitHub."
+        if token:
+            try:
+                await github.revoke_token(token)
+            except GitHubError as e:
+                if e.kind != "not_configured":
+                    log.warning("could not revoke the GitHub token of user %s: %s", user.id, e)
+                    raise HTTPException(502, f"{e} Your saved GitHub access was kept, so you can try again.") from e
+                warning = "This server has no GitHub app credentials, so the token was removed here but not revoked at GitHub."
     user.encrypted_access_token = None
     user.token_scopes = None
     await session.commit()
-    return {"ok": True, "github_connected": False}
+    body = {"ok": True, "github_connected": False}
+    if warning:
+        body["warning"] = warning
+    return body

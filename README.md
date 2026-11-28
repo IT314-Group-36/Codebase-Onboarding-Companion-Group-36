@@ -21,7 +21,7 @@ for search, and (with an LLM key) writes a module map and summary. A React app l
 | First-week task list from beginner-friendly issues | Done | The Onboarding page and the Dashboard use the real plan (`/issues/sync`, `/onboarding-tasks`): GitHub issues plus orientation tasks, with a Sync button, setup and troubleshooting help, and progress saved per user on the server |
 
 Repository deletion removes the
-user's indexed data from the backend; GitHub disconnect forgets the saved credential while retaining the CODEVERSE session.
+user's indexed data from the backend; GitHub disconnect revokes the saved token at GitHub and then forgets it, while retaining the CODEVERSE session; logout ends the session on the server, so a copied cookie stops working.
 
 ## Repository layout
 

@@ -43,8 +43,9 @@ Tests (real Postgres + pgvector needed, they skip otherwise): `cd backend && uv 
 | GET | `/auth/github/login` | start sign-in: redirects to GitHub (sets a short-lived `oauth_state` cookie) |
 | GET | `/auth/github/callback` | GitHub returns here; creates/updates the user, saves the token encrypted, sets the session cookie, redirects to the frontend |
 | GET | `/auth/me` | the signed-in user (401 if not signed in); `github_connected` says a token is saved |
-| POST | `/auth/logout` | clears the session cookie |
-| POST | `/auth/github/disconnect` | deletes the saved encrypted GitHub credential and leaves the CODEVERSE session active; revoke the OAuth grant separately in GitHub settings if needed |
+| POST | `/auth/logout` | signs out for real: clears the cookie and raises the account's `session_version`, so a copied cookie stops working (on every device) |
+| POST | `/auth/logout-all` | "log out everywhere" (needs a session): same revocation, returns 401 without a valid session |
+| POST | `/auth/github/disconnect` | revokes the saved GitHub token at GitHub, then deletes the encrypted copy and leaves the CODEVERSE session active. If GitHub cannot be reached it answers 502 and keeps the token so you can retry |
 | GET | `/github/repos?page=&per_page=&q=` | repos the signed-in user can access on GitHub (public and private); `q` filters the page |
 | GET | `/github/branches?repo=owner/name` | default branch and branch names (first 100) |
 | POST | `/repos` | `{url, branch?, access_token?}` register + enqueue indexing (202). Idempotent per user+url+branch |
@@ -186,10 +187,10 @@ How it works: the browser goes to `/auth/github/login`, GitHub asks the user to 
 `repo read:user`; GitHub has no read-only private-repo scope for OAuth apps, but the code only ever reads), then calls
 `/auth/github/callback`. The backend checks the one-time `state`, exchanges the code for a token, upserts the user by
 GitHub id, stores the token encrypted (Fernet), and sets a signed, HttpOnly, SameSite=Lax session cookie holding only
-the user id. Logging in again replaces the saved token and profile.
+the user id and a session version. Logging in again replaces the saved token and profile.
 
 Database (migration `0002`): `users` (GitHub id, login, profile, encrypted token, scopes) and `repositories.owner_id`.
-Uniqueness is per owner, so two users can index the same repo separately.
+Uniqueness is per owner, so two users can index the same repo separately. Migration `0008` adds `users.session_version`.
 
 | Piece | Where |
 |---|---|
@@ -202,6 +203,52 @@ Uniqueness is per owner, so two users can index the same repo separately.
 Security notes: the state cookie prevents login CSRF; `SameSite=Lax` stops other sites from making authenticated POSTs;
 only a fixed allow-list of GitHub error codes is shown back to users; a revoked or unreadable token produces a
 "sign in again" message instead of a crash. Set `COOKIE_SECURE=true` when serving over https.
+
+### Logout and session revocation
+
+A session cookie is signed, so it cannot be forged, but the server cannot take back a copy of it. To make logout real,
+each user has a `session_version` number (default 0). The cookie carries the version it was issued under and is accepted
+only while it equals the user's current number. `POST /auth/logout` and `POST /auth/logout-all` raise the number, which
+invalidates every cookie issued before, on every device, at once. The version is per account, so signing out on one
+device signs the account out everywhere (a per-device logout would need a table of sessions). Cookies issued before the
+upgrade carry no version and count as version 0, so deploying migration `0008` logs nobody out. The cookie lifetime is
+`SESSION_TTL_SECONDS` (default 7 days); lower it if the team agrees.
+
+### Disconnecting GitHub, and rotating the encryption key
+
+`POST /auth/github/disconnect` first calls GitHub's token revocation endpoint
+(`DELETE /applications/{client_id}/token`, authenticated with `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`) and only then
+deletes the stored copy. If GitHub cannot be reached, rate-limits the call or rejects it, the stored token is kept and the
+API answers 502 so the user can try again. A token GitHub already reports as invalid counts as revoked. Two cases cannot
+be revoked and are removed locally with a `warning` in the answer: a token this server can no longer decrypt, and a server
+without GitHub app credentials.
+
+To rotate `TOKEN_ENCRYPTION_KEY` (for example after a suspected exposure):
+
+1. Generate a new key: `python -m app.core.security` (use only the `TOKEN_ENCRYPTION_KEY` line).
+2. Put the new key first and keep the old one after it, comma-separated: `TOKEN_ENCRYPTION_KEY=<new>,<old>`.
+   The first key encrypts, all keys decrypt, so nothing breaks. Redeploy.
+3. Re-encrypt the stored tokens under the new key (run it where the app's `DATABASE_URL` is set, for example
+   `docker compose exec api python -`, and paste):
+
+   ```python
+   import sqlalchemy as sa
+   from app.core.config import get_settings
+   from app.core.security import rotate_token
+
+   engine = sa.create_engine(get_settings().database_url)
+   with engine.begin() as conn:          # all or nothing: one unreadable token rolls everything back
+       rows = conn.execute(sa.text("SELECT id, encrypted_access_token FROM users WHERE encrypted_access_token IS NOT NULL")).all()
+       for user_id, cipher in rows:
+           conn.execute(sa.text("UPDATE users SET encrypted_access_token = :t WHERE id = :i"),
+                        {"t": rotate_token(cipher), "i": user_id})
+       print("re-encrypted", len(rows), "tokens")
+   ```
+
+4. Remove the old key from `TOKEN_ENCRYPTION_KEY` and redeploy.
+
+Rotating the key only protects ciphertext that leaked together with the old key if the tokens themselves are also revoked:
+after a real exposure, have users disconnect GitHub (which revokes the token) or revoke the app's tokens at GitHub.
 
 **Repos indexed before login existed** have no owner and are hidden from everyone. Give them to a user (after that
 user has signed in once):

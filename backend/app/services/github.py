@@ -96,6 +96,31 @@ class GitHubClient:
             raise GitHubError("GitHub did not accept the sign-in code. Please try signing in again.")
         return data["access_token"], data.get("scope", "")
 
+    async def revoke_token(self, token: str) -> None:
+        """Revoke one OAuth access token at GitHub, using the app's own client credentials.
+
+        Returns normally when the token is revoked, or when GitHub says it is already invalid or gone (404): either way
+        it cannot be used any more. Raises GitHubError otherwise (kind "not_configured" when the app has no client
+        credentials; "rate_limit"; or "error" for a network failure, rejected credentials or a GitHub outage), so the
+        caller can keep the stored token and retry instead of pretending it worked. The token is never logged.
+        Also meant for a future account-deletion flow.
+        """
+        cfg = get_settings()
+        if not (cfg.github_client_id and cfg.github_client_secret):
+            raise GitHubError("GitHub sign-in is not configured on this server, so the token cannot be revoked.",
+                              "not_configured")
+        try:
+            async with self._http() as c:
+                r = await c.request("DELETE", f"{API}/applications/{quote(cfg.github_client_id, safe='')}/token",
+                                    json={"access_token": token}, auth=(cfg.github_client_id, cfg.github_client_secret))
+        except httpx.HTTPError as e:
+            raise GitHubError("Could not reach GitHub to revoke the access. Try again in a moment.") from e
+        if r.status_code in (204, 404):          # revoked now, or already invalid/gone
+            return
+        if r.status_code in (403, 429) and (r.headers.get("x-ratelimit-remaining") == "0" or "rate limit" in r.text.lower()):
+            raise GitHubError("GitHub rate limit reached. Try again in a few minutes.", "rate_limit")
+        raise GitHubError(f"GitHub did not revoke the access (HTTP {r.status_code}).")
+
     # ---- API ----
     async def _get(self, path: str, token: str | None, params: dict | None = None) -> httpx.Response:
         headers = {"Authorization": f"Bearer {token}"} if token else {}

@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.ratelimit import enforce_index, enforce_llm, enforce_read, enforce_write
-from app.core.security import read_session_token
+from app.core.security import read_session
 from app.db.session import get_session
 from app.models import Repository, User
 from app.services import runtime
@@ -30,12 +30,22 @@ def get_github_client() -> GitHubClient:
 # Every /repos route uses get_user_repo / get_ready_user_repo, so a user only ever sees their own repositories.
 
 async def get_optional_user(request: Request, session: AsyncSession = Depends(get_session)) -> User | None:
-    """The signed-in user from the session cookie, or None (no cookie, forged, expired, or user deleted)."""
+    """The signed-in user from the session cookie, or None (no cookie, forged, expired, user deleted, or logged out).
+
+    The cookie carries the session version it was issued under; it is accepted only while that equals the user's current
+    session_version, so logout (which raises the number) cuts off every copy of the cookie at once.
+    """
     token = request.cookies.get(get_settings().session_cookie_name)
     if not token:
         return None
-    user_id = read_session_token(token)
-    return await session.get(User, user_id) if user_id is not None else None
+    data = read_session(token)
+    if data is None:
+        return None
+    user_id, version = data
+    user = await session.get(User, user_id)
+    if user is None or user.session_version != version:
+        return None
+    return user
 
 
 async def get_current_user(user: User | None = Depends(get_optional_user)) -> User:

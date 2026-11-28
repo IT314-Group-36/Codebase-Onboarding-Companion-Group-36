@@ -125,16 +125,34 @@ class FakeGitHub:
         self.force_status: int | None = None         # answer every API call with this status
         self.commits: list[dict] = []
         self.commits_empty = False
+        self.revoke_status = 204                     # answer to DELETE /applications/<client id>/token
+        self.revoked: list[str] = []                 # access tokens GitHub accepted for revocation (or already invalid)
 
     def client(self):
         from app.services.github import GitHubClient
         return GitHubClient(transport=httpx.MockTransport(self._handle))
+
+    def _revoke(self, request: httpx.Request) -> httpx.Response:
+        """GitHub's token revocation: the app's client id and secret as HTTP Basic auth, the token in the JSON body."""
+        import base64
+        import json
+        expected = "Basic " + base64.b64encode(b"test-client-id:test-client-secret").decode()
+        if request.headers.get("authorization") != expected:
+            return httpx.Response(401, json={"message": "Bad credentials"})
+        if self.revoke_status in (204, 404):
+            self.revoked.append(json.loads(request.content or b"{}").get("access_token", ""))
+        if self.revoke_status == 204:
+            return httpx.Response(204)
+        headers = {"x-ratelimit-remaining": "0"} if self.revoke_status in (403, 429) else {}
+        return httpx.Response(self.revoke_status, json={"message": "forced"}, headers=headers)
 
     def _handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         url, path = request.url, request.url.path
         if url.host == "github.com" and path == "/login/oauth/access_token":
             return httpx.Response(200, json=self.token_response)
+        if request.method == "DELETE" and path.startswith("/applications/") and path.endswith("/token"):
+            return self._revoke(request)
         if self.force_status:
             headers = {"x-ratelimit-remaining": "0"} if self.force_status in (403, 429) else {}
             return httpx.Response(self.force_status, json={"message": "forced"}, headers=headers)
