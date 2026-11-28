@@ -47,9 +47,9 @@ def test_known_pipeline_messages_are_kept():
 
 
 def test_embedding_provider_details_are_hidden_but_the_quota_message_is_kept():
-    detail = EmbeddingError("Cloudflare rejected the API token (403): {'errors': [{'message': 'account 1234'}]}")
+    detail = EmbeddingError("Cloudflare rejected the API token (403): {'errors': [{'message': 'account 98765'}]}")
     message = public_error_message(detail, "abc12345")
-    assert "abc12345" in message and "Cloudflare" not in message and "1234" not in message
+    assert "abc12345" in message and "Cloudflare" not in message and "98765" not in message
     quota = EmbeddingQuotaError("Cloudflare Workers AI daily free allowance is used up; it resets at 00:00 UTC.")
     assert public_error_message(quota, "abc12345") == str(quota)
 
