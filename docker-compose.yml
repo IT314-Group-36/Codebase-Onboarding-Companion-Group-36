@@ -1,5 +1,10 @@
 # Production-like stack:  docker compose up --build   ->  http://localhost:5173
 # Development (hot reload): docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# LOCAL DEVELOPMENT ONLY: the database password below is a throwaway default and the database and API ports
+# are published on 127.0.0.1 (your own machine), not on the network. Never reuse these settings on a server.
+# To change the password, set POSTGRES_PASSWORD in a root .env (URL-safe characters only). It only takes effect
+# when the database volume is created: for an existing volume run `docker compose down -v` (deletes local data).
 
 x-app: &app
   build: ./backend
@@ -7,7 +12,7 @@ x-app: &app
     - path: ./backend/.env
       required: false
   environment:
-    DATABASE_URL: postgresql+psycopg://onboard:onboard@db:5432/onboard
+    DATABASE_URL: postgresql+psycopg://onboard:${POSTGRES_PASSWORD:-onboard}@db:5432/onboard
     # The browser talks to the web container (same origin as the page), so CORS only matters if
     # you open the API directly from another origin. Override in backend/.env if needed.
     CORS_ORIGINS: '["http://localhost:5173"]'
@@ -17,8 +22,8 @@ x-app: &app
 services:
   db:
     image: pgvector/pgvector:pg16
-    environment: {POSTGRES_USER: onboard, POSTGRES_PASSWORD: onboard, POSTGRES_DB: onboard}
-    ports: ["5432:5432"]
+    environment: {POSTGRES_USER: onboard, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-onboard}", POSTGRES_DB: onboard}
+    ports: ["127.0.0.1:5432:5432"]       # loopback only: other devices on the same Wi-Fi cannot reach the database
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U onboard"]
@@ -30,7 +35,7 @@ services:
     restart: "no"
   api:
     <<: *app
-    ports: ["8000:8000"]
+    ports: ["127.0.0.1:8000:8000"]       # loopback only; the web container reaches the API over the internal network
     depends_on:
       migrate: {condition: service_completed_successfully}
     healthcheck:

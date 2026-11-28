@@ -12,7 +12,8 @@ cp backend/.env.example backend/.env   # set CF_ACCOUNT_ID and CF_API_TOKEN (req
 docker compose up --build              # db, migrations, api (:8000), web (:5173)
 ```
 
-Then open http://localhost:8000/docs for the API, or http://localhost:5173 for the web app.
+Then open http://localhost:5173 for the web app. The API docs (http://localhost:8000/docs) are off by default: they are on with the
+development override below, or when `ENABLE_DOCS=true` is set in `backend/.env`.
 For hot reload while developing: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build`.
 
 Without Docker for the backend itself (uv only, no pip/venv/requirements.txt): start Postgres with the pgvector extension
